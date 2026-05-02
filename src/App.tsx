@@ -457,6 +457,21 @@ const PERSONALITY_TRAITS = [
 ];
 
 // Helper functions
+
+// Handles both Firestore Timestamps and ISO strings
+function toDate(value: any): Date | null {
+  if (!value) return null;
+  if (value?.toDate) return value.toDate(); // Firestore Timestamp
+  const d = new Date(value);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function formatDate(value: any, options?: Intl.DateTimeFormatOptions): string {
+  const d = toDate(value);
+  if (!d) return "Unknown date";
+  return d.toLocaleDateString("en-GB", options || { day: "numeric", month: "short", year: "numeric" });
+}
+
 function getDistanceFromLatLonInMeters(
   lat1: number,
   lon1: number,
@@ -1109,7 +1124,7 @@ function UserCatsScreen({
                   <div style={{ fontSize: "12px", color: "#6b7280" }}>
                     <div>📍 {cat.location.area}</div>
                     <div>
-                      📅 Added {new Date(cat.createdDate).toLocaleDateString()}
+                      📅 Added {formatDate(cat.createdDate)}
                     </div>
                   </div>
                 </div>
@@ -2547,13 +2562,7 @@ function CatProfile({
             >
               <span style={{ fontSize: "20px" }}>📅</span>
               <div>
-                Added{" "}
-                {cat.createdDate &&
-                  new Date(cat.createdDate).toLocaleDateString("en-US", {
-                    month: "short",
-                    day: "numeric",
-                    year: "numeric",
-                  })}
+                Added {formatDate(cat.createdDate, { day: "numeric", month: "short", year: "numeric" })}
               </div>
             </div>
             {cat.allowsPetting && (
@@ -2667,7 +2676,7 @@ function CatProfile({
                       {desc.type}
                     </span>
                     <span style={{ fontSize: "12px", color: "#9ca3af" }}>
-                      {new Date(desc.date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                      {formatDate(desc.date)}
                     </span>
                   </div>
                   <p style={{ fontSize: "15px", color: "#374151", lineHeight: "1.6", margin: "0 0 8px 0" }}>{desc.text}</p>
@@ -3664,8 +3673,7 @@ function UserProfile({
         )}
         <p style={{ fontSize: "14px", color: "#9ca3af", marginBottom: "40px" }}>
           On the Catwalk since{" "}
-          {userProfile.joinDate &&
-            new Date(userProfile.joinDate).toLocaleDateString()}
+          {userProfile.joinDate && formatDate(userProfile.joinDate)}
         </p>
 
         <div
@@ -3991,9 +3999,20 @@ export default function CatwalkApp() {
   // Get user location
   useEffect(() => {
     if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition((position) => {
-        setUserLocation([position.coords.latitude, position.coords.longitude]);
-      });
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const loc: [number, number] = [position.coords.latitude, position.coords.longitude];
+          setUserLocation(loc);
+          // If map already exists, fly to user location
+          if (mapInstanceRef.current) {
+            mapInstanceRef.current.flyTo(loc, 15);
+          }
+        },
+        () => {
+          // Permission denied or unavailable — keep London default
+        },
+        { timeout: 10000, enableHighAccuracy: true }
+      );
     }
   }, []);
 
@@ -4021,7 +4040,7 @@ export default function CatwalkApp() {
     }
   }, [leafletLoaded, mapLoading]);
 
-  // Initialize map
+  // Initialize map - wait briefly for geolocation first
   useEffect(() => {
     if (
       currentView === "catmap" &&
@@ -4031,8 +4050,9 @@ export default function CatwalkApp() {
     ) {
       const timer = setTimeout(() => {
         if (!mapInstanceRef.current) {
+          const center = userLocation || [51.5074, -0.1278];
           const map = window.L.map(mapRef.current, {
-            center: userLocation || [51.5074, -0.1278],
+            center,
             zoom: 15,
             minZoom: 5,
             maxZoom: 20,
@@ -4051,11 +4071,11 @@ export default function CatwalkApp() {
         } else {
           mapInstanceRef.current.invalidateSize();
         }
-      }, 100);
+      }, 800); // short delay so geolocation can resolve first
 
       return () => clearTimeout(timer);
     }
-  }, [currentView, leafletLoaded, userLocation]);
+  }, [currentView, leafletLoaded]);
 
   // Update map click handler
   useEffect(() => {
