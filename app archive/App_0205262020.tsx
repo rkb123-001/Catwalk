@@ -1003,12 +1003,12 @@ function UserCatsScreen({
     <div
       style={{
         position: "fixed",
-        top: "72px",
+        top: 0,
         left: 0,
         right: 0,
-        bottom: "60px",
+        bottom: "72px",
         background: "white",
-        zIndex: 950,
+        zIndex: 900,
         overflowY: "auto",
       }}
     >
@@ -1192,12 +1192,12 @@ function UserPhotosScreen({
     <div
       style={{
         position: "fixed",
-        top: "72px",
+        top: 0,
         left: 0,
         right: 0,
-        bottom: "60px",
+        bottom: "72px",
         background: "white",
-        zIndex: 950,
+        zIndex: 900,
         overflowY: "auto",
       }}
     >
@@ -1334,12 +1334,12 @@ function UserVisitsScreen({
     <div
       style={{
         position: "fixed",
-        top: "72px",
+        top: 0,
         left: 0,
         right: 0,
-        bottom: "60px",
+        bottom: "72px",
         background: "white",
-        zIndex: 950,
+        zIndex: 900,
         overflowY: "auto",
       }}
     >
@@ -1887,12 +1887,12 @@ function AddCatForm({
     <div
       style={{
         position: "fixed",
-        top: "72px",
+        top: 0,
         left: 0,
         right: 0,
-        bottom: "60px",
+        bottom: "72px",
         background: "white",
-        zIndex: 950,
+        zIndex: 900,
         overflowY: "auto",
       }}
     >
@@ -2297,12 +2297,12 @@ function CatProfile({
     <div
       style={{
         position: "fixed",
-        top: "72px",
+        top: 0,
         left: 0,
         right: 0,
-        bottom: "60px",
+        bottom: "72px",
         background: "white",
-        zIndex: 950,
+        zIndex: 900,
         overflowY: "auto",
       }}
     >
@@ -2802,12 +2802,12 @@ function ContributeForm({
     <div
       style={{
         position: "fixed",
-        top: "72px",
+        top: 0,
         left: 0,
         right: 0,
-        bottom: "60px",
+        bottom: "72px",
         background: "white",
-        zIndex: 950,
+        zIndex: 900,
         overflowY: "auto",
       }}
     >
@@ -3218,12 +3218,12 @@ function CatspottingScreen({
     <div
       style={{
         position: "fixed",
-        top: "72px",
+        top: 0,
         left: 0,
         right: 0,
-        bottom: "60px",
+        bottom: "72px",
         background: "white",
-        zIndex: 950,
+        zIndex: 900,
         overflowY: "auto",
       }}
     >
@@ -3386,9 +3386,8 @@ function CatspottingScreen({
                       }}
                     >
                       {nearbyCats.map((cat) => (
-                        <button
+                        <div
                           key={cat.id}
-                          type="button"
                           style={{
                             display: "flex",
                             alignItems: "center",
@@ -3402,9 +3401,6 @@ function CatspottingScreen({
                             cursor: "pointer",
                             background:
                               selectedCat?.id === cat.id ? "#f3f4f6" : "white",
-                            width: "100%",
-                            textAlign: "left",
-                            fontFamily: "inherit",
                           }}
                           onClick={() => setSelectedCat(cat)}
                         >
@@ -3431,7 +3427,7 @@ function CatspottingScreen({
                               }}
                             />
                           )}
-                        </button>
+                        </div>
                       ))}
                     </div>
 
@@ -4013,36 +4009,6 @@ export default function CatwalkApp() {
       return;
     }
     action();
-  };
-
-  const closeTransientPanels = () => {
-    setSelectedCat(null);
-    setShowProfile(false);
-    setShowUserCats(false);
-    setShowUserPhotos(false);
-    setShowUserVisits(false);
-    setShowAddCat(false);
-    setShowContributeForm(false);
-    setShowDuplicateModal(false);
-    setShowFilterModal(false);
-    setShowLogin(false);
-    setShowAuthRequired(false);
-    setShowGuide(false);
-    setShowLocationConsent(false);
-  };
-
-  const navigateTo = (view: "catmap" | "list" | "catspotting") => {
-    closeTransientPanels();
-    if (view === "catspotting") {
-      requireAuth(() => {
-        setCurrentView("catmap");
-        setShowCatspotting(true);
-      });
-      return;
-    }
-    setShowCatspotting(false);
-    setIsPlacingPin(false);
-    setCurrentView(view);
   };
 
   // Show location consent on first visit
@@ -4719,20 +4685,14 @@ export default function CatwalkApp() {
             }}
           >
             {filteredCats.map((cat) => (
-              <button
+              <div
                 key={cat.id}
-                type="button"
                 style={{
                   background: "white",
-                  border: "none",
                   borderRadius: "12px",
                   overflow: "hidden",
                   cursor: "pointer",
                   boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
-                  padding: 0,
-                  textAlign: "left",
-                  width: "100%",
-                  fontFamily: "inherit",
                 }}
                 onClick={() => onSelectCat(cat)}
               >
@@ -4831,7 +4791,7 @@ export default function CatwalkApp() {
                     <span>{cat.totalVisits} visits</span>
                   </div>
                 </div>
-              </button>
+              </div>
             ))}
           </div>
         </div>
@@ -4855,15 +4815,15 @@ export default function CatwalkApp() {
         zIndex: 1000,
       }}
     >
-      <button onClick={() => navigateTo("catmap")}
+      <button onClick={() => { setShowCatspotting(false); setCurrentView("catmap"); }}
         style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "4px", background: "none", border: "none", padding: "8px 20px", cursor: "pointer", color: !showCatspotting && currentView === "catmap" ? "#1a0dab" : "#6b7280", fontSize: "14px" }}>
         <MapIcon /><span>Map</span>
       </button>
-      <button onClick={() => navigateTo("list")}
+      <button onClick={() => { setShowCatspotting(false); setCurrentView("list"); }}
         style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "4px", background: "none", border: "none", padding: "8px 20px", cursor: "pointer", color: !showCatspotting && currentView === "list" ? "#1a0dab" : "#6b7280", fontSize: "14px" }}>
         <SearchIcon /><span>Browse</span>
       </button>
-      <button onClick={() => navigateTo("catspotting")}
+      <button onClick={() => requireAuth(() => { setCurrentView("catmap"); setShowCatspotting(true); })}
         style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "4px", background: "none", border: "none", padding: "8px 20px", cursor: "pointer", color: showCatspotting ? "#1a0dab" : "#6b7280", fontSize: "14px" }}>
         <CameraIcon /><span>Catspotting</span>
       </button>
@@ -4925,10 +4885,10 @@ export default function CatwalkApp() {
         currentUser={currentUser}
         onLogin={() => setShowLogin(true)}
         onGuide={() => setShowGuide(true)}
-        onHomeClick={() => navigateTo("catmap")}
+        onHomeClick={() => { setShowCatspotting(false); setCurrentView("catmap"); setSelectedCat(null); }}
       />
 
-      {currentView === "catmap" && !showCatspotting && (
+      {currentView === "catmap" && (
         <>
           <div
             style={{
@@ -5115,7 +5075,7 @@ export default function CatwalkApp() {
                   boxShadow: "0 4px 12px rgba(16, 185, 129, 0.4)",
                   cursor: "pointer",
                 }}
-                onClick={() => navigateTo("catspotting")}
+                onClick={() => setShowCatspotting(true)}
               >
                 <CameraIcon />
               </button>
