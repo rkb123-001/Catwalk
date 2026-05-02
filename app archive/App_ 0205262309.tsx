@@ -2770,34 +2770,10 @@ function AddCatForm({
 function PublicUserProfileModal({
   profile,
   onClose,
-  onSelectCat,
 }: {
   profile: UserProfile;
   onClose: () => void;
-  onSelectCat?: (cat: Cat) => void;
 }) {
-  const [userCats, setUserCats] = useState<Cat[]>([]);
-  const [loadingCats, setLoadingCats] = useState(true);
-
-  useEffect(() => {
-    const fetchCats = async () => {
-      try {
-        const q = query(
-          collection(db, "cats"),
-          where("creatorId", "==", profile.uid),
-          orderBy("createdDate", "desc")
-        );
-        const snap = await getDocs(q);
-        setUserCats(snap.docs.map((d: any) => ({ id: d.id, ...d.data() }) as Cat));
-      } catch {
-        // index may not exist yet — fail silently
-      } finally {
-        setLoadingCats(false);
-      }
-    };
-    fetchCats();
-  }, [profile.uid]);
-
   return (
     <div style={{ position: "fixed", inset: 0, background: "white", zIndex: 2600, overflowY: "auto", paddingBottom: "80px" }}>
       <div style={{ position: "sticky", top: 0, background: "white", padding: "16px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #e5e7eb", zIndex: 10 }}>
@@ -2807,7 +2783,7 @@ function PublicUserProfileModal({
         </button>
       </div>
 
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "40px 20px 32px" }}>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "40px 20px 96px" }}>
         <div style={{ width: "120px", height: "120px", background: "#e5e7eb", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "24px", overflow: "hidden" }}>
           {profile.profilePicture ? (
             <img src={profile.profilePicture} alt={`${firstName(profile.displayName)} profile`} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
@@ -2846,55 +2822,6 @@ function PublicUserProfileModal({
           </div>
         </div>
       </div>
-
-      {/* Cats added by this user */}
-      <div style={{ padding: "0 20px 40px" }}>
-        <h3 style={{ fontSize: "18px", fontWeight: 600, marginBottom: "16px", color: "#111827" }}>
-          Cats added by {firstName(profile.displayName)}
-        </h3>
-        {loadingCats ? (
-          <p style={{ color: "#9ca3af", fontSize: "14px" }}>Loading cats...</p>
-        ) : userCats.length === 0 ? (
-          <p style={{ color: "#9ca3af", fontSize: "14px" }}>{firstName(profile.displayName)} hasn't added any cats yet.</p>
-        ) : (
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
-            {userCats.map((cat) => (
-              <button
-                key={cat.id}
-                type="button"
-                onClick={() => onSelectCat?.(cat)}
-                style={{
-                  background: "white",
-                  border: "1px solid #e5e7eb",
-                  borderRadius: "12px",
-                  overflow: "hidden",
-                  cursor: onSelectCat ? "pointer" : "default",
-                  textAlign: "left",
-                  padding: 0,
-                }}
-              >
-                {cat.photos && cat.photos.length > 0 ? (
-                  <div style={{ height: "110px", overflow: "hidden" }}>
-                    <img
-                      src={cat.photos[0].url}
-                      alt={cat.name}
-                      style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: normalisePhotoObjectPosition(cat.photos[0].objectPosition) }}
-                    />
-                  </div>
-                ) : (
-                  <div style={{ height: "110px", background: "#f3f4f6", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "40px" }}>
-                    {cat.emoji}
-                  </div>
-                )}
-                <div style={{ padding: "10px 12px" }}>
-                  <div style={{ fontWeight: 600, fontSize: "14px", color: "#111827" }}>{cat.name}</div>
-                  <div style={{ fontSize: "12px", color: "#9ca3af", marginTop: "2px" }}>{cat.location?.area || cat.location?.city || ""}</div>
-                </div>
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
     </div>
   );
 }
@@ -2912,7 +2839,6 @@ function CatProfile({
   onDeleteVisit,
   onContribute,
   onAuthRequired,
-  onSelectCatFromProfile,
 }: {
   cat: Cat;
   onClose: () => void;
@@ -2925,7 +2851,6 @@ function CatProfile({
   onDeleteVisit: (visitDate: string) => void | Promise<void>;
   onContribute: () => void;
   onAuthRequired: () => void;
-  onSelectCatFromProfile?: (cat: Cat) => void;
 }) {
   const [showAllPhotos, setShowAllPhotos] = useState(false);
   const [showVisitList, setShowVisitList] = useState(false);
@@ -3050,11 +2975,7 @@ function CatProfile({
     return (
       <div style={{ position: "fixed", inset: 0, background: "white", zIndex: 2200, overflowY: "auto", paddingBottom: "80px" }}>
         {selectedVisitorProfile && (
-          <PublicUserProfileModal
-            profile={selectedVisitorProfile}
-            onClose={() => setSelectedVisitorProfile(null)}
-            onSelectCat={(cat) => { setSelectedVisitorProfile(null); setShowVisitList(false); onClose(); setTimeout(() => onSelectCatFromProfile?.(cat), 50); }}
-          />
+          <PublicUserProfileModal profile={selectedVisitorProfile} onClose={() => setSelectedVisitorProfile(null)} />
         )}
         <div style={{ position: "sticky", top: 0, background: "white", padding: "16px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #e5e7eb", zIndex: 10 }}>
           <h2 style={{ margin: 0 }}>Visits to {cat.name}</h2>
@@ -7143,7 +7064,6 @@ Tap the map to place a custom map pin. To create a cat, use the blue + Add cat b
           onDeleteVisit={handleDeleteVisit}
           onContribute={() => setShowContributeForm(true)}
           onAuthRequired={() => setShowAuthRequired(true)}
-          onSelectCatFromProfile={(cat) => setSelectedCat(cat)}
         />
       )}
 
