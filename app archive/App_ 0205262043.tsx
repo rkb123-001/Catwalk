@@ -3962,22 +3962,6 @@ export default function CatwalkApp() {
   const mapInstanceRef = useRef<any>(null);
   const manualMarkerRef = useRef<any>(null);
 
-  const invalidateMapSize = (map = mapInstanceRef.current) => {
-    if (!map) return;
-    const invalidate = () => {
-      try {
-        map.invalidateSize({ pan: false });
-      } catch (error) {
-        console.error("Error resizing Catwalk map:", error);
-      }
-    };
-
-    requestAnimationFrame(invalidate);
-    [60, 180, 360, 750, 1400].forEach((delay) => {
-      window.setTimeout(invalidate, delay);
-    });
-  };
-
   // Filter state
   const [filters, setFilters] = useState<FilterState>({
     emoji: null,
@@ -4067,9 +4051,7 @@ export default function CatwalkApp() {
     if (!asked) setShowLocationConsent(true);
   }, []);
 
-  // Get user location without blocking the first map render.
-  // The map now mounts immediately using a saved/default centre, then recentres
-  // if the browser returns a location quickly.
+  // Get user location
   useEffect(() => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -4078,13 +4060,13 @@ export default function CatwalkApp() {
           setUserLocation(loc);
           localStorage.setItem("catwalk-last-location", JSON.stringify(loc));
           if (mapInstanceRef.current) {
-            mapInstanceRef.current.flyTo(loc, 15, { duration: 0.6 });
+            mapInstanceRef.current.flyTo(loc, 15);
           }
         },
         () => {
-          // Permission denied or slow response — keep saved/default location
+          // Permission denied — keep saved/default location
         },
-        { timeout: 3500, maximumAge: 300000, enableHighAccuracy: false }
+        { timeout: 10000, enableHighAccuracy: true }
       );
     }
   }, []);
@@ -4099,22 +4081,6 @@ export default function CatwalkApp() {
     if (!leafletLoaded && !mapLoading) {
       setMapLoading(true);
 
-      if (!document.querySelector('link[data-catwalk-leaflet-preconnect="true"]')) {
-        const preconnect = document.createElement("link");
-        preconnect.rel = "preconnect";
-        preconnect.href = "https://unpkg.com";
-        preconnect.setAttribute("data-catwalk-leaflet-preconnect", "true");
-        document.head.appendChild(preconnect);
-      }
-
-      if (!document.querySelector('link[data-catwalk-osm-preconnect="true"]')) {
-        const tilePreconnect = document.createElement("link");
-        tilePreconnect.rel = "preconnect";
-        tilePreconnect.href = "https://tile.openstreetmap.org";
-        tilePreconnect.setAttribute("data-catwalk-osm-preconnect", "true");
-        document.head.appendChild(tilePreconnect);
-      }
-
       if (!document.querySelector('link[data-catwalk-leaflet="css"]')) {
         const cssLink = document.createElement("link");
         cssLink.rel = "stylesheet";
@@ -4126,7 +4092,7 @@ export default function CatwalkApp() {
       if (!document.querySelector('style[data-catwalk-global="true"]')) {
         const globalStyle = document.createElement("style");
         globalStyle.setAttribute("data-catwalk-global", "true");
-        globalStyle.textContent = `* { box-sizing: border-box; } .leaflet-container { width: 100%; height: 100%; }`;
+        globalStyle.textContent = `* { box-sizing: border-box; }`;
         document.head.appendChild(globalStyle);
       }
 
@@ -4139,14 +4105,7 @@ export default function CatwalkApp() {
 
       const existingScript = document.querySelector('script[data-catwalk-leaflet="js"]') as HTMLScriptElement | null;
       if (existingScript) {
-        if (window.L || existingScript.dataset.loaded === "true") {
-          setLeafletLoaded(true);
-          setMapLoading(false);
-          return;
-        }
-
         existingScript.addEventListener("load", () => {
-          existingScript.dataset.loaded = "true";
           setLeafletLoaded(true);
           setMapLoading(false);
         });
@@ -4158,7 +4117,6 @@ export default function CatwalkApp() {
       script.async = true;
       script.setAttribute("data-catwalk-leaflet", "js");
       script.onload = () => {
-        script.dataset.loaded = "true";
         setLeafletLoaded(true);
         setMapLoading(false);
       };
@@ -4170,8 +4128,7 @@ export default function CatwalkApp() {
     }
   }, [leafletLoaded, mapLoading]);
 
-  // Initialize map. Keep this independent from geolocation so the first map
-  // render is not delayed by the browser's location lookup.
+  // Initialize map
   useEffect(() => {
     const mapShouldBeVisible = currentView === "catmap" && !showCatspotting;
     if (!mapShouldBeVisible || !leafletLoaded || !mapRef.current || !window.L) return;
@@ -4180,12 +4137,9 @@ export default function CatwalkApp() {
       if (!mapRef.current) return;
 
       try {
-        const existingContainer = mapInstanceRef.current?.getContainer?.();
-        if (mapInstanceRef.current && existingContainer === mapRef.current) {
-          mapInstanceRef.current.invalidateSize();
-          return;
-        }
-
+        // If the map container was unmounted while moving between screens,
+        // the stored Leaflet instance can point at an old DOM node. Remove it
+        // before creating a fresh map on the newly mounted map div.
         if (mapInstanceRef.current) {
           mapInstanceRef.current.remove();
           mapInstanceRef.current = null;
@@ -4200,7 +4154,9 @@ export default function CatwalkApp() {
         mapRef.current.innerHTML = "";
 
         const saved = localStorage.getItem("catwalk-last-location");
-        const center: [number, number] = saved ? JSON.parse(saved) : [51.5074, -0.1278];
+        const center: [number, number] = userLocation
+          || (saved ? JSON.parse(saved) : null)
+          || [51.5074, -0.1278];
 
         const map = window.L.map(mapRef.current, {
           center,
@@ -4208,7 +4164,6 @@ export default function CatwalkApp() {
           minZoom: 5,
           maxZoom: 20,
           zoomControl: true,
-          preferCanvas: true,
         });
 
         window.L.tileLayer(
@@ -4216,55 +4171,21 @@ export default function CatwalkApp() {
           {
             attribution: "© OpenStreetMap contributors",
             maxZoom: 20,
-            updateWhenIdle: true,
-            keepBuffer: 2,
           }
         ).addTo(map);
 
         mapInstanceRef.current = map;
         setLeafletMap(map);
-        invalidateMapSize(map);
+        window.setTimeout(() => map.invalidateSize(), 100);
       } catch (error) {
         console.error("Error initialising Catwalk map:", error);
         mapInstanceRef.current = null;
         setLeafletMap(null);
       }
-    }, 0);
+    }, 100);
 
     return () => window.clearTimeout(timer);
-  }, [currentView, showCatspotting, leafletLoaded]);
-
-  // Keep Leaflet in sync with the actual rendered container size. This prevents
-  // the first map view from staying blank until the user changes tabs/views.
-  useEffect(() => {
-    const mapShouldBeVisible = currentView === "catmap" && !showCatspotting;
-    if (!mapShouldBeVisible || !mapRef.current) return;
-
-    invalidateMapSize();
-
-    const onWindowResize = () => invalidateMapSize();
-    window.addEventListener("resize", onWindowResize);
-    window.addEventListener("orientationchange", onWindowResize);
-
-    let resizeObserver: ResizeObserver | null = null;
-    if (typeof ResizeObserver !== "undefined") {
-      resizeObserver = new ResizeObserver(() => invalidateMapSize());
-      resizeObserver.observe(mapRef.current);
-    }
-
-    return () => {
-      window.removeEventListener("resize", onWindowResize);
-      window.removeEventListener("orientationchange", onWindowResize);
-      resizeObserver?.disconnect();
-    };
-  }, [currentView, showCatspotting, leafletLoaded, leafletMap]);
-
-  // Recentre once the user's location arrives, without rebuilding the map.
-  useEffect(() => {
-    if (userLocation && mapInstanceRef.current) {
-      mapInstanceRef.current.flyTo(userLocation, 15, { duration: 0.6 });
-    }
-  }, [userLocation]);
+  }, [currentView, showCatspotting, leafletLoaded, userLocation]);
 
   // Update map click handler
   useEffect(() => {
