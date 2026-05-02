@@ -4130,28 +4130,21 @@ export default function CatwalkApp() {
 
   // Initialize map
   useEffect(() => {
-    const mapShouldBeVisible = currentView === "catmap" && !showCatspotting;
-    if (!mapShouldBeVisible || !leafletLoaded || !mapRef.current || !window.L) return;
+    if (currentView !== "catmap" || !leafletLoaded || !mapRef.current || !window.L) return;
 
     const timer = window.setTimeout(() => {
-      if (!mapRef.current) return;
+      if (!mapRef.current || mapInstanceRef.current) {
+        mapInstanceRef.current?.invalidateSize();
+        return;
+      }
 
       try {
-        // If the map container was unmounted while moving between screens,
-        // the stored Leaflet instance can point at an old DOM node. Remove it
-        // before creating a fresh map on the newly mounted map div.
-        if (mapInstanceRef.current) {
-          mapInstanceRef.current.remove();
-          mapInstanceRef.current = null;
-          setLeafletMap(null);
-        }
-
         // Hot reloads can leave Leaflet's internal id on the DOM node, which
         // prevents a fresh map from mounting and leaves the plain green fallback.
         if ((mapRef.current as any)._leaflet_id) {
           (mapRef.current as any)._leaflet_id = undefined;
+          mapRef.current.innerHTML = "";
         }
-        mapRef.current.innerHTML = "";
 
         const saved = localStorage.getItem("catwalk-last-location");
         const center: [number, number] = userLocation
@@ -4180,12 +4173,11 @@ export default function CatwalkApp() {
       } catch (error) {
         console.error("Error initialising Catwalk map:", error);
         mapInstanceRef.current = null;
-        setLeafletMap(null);
       }
     }, 100);
 
     return () => window.clearTimeout(timer);
-  }, [currentView, showCatspotting, leafletLoaded, userLocation]);
+  }, [currentView, leafletLoaded, userLocation]);
 
   // Update map click handler
   useEffect(() => {
@@ -4216,16 +4208,14 @@ export default function CatwalkApp() {
     }
   }, [isPlacingPin]);
 
-  // Clean up map when leaving the visible map screen
+  // Clean up map
   useEffect(() => {
-    const mapShouldBeVisible = currentView === "catmap" && !showCatspotting;
-    if (!mapShouldBeVisible && mapInstanceRef.current) {
+    if (currentView !== "catmap" && mapInstanceRef.current) {
       mapInstanceRef.current.remove();
       mapInstanceRef.current = null;
-      manualMarkerRef.current = null;
       setLeafletMap(null);
     }
-  }, [currentView, showCatspotting]);
+  }, [currentView]);
 
   // Add markers to map
   useEffect(() => {
@@ -4905,7 +4895,7 @@ export default function CatwalkApp() {
           <div style={{ background: "white", border: "1px solid #e5e7eb", borderRadius: "12px", padding: "16px 20px", marginBottom: "28px", display: "flex", gap: "12px", alignItems: "flex-start" }}>
             <span style={{ fontSize: "20px", flexShrink: 0 }}>🤝</span>
             <p style={{ fontSize: "13px", color: "#6b7280", lineHeight: "1.6", margin: 0 }}>
-              Catwalk keeps map pins intentionally vague. Please use the map to share cats you already know or naturally come across, not to seek them out. Always respect each cat’s space, their humans, and the neighbourhood they live in.
+              Catwalk uses approximate locations to protect cats and their humans. Please only visit cats you already know or come across naturally, and never use the map to take, disturb, follow, or harm an animal. Respect each cat’s boundaries, their people, and the neighbourhood they live in.
             </p>
           </div>
           <div style={{ background: "white", borderRadius: "16px", padding: "32px", boxShadow: "0 2px 8px rgba(0,0,0,0.08)" }}>
@@ -5361,9 +5351,9 @@ export default function CatwalkApp() {
             <div style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: "12px", padding: "16px 18px", marginBottom: "28px", display: "flex", gap: "12px", alignItems: "flex-start" }}>
               <span style={{ fontSize: "20px", flexShrink: 0 }}>🤝</span>
               <div>
-                <h3 style={{ fontSize: "15px", fontWeight: "600", margin: "0 0 6px", fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', color: "#111827" }}>Approximate locations protect cats</h3>
+                <h3 style={{ fontSize: "15px", fontWeight: "600", margin: "0 0 6px", fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', color: "#111827" }}>Cat safety & neighbourhood respect</h3>
                 <p style={{ fontSize: "13px", color: "#4b5563", lineHeight: "1.65", margin: 0, fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
-                  Catwalk keeps map pins intentionally vague. Please use the map to share cats you already know or naturally come across, not to seek them out. Always respect each cat’s space, their humans, and the neighbourhood they live in.
+                  Catwalk uses approximate locations to protect cats and their humans. Please only visit cats you already know or come across naturally, and never use the map to take, disturb, follow, or harm an animal. Respect each cat’s boundaries, their people, and the neighbourhood they live in.
                 </p>
               </div>
             </div>
@@ -5403,7 +5393,7 @@ export default function CatwalkApp() {
               },
               {
                 q: "Do I need an account to use Catwalk?",
-                a: "Yes. You need an account to use Catwalk, including viewing the map, adding cats, uploading photos, logging visits, or contributing information. Creating an account is free and just requires an email and password."
+                a: "You can browse the map and view cat profiles without an account. To add cats, upload photos, log visits, or contribute information, you need to sign in. Creating an account is free and just requires an email and password."
               },
               {
                 q: "How do I change what location the map shows?",
