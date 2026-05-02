@@ -79,6 +79,15 @@ interface CatPhoto {
   };
 }
 
+interface Description {
+  id: string;
+  text: string;
+  contributor: string;
+  contributorId: string;
+  date: string;
+  type: "description" | "anecdote" | "behavior";
+}
+
 interface Cat {
   id: string;
   createdDate: string;
@@ -88,6 +97,7 @@ interface Cat {
   location: CatLocation;
   photos: CatPhoto[];
   description?: string;
+  descriptions?: Description[];
   personality: string[];
   allowsPetting: boolean | null;
   acceptsTreats: boolean | null;
@@ -302,6 +312,121 @@ const LockIcon = () => (
     <path d="M7 11V7a5 5 0 0 1 10 0v4" />
   </svg>
 );
+
+const CameraCaptureIcon = () => (
+  <svg
+    width="20"
+    height="20"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+  >
+    <circle cx="12" cy="12" r="3"></circle>
+    <path d="M12 1v6M12 17v6M4.22 4.22l4.24 4.24M15.54 15.54l4.24 4.24M1 12h6M17 12h6M4.22 19.78l4.24-4.24M15.54 8.46l4.24-4.24"></path>
+  </svg>
+);
+
+// Photo Capture Component - gallery or live camera
+function PhotoCaptureButton({
+  onPhotoSelected,
+  children,
+  style,
+}: {
+  onPhotoSelected: (file: File) => void;
+  children: React.ReactNode;
+  style?: React.CSSProperties;
+}) {
+  const [showOptions, setShowOptions] = useState(false);
+  const [streaming, setStreaming] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+
+  const startCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment" },
+      });
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        streamRef.current = stream;
+        setStreaming(true);
+      }
+    } catch {
+      fileInputRef.current?.click();
+    }
+  };
+
+  const capturePhoto = () => {
+    if (videoRef.current && canvasRef.current) {
+      const canvas = canvasRef.current;
+      const video = videoRef.current;
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      canvas.getContext("2d")?.drawImage(video, 0, 0);
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const file = new File([blob], "camera-capture.jpg", { type: "image/jpeg" });
+          onPhotoSelected(file);
+          stopCamera();
+          setShowOptions(false);
+        }
+      }, "image/jpeg");
+    }
+  };
+
+  const stopCamera = () => {
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+    setStreaming(false);
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) { onPhotoSelected(file); setShowOptions(false); }
+  };
+
+  return (
+    <>
+      <div onClick={() => setShowOptions(true)} style={style}>{children}</div>
+      <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileSelect} style={{ display: "none" }} />
+      {showOptions && (
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.5)", zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center" }}
+          onClick={() => { setShowOptions(false); stopCamera(); }}>
+          <div style={{ background: "white", borderRadius: "16px", padding: "24px", maxWidth: "400px", width: "90%" }}
+            onClick={(e) => e.stopPropagation()}>
+            {!streaming ? (
+              <>
+                <h3 style={{ fontSize: "18px", fontWeight: "600", marginBottom: "16px", textAlign: "center" }}>Add Photo</h3>
+                <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                  <button onClick={() => fileInputRef.current?.click()}
+                    style={{ display: "flex", alignItems: "center", gap: "12px", padding: "16px", background: "#f3f4f6", border: "none", borderRadius: "12px", cursor: "pointer", fontSize: "16px" }}>
+                    <CameraIcon /> Choose from Gallery
+                  </button>
+                  <button onClick={startCamera}
+                    style={{ display: "flex", alignItems: "center", gap: "12px", padding: "16px", background: "#8b5cf6", color: "white", border: "none", borderRadius: "12px", cursor: "pointer", fontSize: "16px" }}>
+                    <CameraCaptureIcon /> Take Photo
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <video ref={videoRef} autoPlay playsInline style={{ width: "100%", borderRadius: "12px", marginBottom: "16px" }} />
+                <div style={{ display: "flex", gap: "12px", justifyContent: "center" }}>
+                  <button onClick={capturePhoto} style={{ padding: "12px 24px", background: "#10b981", color: "white", border: "none", borderRadius: "8px", cursor: "pointer" }}>Capture</button>
+                  <button onClick={() => { stopCamera(); setShowOptions(false); }} style={{ padding: "12px 24px", background: "#ef4444", color: "white", border: "none", borderRadius: "8px", cursor: "pointer" }}>Cancel</button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+      <canvas ref={canvasRef} style={{ display: "none" }} />
+    </>
+  );
+}
 
 // Updated Cat emoji options with color coding
 const CAT_EMOJIS = [
@@ -538,8 +663,17 @@ function LoginScreen({
     "human-of-cat" | "unattached-catwalker"
   >("unattached-catwalker");
   const [location, setLocation] = useState("");
+  const [profilePictureFile, setProfilePictureFile] = useState<File | null>(null);
+  const [profilePicturePreview, setProfilePicturePreview] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const handleProfilePictureSelect = (file: File) => {
+    setProfilePictureFile(file);
+    const reader = new FileReader();
+    reader.onloadend = () => setProfilePicturePreview(reader.result as string);
+    reader.readAsDataURL(file);
+  };
 
   const handleSubmit = async () => {
     setError("");
@@ -547,16 +681,14 @@ function LoginScreen({
 
     try {
       if (isRegistering) {
-        const userCredential = await createUserWithEmailAndPassword(
-          auth,
-          email,
-          password
-        );
-        await createUserProfile(userCredential.user, {
-          displayName,
-          identity,
-          location,
-        });
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        let profilePictureURL = "";
+        if (profilePictureFile) {
+          try {
+            profilePictureURL = await uploadPhotoToStorage(profilePictureFile, "profiles", userCredential.user.uid);
+          } catch { /* non-fatal */ }
+        }
+        await createUserProfile(userCredential.user, { displayName, identity, location, profilePicture: profilePictureURL });
       } else {
         await signInWithEmailAndPassword(auth, email, password);
       }
@@ -633,6 +765,21 @@ function LoginScreen({
         <div style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
           {isRegistering && (
             <>
+              {/* Profile Picture */}
+              <div style={{ textAlign: "center" }}>
+                <label style={{ fontSize: "14px", fontWeight: "500", marginBottom: "8px", display: "block" }}>
+                  Profile Picture (Optional)
+                </label>
+                <div style={{ width: "80px", height: "80px", borderRadius: "50%", background: "#f3f4f6", margin: "0 auto 12px", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", border: "2px dashed #d1d5db" }}>
+                  {profilePicturePreview ? (
+                    <img src={profilePicturePreview} alt="Profile preview" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  ) : <UserIcon />}
+                </div>
+                <PhotoCaptureButton onPhotoSelected={handleProfilePictureSelect}
+                  style={{ display: "inline-block", padding: "8px 16px", background: "#f3f4f6", borderRadius: "8px", cursor: "pointer", fontSize: "14px" }}>
+                  {profilePictureFile ? "Change Photo" : "Add Photo"}
+                </PhotoCaptureButton>
+              </div>
               <input
                 type="text"
                 placeholder="Display Name"
@@ -1321,10 +1468,12 @@ function MapSnapshot({
   lat,
   lng,
   zoom = 16,
+  blur = false,
 }: {
   lat: number;
   lng: number;
   zoom?: number;
+  blur?: boolean;
 }) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
@@ -1334,7 +1483,7 @@ function MapSnapshot({
       const timer = setTimeout(() => {
         const map = window.L.map(mapRef.current, {
           center: [lat, lng],
-          zoom,
+          zoom: blur ? zoom - 2 : zoom,
           zoomControl: false,
           scrollWheelZoom: false,
           doubleClickZoom: false,
@@ -1349,20 +1498,23 @@ function MapSnapshot({
           "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         ).addTo(map);
 
-        // Add location marker
         const locationIcon = window.L.divIcon({
           html: '<div style="width: 12px; height: 12px; background: #ef4444; border: 2px solid white; border-radius: 50%; box-shadow: 0 1px 4px rgba(239, 68, 68, 0.5);"></div>',
           iconSize: [12, 12],
           iconAnchor: [6, 6],
         });
 
-        window.L.marker([lat, lng], { icon: locationIcon }).addTo(map);
+        // Slightly randomise pin position for privacy when blurred
+        const displayLat = blur ? lat + (Math.random() - 0.5) * 0.002 : lat;
+        const displayLng = blur ? lng + (Math.random() - 0.5) * 0.002 : lng;
+
+        window.L.marker([displayLat, displayLng], { icon: locationIcon }).addTo(map);
         mapInstanceRef.current = map;
       }, 100);
 
       return () => clearTimeout(timer);
     }
-  }, [lat, lng, zoom]);
+  }, [lat, lng, zoom, blur]);
 
   useEffect(() => {
     return () => {
@@ -1381,6 +1533,8 @@ function MapSnapshot({
         height: "100%",
         borderRadius: "8px",
         overflow: "hidden",
+        filter: blur ? "blur(2px)" : "none",
+        opacity: blur ? 0.8 : 1,
       }}
     />
   );
@@ -1610,19 +1764,8 @@ function AddCatForm({
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [approximateAddress, setApproximateAddress] = useState("");
   const [uploading, setUploading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const location = manualLocation || userLocation;
-
-  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setPhotoFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => setPhotoPreview(reader.result as string);
-      reader.readAsDataURL(file);
-    }
-  };
 
   const handleSubmit = async () => {
     if (!name || !location || !currentUser || !userProfile) return;
@@ -1668,6 +1811,7 @@ function AddCatForm({
           },
         ],
         photos: [],
+        descriptions: [],
       };
 
       const docRef = await addDoc(collection(db, "cats"), catData);
@@ -1974,60 +2118,27 @@ function AddCatForm({
 
         {/* Photo Upload */}
         <div>
-          <label
-            style={{
-              display: "block",
-              fontSize: "14px",
-              fontWeight: "500",
-              marginBottom: "8px",
-              color: "#374151",
-            }}
-          >
+          <label style={{ display: "block", fontSize: "14px", fontWeight: "500", marginBottom: "8px", color: "#374151" }}>
             Add Photo
           </label>
-          <div
-            style={{
-              border: "2px dashed #d1d5db",
-              borderRadius: "12px",
-              padding: "32px",
-              textAlign: "center",
-              cursor: "pointer",
+          <PhotoCaptureButton
+            onPhotoSelected={(file) => {
+              setPhotoFile(file);
+              const reader = new FileReader();
+              reader.onloadend = () => setPhotoPreview(reader.result as string);
+              reader.readAsDataURL(file);
             }}
-            onClick={() => fileInputRef.current?.click()}
+            style={{ border: "2px dashed #d1d5db", borderRadius: "12px", padding: "32px", textAlign: "center", cursor: "pointer" }}
           >
             {photoPreview ? (
-              <img
-                src={photoPreview}
-                alt="Preview"
-                style={{
-                  width: "100%",
-                  height: "200px",
-                  objectFit: "cover",
-                  borderRadius: "8px",
-                }}
-              />
+              <img src={photoPreview} alt="Preview" style={{ width: "100%", height: "200px", objectFit: "cover", borderRadius: "8px" }} />
             ) : (
               <>
                 <CameraIcon />
-                <p
-                  style={{
-                    marginTop: "8px",
-                    color: "#6b7280",
-                    fontSize: "14px",
-                  }}
-                >
-                  Tap to add photo
-                </p>
+                <p style={{ marginTop: "8px", color: "#6b7280", fontSize: "14px" }}>Tap to add photo</p>
               </>
             )}
-          </div>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            onChange={handlePhotoChange}
-            style={{ display: "none" }}
-          />
+          </PhotoCaptureButton>
         </div>
       </div>
     </div>
@@ -2520,7 +2631,7 @@ function CatProfile({
             }}
           >
             <div style={{ height: "200px", marginBottom: "12px" }}>
-              <MapSnapshot lat={cat.location.lat} lng={cat.location.lng} />
+              <MapSnapshot lat={cat.location.lat} lng={cat.location.lng} blur={true} />
             </div>
             <div
               style={{
@@ -2541,12 +2652,35 @@ function CatProfile({
             </div>
           </div>
         </div>
+
+        {/* Community Descriptions */}
+        {cat.descriptions && cat.descriptions.length > 0 && (
+          <div style={{ marginBottom: "32px" }}>
+            <h3 style={{ fontSize: "18px", fontWeight: "600", marginBottom: "16px" }}>
+              Community Descriptions
+            </h3>
+            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+              {cat.descriptions.map((desc) => (
+                <div key={desc.id} style={{ background: "#f9fafb", borderRadius: "12px", padding: "16px", border: "1px solid #e5e7eb" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                    <span style={{ fontSize: "12px", fontWeight: "600", textTransform: "capitalize", background: "#e9d5ff", color: "#7c3aed", padding: "2px 8px", borderRadius: "8px" }}>
+                      {desc.type}
+                    </span>
+                    <span style={{ fontSize: "12px", color: "#9ca3af" }}>
+                      {new Date(desc.date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                    </span>
+                  </div>
+                  <p style={{ fontSize: "15px", color: "#374151", lineHeight: "1.6", margin: "0 0 8px 0" }}>{desc.text}</p>
+                  <p style={{ fontSize: "13px", color: "#9ca3af", margin: 0 }}>— {desc.contributor}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
 }
-
-// Contribute Form Component
 function ContributeForm({
   cat,
   onSubmit,
@@ -2579,6 +2713,8 @@ function ContributeForm({
   const [alternativeNames, setAlternativeNames] = useState(
     cat.alternativeNames?.join(", ") || ""
   );
+  const [newDescription, setNewDescription] = useState("");
+  const [descriptionType, setDescriptionType] = useState<"description" | "anecdote" | "behavior">("description");
   const [saving, setSaving] = useState(false);
 
   const handleSubmit = async () => {
@@ -2587,7 +2723,7 @@ function ContributeForm({
     setSaving(true);
 
     try {
-      const updates = {
+      const updates: any = {
         description,
         personality: selectedTraits,
         allowsPetting,
@@ -2606,6 +2742,19 @@ function ContributeForm({
               .filter((n) => n)
           : [],
       };
+
+      // Add community description if provided
+      if (newDescription.trim()) {
+        const newDescObj: Description = {
+          id: `desc_${Date.now()}`,
+          text: newDescription.trim(),
+          contributor: userProfile.displayName,
+          contributorId: currentUser.uid,
+          date: new Date().toISOString(),
+          type: descriptionType,
+        };
+        updates.descriptions = arrayUnion(newDescObj);
+      }
 
       // Update in Firebase
       const catDoc = doc(db, "cats", cat.id);
@@ -2772,6 +2921,28 @@ function ContributeForm({
               fontSize: "16px",
               resize: "vertical",
             }}
+          />
+        </div>
+
+        {/* Community Description */}
+        <div>
+          <label style={{ display: "block", fontSize: "14px", fontWeight: "500", marginBottom: "8px", color: "#374151" }}>
+            Add Community Description
+          </label>
+          <div style={{ display: "flex", gap: "8px", marginBottom: "8px" }}>
+            {(["description", "anecdote", "behavior"] as const).map((type) => (
+              <button key={type} type="button" onClick={() => setDescriptionType(type)}
+                style={{ padding: "6px 12px", border: "none", borderRadius: "8px", background: descriptionType === type ? "#8b5cf6" : "#f3f4f6", color: descriptionType === type ? "white" : "#374151", fontSize: "12px", cursor: "pointer", textTransform: "capitalize" }}>
+                {type}
+              </button>
+            ))}
+          </div>
+          <textarea
+            value={newDescription}
+            onChange={(e) => setNewDescription(e.target.value)}
+            rows={3}
+            placeholder={`Share a ${descriptionType} about ${cat.name}...`}
+            style={{ width: "100%", padding: "10px 14px", border: "1px solid #d1d5db", borderRadius: "8px", fontSize: "16px", resize: "vertical" }}
           />
         </div>
 
