@@ -2010,56 +2010,14 @@ function AddCatForm({
   const location = manualLocation || userLocation;
 
   const handleSubmit = async () => {
-    if (!currentUser) {
-      alert("Please sign in before saving a cat.");
-      return;
-    }
-
-    if (!location) {
-      alert("Please choose a location first. Drop a pin on the map, then tap Continue to cat details.");
-      return;
-    }
-
-    if (!name.trim()) {
-      alert("Please add the cat’s name before saving.");
-      return;
-    }
+    if (!name || !location || !currentUser || !userProfile) return;
 
     setUploading(true);
 
     try {
-      let activeUserProfile = userProfile;
-
-      // Some test users can be authenticated but missing a Catwalk profile doc
-      // if profile creation failed or they signed in through an older flow.
-      // Previously this made Save cat silently do nothing. Create a safe fallback
-      // profile so the cat can still be saved, then use it for attribution.
-      if (!activeUserProfile) {
-        const fallbackName = currentUser.email?.split("@")[0] || "Catwalker";
-        await createUserProfile(currentUser as unknown as FirebaseUser, {
-          displayName: fallbackName,
-          identity: "unattached-catwalker",
-          location: "",
-          profilePicture: "",
-        });
-        activeUserProfile = {
-          uid: currentUser.uid,
-          email: currentUser.email || "",
-          displayName: fallbackName,
-          joinDate: new Date().toISOString(),
-          totalContributions: 0,
-          catsFound: 0,
-          photosAdded: 0,
-          catsVisited: [],
-          location: "",
-          profilePicture: "",
-          identity: "unattached-catwalker",
-        };
-      }
-
       // Create the cat document first
       const catData = {
-        name: name.trim(),
+        name,
         emoji: selectedEmoji,
         description,
         personality: selectedTraits,
@@ -2084,12 +2042,12 @@ function AddCatForm({
         userVisits: {},
         visits: [],
         slowBlinks: [],
-        creator: activeUserProfile.displayName,
+        creator: userProfile.displayName,
         creatorId: currentUser.uid,
         contributors: [
           {
             id: currentUser.uid,
-            name: activeUserProfile.displayName,
+            name: userProfile.displayName,
             type: "creator" as const,
             contributions: 1,
           },
@@ -2110,7 +2068,7 @@ function AddCatForm({
         const photoData = {
           id: `${docRef.id}_${Date.now()}`,
           url: photoURL,
-          contributor: activeUserProfile.displayName,
+          contributor: userProfile.displayName,
           contributorId: currentUser.uid,
           date: new Date().toISOString(),
           uploadedAt: new Date().toISOString(),
@@ -2137,12 +2095,9 @@ function AddCatForm({
         });
       }
 
-      alert("Cat saved to the map!");
       onSubmit({ id: docRef.id, ...catData } as unknown as Partial<Cat>);
     } catch (error) {
       console.error("Error adding cat:", error);
-      const message = error instanceof Error ? error.message : "Please try again.";
-      alert(`Could not save this cat. ${message}`);
     } finally {
       setUploading(false);
     }
@@ -2187,22 +2142,22 @@ function AddCatForm({
           <XIcon />
         </button>
         <h2 style={{ fontSize: "18px", fontWeight: "600", margin: 0 }}>
-          Add Cat Details
+          Add New Cat
         </h2>
         <button
           onClick={handleSubmit}
-          disabled={!name.trim() || !location || uploading}
+          disabled={!name || uploading}
           style={{
             color: "#1a0dab",
             fontWeight: "500",
             background: "none",
             border: "none",
-            cursor: name.trim() && location && !uploading ? "pointer" : "not-allowed",
+            cursor: name && !uploading ? "pointer" : "not-allowed",
             fontSize: "16px",
-            opacity: name.trim() && location && !uploading ? 1 : 0.5,
+            opacity: name && !uploading ? 1 : 0.5,
           }}
         >
-          {uploading ? "Saving..." : "Save cat"}
+          {uploading ? "Saving..." : "Save"}
         </button>
       </div>
 
@@ -2229,10 +2184,8 @@ function AddCatForm({
         >
           <span>📍</span>
           {manualLocation
-            ? "Pinned location selected. It will be saved when you tap Save cat."
-            : userLocation
-            ? "Using your current location for this cat"
-            : "Choose a location before saving this cat"}
+            ? "Using manually selected location"
+            : "Using your current location"}
         </div>
 
         {/* Approximate Address */}
@@ -2436,45 +2389,8 @@ function AddCatForm({
                 onChange={setPhotoObjectPosition}
                 height={220}
               />
-              <p style={{ margin: "8px 0 0", color: "#059669", fontSize: "13px", fontWeight: 600 }}>
-                Photo selected. Drag the focus dot onto the cat, then tap Save cat.
-              </p>
             </div>
           )}
-        </div>
-
-        <div
-          style={{
-            position: "sticky",
-            bottom: "12px",
-            background: "rgba(255,255,255,0.96)",
-            border: "1px solid #e5e7eb",
-            borderRadius: "16px",
-            padding: "12px",
-            boxShadow: "0 6px 20px rgba(0,0,0,0.08)",
-          }}
-        >
-          <button
-            type="button"
-            onClick={handleSubmit}
-            disabled={!name.trim() || !location || uploading}
-            style={{
-              width: "100%",
-              padding: "14px 18px",
-              background: name.trim() && location && !uploading ? "#1a0dab" : "#d1d5db",
-              color: "white",
-              border: "none",
-              borderRadius: "12px",
-              fontSize: "16px",
-              fontWeight: 700,
-              cursor: name.trim() && location && !uploading ? "pointer" : "not-allowed",
-            }}
-          >
-            {uploading ? "Saving cat..." : "Save cat"}
-          </button>
-          <p style={{ margin: "8px 0 0", color: "#6b7280", fontSize: "12px", textAlign: "center" }}>
-            The pin and photo are only saved after you tap Save cat.
-          </p>
         </div>
       </div>
     </div>
@@ -4235,7 +4151,7 @@ function CatspottingScreen({
                         cursor: "pointer",
                       }}
                     >
-                      Add Cat Details
+                      Add New Cat
                     </button>
                   </div>
                 )}
@@ -4272,7 +4188,7 @@ function CatspottingScreen({
                     cursor: "pointer",
                   }}
                 >
-                  Continue to cat details
+                  Continue to Add Cat
                 </button>
               </div>
             )}
@@ -4735,7 +4651,7 @@ function DuplicateModal({
               cursor: "pointer",
             }}
           >
-            Add Cat Details
+            Add New Cat
           </button>
           <button
             onClick={onClose}
@@ -5169,13 +5085,6 @@ export default function CatwalkApp() {
             icon: manualIcon,
             draggable: true,
           }).addTo(mapInstanceRef.current);
-
-          manualMarkerRef.current.on("dragend", () => {
-            const next = manualMarkerRef.current?.getLatLng();
-            if (next) setManualLocation([next.lat, next.lng]);
-          });
-
-          manualMarkerRef.current.bindPopup("Location selected. Next, tap ‘Continue to cat details’. It is not saved until you tap Save cat.").openPopup();
           setIsPlacingPin(false);
         }
       });
@@ -6484,7 +6393,7 @@ export default function CatwalkApp() {
               <span style={{ color: "#ef4444" }}>📍</span>
               <span>
                 {manualLocation
-                  ? `Pin selected (${manualLocation[0].toFixed(
+                  ? `Custom location selected (${manualLocation[0].toFixed(
                       4
                     )}, ${manualLocation[1].toFixed(4)})`
                   : userLocation
@@ -6549,42 +6458,8 @@ export default function CatwalkApp() {
               }}
               onClick={() => setIsPlacingPin(!isPlacingPin)}
             >
-              📌 {isPlacingPin ? "Tap map to place pin" : manualLocation ? "Move custom pin" : "Drop custom pin"}
+              📌 {isPlacingPin ? "Click map to place pin" : "Drop custom pin"}
             </button>
-            {manualLocation && !isPlacingPin && (
-              <div
-                style={{
-                  background: "#ecfdf5",
-                  color: "#065f46",
-                  padding: "10px 12px",
-                  borderRadius: "12px",
-                  fontSize: "13px",
-                  boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "10px",
-                  flexWrap: "wrap",
-                }}
-              >
-                <span>Pin selected. Next, add the cat details.</span>
-                <button
-                  type="button"
-                  onClick={handleCheckForDuplicates}
-                  style={{
-                    background: "#059669",
-                    color: "white",
-                    border: "none",
-                    borderRadius: "999px",
-                    padding: "7px 12px",
-                    fontSize: "13px",
-                    fontWeight: 700,
-                    cursor: "pointer",
-                  }}
-                >
-                  Continue to cat details
-                </button>
-              </div>
-            )}
             {isPlacingPin && (
               <div
                 style={{
@@ -6596,7 +6471,7 @@ export default function CatwalkApp() {
                   boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
                 }}
               >
-Tap the cat’s approximate location on the map. You’ll get a Continue button after the pin is placed.
+                Click anywhere on the map to place a pin
               </div>
             )}
           </div>
