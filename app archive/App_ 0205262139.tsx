@@ -8,7 +8,6 @@ import {
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
   onAuthStateChanged,
-  deleteUser,
   User as FirebaseUser,
 } from "firebase/auth";
 import {
@@ -17,7 +16,6 @@ import {
   doc,
   addDoc,
   updateDoc,
-  deleteDoc,
   getDocs,
   query,
   where,
@@ -32,7 +30,6 @@ import {
   ref as storageRef,
   uploadBytes,
   getDownloadURL,
-  deleteObject,
 } from "firebase/storage";
 
 // Updated Firebase configuration with your real config
@@ -286,23 +283,6 @@ const EditIcon = () => (
   </svg>
 );
 
-const TrashIcon = () => (
-  <svg
-    width="18"
-    height="18"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-  >
-    <polyline points="3 6 5 6 21 6"></polyline>
-    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path>
-    <path d="M10 11v6"></path>
-    <path d="M14 11v6"></path>
-    <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path>
-  </svg>
-);
-
 const PlusIcon = ({ size = 32 }: { size?: number }) => (
   <svg
     width={size}
@@ -501,43 +481,22 @@ function PhotoFocusPicker({
   height?: number;
 }) {
   const point = objectPositionToPoint(objectPosition);
-  const pickerRef = useRef<HTMLDivElement>(null);
 
-  const updateFocusFromClientPoint = (clientX: number, clientY: number) => {
-    const rect = pickerRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    const x = ((clientX - rect.left) / rect.width) * 100;
-    const y = ((clientY - rect.top) / rect.height) * 100;
+  const handlePickFocus = (event: React.MouseEvent<HTMLDivElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const x = ((event.clientX - rect.left) / rect.width) * 100;
+    const y = ((event.clientY - rect.top) / rect.height) * 100;
     onChange(pointToObjectPosition(x, y));
-  };
-
-  const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
-    event.currentTarget.setPointerCapture(event.pointerId);
-    updateFocusFromClientPoint(event.clientX, event.clientY);
-  };
-
-  const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (event.buttons !== 1) return;
-    updateFocusFromClientPoint(event.clientX, event.clientY);
   };
 
   return (
     <div>
       <div
-        ref={pickerRef}
-        role="slider"
+        role="button"
         tabIndex={0}
-        aria-label="Drag the focus point for this photo"
-        aria-valuetext={`${Math.round(point.x)}% across, ${Math.round(point.y)}% down`}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
+        onClick={handlePickFocus}
         onKeyDown={(event) => {
-          const step = event.shiftKey ? 10 : 3;
-          if (!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.key)) return;
-          event.preventDefault();
-          const nextX = event.key === "ArrowLeft" ? point.x - step : event.key === "ArrowRight" ? point.x + step : point.x;
-          const nextY = event.key === "ArrowUp" ? point.y - step : event.key === "ArrowDown" ? point.y + step : point.y;
-          onChange(pointToObjectPosition(nextX, nextY));
+          if (event.key === "Enter" || event.key === " ") event.preventDefault();
         }}
         style={{
           position: "relative",
@@ -546,23 +505,20 @@ function PhotoFocusPicker({
           borderRadius: "12px",
           overflow: "hidden",
           background: "#f3f4f6",
-          cursor: "grab",
+          cursor: "crosshair",
           border: "1px solid #e5e7eb",
-          touchAction: "none",
-          userSelect: "none",
         }}
+        aria-label="Choose the focal point for this photo"
       >
         <img
           src={imageUrl}
           alt="Photo focus preview"
-          draggable={false}
           style={{
             width: "100%",
             height: "100%",
             objectFit: "cover",
             objectPosition: normalisePhotoObjectPosition(objectPosition),
             display: "block",
-            pointerEvents: "none",
           }}
         />
         <div
@@ -570,12 +526,12 @@ function PhotoFocusPicker({
             position: "absolute",
             left: `${point.x}%`,
             top: `${point.y}%`,
-            width: "34px",
-            height: "34px",
+            width: "28px",
+            height: "28px",
             borderRadius: "999px",
-            border: "3px solid white",
+            border: "2px solid white",
             background: "rgba(26,13,171,0.85)",
-            boxShadow: "0 2px 12px rgba(0,0,0,0.3)",
+            boxShadow: "0 2px 10px rgba(0,0,0,0.25)",
             transform: "translate(-50%, -50%)",
             pointerEvents: "none",
           }}
@@ -585,8 +541,8 @@ function PhotoFocusPicker({
               position: "absolute",
               left: "50%",
               top: "50%",
-              width: "9px",
-              height: "9px",
+              width: "8px",
+              height: "8px",
               borderRadius: "999px",
               background: "white",
               transform: "translate(-50%, -50%)",
@@ -595,7 +551,7 @@ function PhotoFocusPicker({
         </div>
       </div>
       <p style={{ margin: "8px 0 0", fontSize: "13px", color: "#6b7280", lineHeight: 1.4 }}>
-        Drag the dot onto the cat’s face or body. Catwalk will keep that point centred when it crops the image into cards.
+        Tap the most important part of the photo. Catwalk will keep that point centred when it crops the image into cards.
       </p>
     </div>
   );
@@ -643,19 +599,6 @@ function formatDate(value: any, options?: Intl.DateTimeFormatOptions): string {
   const d = toDate(value);
   if (!d) return "Unknown date";
   return d.toLocaleDateString("en-GB", options || { day: "numeric", month: "short", year: "numeric" });
-}
-
-
-function getDateKey(value: any): string {
-  const d = toDate(value);
-  if (!d) return "Unknown date";
-  return d.toISOString().slice(0, 10);
-}
-
-function formatDateTime(value: any): string {
-  const d = toDate(value);
-  if (!d) return "Unknown date";
-  return d.toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
 function getDistanceFromLatLonInMeters(
@@ -2385,8 +2328,6 @@ function CatProfile({
   onSlowBlink,
   onAddPhoto,
   onUpdatePhotoPosition,
-  onDeletePhoto,
-  onUpdateVisitCount,
   onContribute,
   onAuthRequired,
 }: {
@@ -2397,15 +2338,10 @@ function CatProfile({
   onSlowBlink: () => void;
   onAddPhoto: (file: File, objectPosition?: string) => void | Promise<void>;
   onUpdatePhotoPosition: (photoId: string, objectPosition: string) => void | Promise<void>;
-  onDeletePhoto: (photoId: string) => void | Promise<void>;
-  onUpdateVisitCount: (visitCount: number) => void | Promise<void>;
   onContribute: () => void;
   onAuthRequired: () => void;
 }) {
   const [showAllPhotos, setShowAllPhotos] = useState(false);
-  const [showVisitList, setShowVisitList] = useState(false);
-  const [showMyVisitDetails, setShowMyVisitDetails] = useState(false);
-  const [editingPhotoId, setEditingPhotoId] = useState<string | null>(null);
   const [pendingPhotoFile, setPendingPhotoFile] = useState<File | null>(null);
   const [pendingPhotoPreview, setPendingPhotoPreview] = useState<string | null>(null);
   const [pendingPhotoObjectPosition, setPendingPhotoObjectPosition] = useState(DEFAULT_CAT_PHOTO_POSITION);
@@ -2416,68 +2352,6 @@ function CatProfile({
 
   const canEditPhotoPosition = (photo: CatPhoto) =>
     Boolean(currentUser && (photo.contributorId === currentUser.uid || cat.creatorId === currentUser.uid));
-
-  const visitorSummaries = Object.values(
-    (cat.visits || []).reduce<Record<string, { userId: string; userName: string; count: number; latestDate: string }>>((acc, visit) => {
-      const userId = visit.userId || "unknown";
-      const existing = acc[userId];
-      const visitDate = visit.date || "";
-      if (!existing) {
-        acc[userId] = {
-          userId,
-          userName: visit.userName || "Catwalker",
-          count: 1,
-          latestDate: visitDate,
-        };
-      } else {
-        existing.count += 1;
-        if (visitDate > existing.latestDate) existing.latestDate = visitDate;
-      }
-      return acc;
-    }, {})
-  ).sort((a, b) => b.latestDate.localeCompare(a.latestDate));
-
-  const myVisits = currentUser
-    ? (cat.visits || []).filter((visit) => visit.userId === currentUser.uid).sort((a, b) => b.date.localeCompare(a.date))
-    : [];
-
-  const myPhotosByDate = currentUser
-    ? (cat.photos || []).filter((photo) => photo.contributorId === currentUser.uid).reduce<Record<string, CatPhoto[]>>((acc, photo) => {
-        const dateKey = getDateKey(photo.date || photo.uploadedAt);
-        acc[dateKey] = [...(acc[dateKey] || []), photo];
-        return acc;
-      }, {})
-    : {};
-
-  const handleEditVisitCount = async () => {
-    if (!currentUser) {
-      onAuthRequired();
-      return;
-    }
-
-    const answer = window.prompt(
-      `How many times have you visited ${cat.name}?`,
-      String(userVisitCount)
-    );
-    if (answer === null) return;
-
-    const nextCount = Number.parseInt(answer, 10);
-    if (!Number.isFinite(nextCount) || nextCount < 0) {
-      alert("Please enter a whole number of visits.");
-      return;
-    }
-
-    await onUpdateVisitCount(nextCount);
-  };
-
-  const handleDeletePhoto = async (photo: CatPhoto) => {
-    if (!canEditPhotoPosition(photo)) return;
-
-    const confirmed = window.confirm("Delete this photo from the cat profile?");
-    if (!confirmed) return;
-
-    await onDeletePhoto(photo.id);
-  };
 
   const handlePhotoClick = () => {
     if (!currentUser) {
@@ -2514,79 +2388,6 @@ function CatProfile({
     }
     action();
   };
-
-  if (showVisitList) {
-    return (
-      <div style={{ position: "fixed", inset: 0, background: "white", zIndex: 2200, overflowY: "auto" }}>
-        <div style={{ position: "sticky", top: 0, background: "white", padding: "16px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #e5e7eb", zIndex: 10 }}>
-          <h2 style={{ margin: 0 }}>Visits to {cat.name}</h2>
-          <button onClick={() => setShowVisitList(false)} style={{ background: "none", border: "none", padding: "8px", cursor: "pointer", color: "#6b7280" }}><XIcon /></button>
-        </div>
-        <div style={{ padding: "20px", display: "flex", flexDirection: "column", gap: "12px" }}>
-          {visitorSummaries.length === 0 ? (
-            <p style={{ color: "#6b7280" }}>No visits logged yet.</p>
-          ) : (
-            visitorSummaries.map((visitor) => (
-              <button
-                key={visitor.userId}
-                type="button"
-                onClick={() => alert(`${visitor.userName}'s public profile page can be linked here once public profiles are added.`)}
-                style={{
-                  width: "100%",
-                  textAlign: "left",
-                  background: "#f9fafb",
-                  border: "1px solid #e5e7eb",
-                  borderRadius: "14px",
-                  padding: "14px 16px",
-                  cursor: "pointer",
-                }}
-              >
-                <div style={{ fontWeight: 700, color: "#111827", marginBottom: "4px" }}>{visitor.userName}</div>
-                <div style={{ fontSize: "14px", color: "#6b7280" }}>
-                  {visitor.count} {visitor.count === 1 ? "visit" : "visits"} · Last visited {formatDate(visitor.latestDate)}
-                </div>
-              </button>
-            ))
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  if (showMyVisitDetails) {
-    return (
-      <div style={{ position: "fixed", inset: 0, background: "white", zIndex: 2200, overflowY: "auto" }}>
-        <div style={{ position: "sticky", top: 0, background: "white", padding: "16px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #e5e7eb", zIndex: 10 }}>
-          <h2 style={{ margin: 0 }}>Your visits to {cat.name}</h2>
-          <button onClick={() => setShowMyVisitDetails(false)} style={{ background: "none", border: "none", padding: "8px", cursor: "pointer", color: "#6b7280" }}><XIcon /></button>
-        </div>
-        <div style={{ padding: "20px", display: "flex", flexDirection: "column", gap: "14px" }}>
-          {myVisits.length === 0 ? (
-            <p style={{ color: "#6b7280" }}>You haven’t logged a visit to this cat yet.</p>
-          ) : (
-            myVisits.map((visit, index) => {
-              const dateKey = getDateKey(visit.date);
-              const photosForDate = myPhotosByDate[dateKey] || [];
-              return (
-                <div key={`${visit.date}-${index}`} style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: "14px", padding: "14px 16px" }}>
-                  <div style={{ fontWeight: 700, color: "#111827", marginBottom: photosForDate.length ? "10px" : 0 }}>
-                    {formatDateTime(visit.date)}
-                  </div>
-                  {photosForDate.length > 0 && (
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(90px, 1fr))", gap: "8px" }}>
-                      {photosForDate.map((photo) => (
-                        <img key={photo.id} src={photo.url} alt={`${cat.name} uploaded on this visit`} style={{ width: "100%", aspectRatio: "1", objectFit: "cover", objectPosition: getCatPhotoPosition(photo), borderRadius: "10px" }} />
-                      ))}
-                    </div>
-                  )}
-                </div>
-              );
-            })
-          )}
-        </div>
-      </div>
-    );
-  }
 
   if (showAllPhotos) {
     return (
@@ -2639,79 +2440,18 @@ function CatProfile({
         >
           {cat.photos.map((photo, index) => (
             <div key={photo.id || index} style={{ position: "relative" }}>
-              <div
+              <img
+                src={photo.url}
+                alt={`${cat.name} photo ${index + 1}`}
                 style={{
-                  position: "relative",
+                  width: "100%",
                   aspectRatio: "1",
+                  objectFit: "cover",
+                  objectPosition: getCatPhotoPosition(photo),
                   borderRadius: "12px",
-                  overflow: "hidden",
-                  background: "#f3f4f6",
                 }}
-              >
-                <img
-                  src={photo.url}
-                  alt={`${cat.name} photo ${index + 1}`}
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    objectFit: "cover",
-                    objectPosition: getCatPhotoPosition(photo),
-                  }}
-                />
-                {canEditPhotoPosition(photo) && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      top: "8px",
-                      right: "8px",
-                      display: "flex",
-                      gap: "8px",
-                    }}
-                  >
-                    <button
-                      type="button"
-                      aria-label="Edit photo focus"
-                      onClick={() => setEditingPhotoId((prev) => prev === photo.id ? null : photo.id)}
-                      style={{
-                        width: "36px",
-                        height: "36px",
-                        borderRadius: "999px",
-                        border: "none",
-                        background: "rgba(255,255,255,0.92)",
-                        color: "#111827",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        cursor: "pointer",
-                        boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-                      }}
-                    >
-                      <EditIcon />
-                    </button>
-                    <button
-                      type="button"
-                      aria-label="Delete photo"
-                      onClick={() => handleDeletePhoto(photo)}
-                      style={{
-                        width: "36px",
-                        height: "36px",
-                        borderRadius: "999px",
-                        border: "none",
-                        background: "rgba(255,255,255,0.92)",
-                        color: "#dc2626",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        cursor: "pointer",
-                        boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-                      }}
-                    >
-                      <TrashIcon />
-                    </button>
-                  </div>
-                )}
-              </div>
-              {canEditPhotoPosition(photo) && editingPhotoId === photo.id && (
+              />
+              {canEditPhotoPosition(photo) && (
                 <div style={{ marginTop: "8px" }}>
                   <PhotoFocusPicker
                     imageUrl={photo.url}
@@ -2949,48 +2689,14 @@ function CatProfile({
         <div
           style={{
             display: "flex",
-            alignItems: "center",
-            flexWrap: "wrap",
-            gap: "12px",
+            gap: "20px",
             marginBottom: "24px",
             fontSize: "14px",
             color: "#6b7280",
           }}
         >
-          <button
-            type="button"
-            onClick={() => setShowVisitList(true)}
-            style={{ border: "none", background: "none", color: "#1a0dab", padding: 0, cursor: "pointer", fontSize: "14px", textDecoration: "underline" }}
-          >
-            Total visits: {cat.totalVisits}
-          </button>
-          <button
-            type="button"
-            onClick={() => currentUser ? setShowMyVisitDetails(true) : onAuthRequired()}
-            style={{ border: "none", background: "none", color: "#1a0dab", padding: 0, cursor: "pointer", fontSize: "14px", textDecoration: "underline" }}
-          >
-            Your visits: {userVisitCount}
-          </button>
-          {currentUser && (
-            <button
-              type="button"
-              onClick={handleEditVisitCount}
-              style={{
-                border: "none",
-                background: "#f3f4f6",
-                color: "#374151",
-                borderRadius: "999px",
-                padding: "6px 10px",
-                cursor: "pointer",
-                fontSize: "13px",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "4px",
-              }}
-            >
-              <EditIcon /> Edit visits
-            </button>
-          )}
+          <span>Total visits: {cat.totalVisits}</span>
+          {userVisitCount > 0 && <span>Your visits: {userVisitCount}</span>}
         </div>
 
         {cat.photos.length > 0 && (
@@ -4107,16 +3813,12 @@ function UserProfile({
   onShowUserCats,
   onShowUserPhotos,
   onShowUserVisits,
-  onDeleteContributions,
-  onDeleteAccount,
 }: {
   onClose: () => void;
   userProfile: UserProfile | null;
   onShowUserCats: () => void;
   onShowUserPhotos: () => void;
   onShowUserVisits: () => void;
-  onDeleteContributions: () => void | Promise<void>;
-  onDeleteAccount: () => void | Promise<void>;
 }) {
   if (!userProfile) return null;
 
@@ -4130,7 +3832,6 @@ function UserProfile({
         bottom: 0,
         background: "white",
         zIndex: 2000,
-        overflowY: "auto",
       }}
     >
       <div
@@ -4335,29 +4036,6 @@ function UserProfile({
               Cats Visited
             </div>
           </button>
-        </div>
-
-        <div style={{ width: "100%", maxWidth: "400px", marginTop: "28px", paddingTop: "20px", borderTop: "1px solid #e5e7eb" }}>
-          <h4 style={{ margin: "0 0 8px", fontSize: "16px", color: "#111827" }}>Account controls</h4>
-          <p style={{ margin: "0 0 14px", fontSize: "13px", color: "#6b7280", lineHeight: 1.45 }}>
-            You can remove your own photos, visits, slow blinks and written contributions. Deleting your account also removes your profile record and then signs you out.
-          </p>
-          <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-            <button
-              type="button"
-              onClick={onDeleteContributions}
-              style={{ padding: "12px 14px", borderRadius: "12px", border: "1px solid #f59e0b", background: "#fffbeb", color: "#92400e", cursor: "pointer", fontWeight: 600 }}
-            >
-              Delete my contributions
-            </button>
-            <button
-              type="button"
-              onClick={onDeleteAccount}
-              style={{ padding: "12px 14px", borderRadius: "12px", border: "1px solid #ef4444", background: "#fef2f2", color: "#991b1b", cursor: "pointer", fontWeight: 600 }}
-            >
-              Delete my account
-            </button>
-          </div>
         </div>
       </div>
     </div>
@@ -5152,76 +4830,6 @@ export default function CatwalkApp() {
     }
   };
 
-  const handleDeletePhoto = async (photoId: string) => {
-    if (!selectedCat || !currentUser) return;
-
-    const photo = selectedCat.photos.find((item) => item.id === photoId);
-    if (!photo) return;
-
-    const canEdit = photo.contributorId === currentUser.uid || selectedCat.creatorId === currentUser.uid;
-    if (!canEdit) {
-      alert("Only the photo contributor or cat profile creator can delete this photo.");
-      return;
-    }
-
-    const updatedPhotos = selectedCat.photos.filter((item) => item.id !== photoId);
-
-    try {
-      const catDoc = doc(db, "cats", selectedCat.id);
-      await updateDoc(catDoc, { photos: updatedPhotos });
-      setSelectedCat((prev) =>
-        prev && prev.id === selectedCat.id ? { ...prev, photos: updatedPhotos } : prev
-      );
-
-      try {
-        await deleteObject(storageRef(storage, photo.url));
-      } catch (storageError) {
-        console.warn("Photo removed from profile, but the Storage file could not be deleted:", storageError);
-      }
-    } catch (error) {
-      console.error("Error deleting photo:", error);
-      alert("Could not delete the photo. Please try again.");
-    }
-  };
-
-  const handleUpdateVisitCount = async (visitCount: number) => {
-    if (!selectedCat || !currentUser || !userProfile) return;
-
-    const safeCount = Math.max(0, Math.floor(visitCount));
-    const previousUserCount = selectedCat.userVisits?.[currentUser.uid] || 0;
-    const nextTotalVisits = Math.max(0, (selectedCat.totalVisits || 0) - previousUserCount + safeCount);
-    const otherVisits = (selectedCat.visits || []).filter((visit) => visit.userId !== currentUser.uid);
-    const userVisits = Array.from({ length: safeCount }, (_, index) => ({
-      userId: currentUser.uid,
-      userName: userProfile.displayName,
-      date: new Date(Date.now() - (safeCount - index - 1) * 1000).toISOString(),
-    }));
-    const updatedUserVisits = { ...(selectedCat.userVisits || {}), [currentUser.uid]: safeCount };
-
-    try {
-      const catDoc = doc(db, "cats", selectedCat.id);
-      await updateDoc(catDoc, {
-        totalVisits: nextTotalVisits,
-        [`userVisits.${currentUser.uid}`]: safeCount,
-        visits: [...otherVisits, ...userVisits],
-      });
-
-      setSelectedCat((prev) =>
-        prev && prev.id === selectedCat.id
-          ? {
-              ...prev,
-              totalVisits: nextTotalVisits,
-              userVisits: updatedUserVisits,
-              visits: [...otherVisits, ...userVisits],
-            }
-          : prev
-      );
-    } catch (error) {
-      console.error("Error updating visit count:", error);
-      alert("Could not update the visit count. Please try again.");
-    }
-  };
-
   const handleContribute = async (updates: Partial<Cat>) => {
     if (!selectedCat || !currentUser || !userProfile) return;
 
@@ -5245,128 +4853,6 @@ export default function CatwalkApp() {
       setShowContributeForm(false);
     } catch (error) {
       console.error("Error saving contribution:", error);
-    }
-  };
-
-  const removeCurrentUserContributions = async () => {
-    if (!currentUser || !userProfile) return;
-
-    const uid = currentUser.uid;
-    const displayName = userProfile.displayName || "Deleted user";
-    const updatedCats: Cat[] = [];
-
-    for (const cat of cats) {
-      const previousUserVisitCount = cat.userVisits?.[uid] || 0;
-      const photosToRemove = (cat.photos || []).filter((photo) => photo.contributorId === uid);
-      const remainingPhotos = (cat.photos || []).filter((photo) => photo.contributorId !== uid);
-      const remainingVisits = (cat.visits || []).filter((visit) => visit.userId !== uid);
-      const remainingSlowBlinks = (cat.slowBlinks || []).filter((blink) => blink.userId !== uid);
-      const remainingDescriptions = (cat.descriptions || []).filter((description) => description.contributorId !== uid);
-      const remainingContributors = (cat.contributors || []).filter((contributor) => contributor.id !== uid);
-      const nextUserVisits = { ...(cat.userVisits || {}) };
-      delete nextUserVisits[uid];
-
-      const wasChanged =
-        photosToRemove.length > 0 ||
-        previousUserVisitCount > 0 ||
-        (cat.slowBlinks || []).length !== remainingSlowBlinks.length ||
-        (cat.descriptions || []).length !== remainingDescriptions.length ||
-        (cat.contributors || []).length !== remainingContributors.length ||
-        cat.creatorId === uid;
-
-      if (!wasChanged) {
-        updatedCats.push(cat);
-        continue;
-      }
-
-      const nextCat: Cat = {
-        ...cat,
-        photos: remainingPhotos,
-        visits: remainingVisits,
-        slowBlinks: remainingSlowBlinks,
-        descriptions: remainingDescriptions,
-        contributors: remainingContributors,
-        userVisits: nextUserVisits,
-        totalVisits: Math.max(0, (cat.totalVisits || 0) - previousUserVisitCount),
-        creator: cat.creatorId === uid ? "Deleted user" : cat.creator,
-        creatorId: cat.creatorId === uid ? "deleted-user" : cat.creatorId,
-      };
-
-      const catDoc = doc(db, "cats", cat.id);
-      await updateDoc(catDoc, {
-        photos: nextCat.photos,
-        visits: nextCat.visits,
-        slowBlinks: nextCat.slowBlinks,
-        descriptions: nextCat.descriptions || [],
-        contributors: nextCat.contributors || [],
-        userVisits: nextCat.userVisits || {},
-        totalVisits: nextCat.totalVisits,
-        creator: nextCat.creator,
-        creatorId: nextCat.creatorId,
-      });
-
-      for (const photo of photosToRemove) {
-        try {
-          await deleteObject(storageRef(storage, photo.url));
-        } catch (storageError) {
-          console.warn(`Removed ${displayName}'s photo from Firestore, but could not delete the Storage file:`, storageError);
-        }
-      }
-
-      updatedCats.push(nextCat);
-    }
-
-    setCats(updatedCats);
-    setSelectedCat((prev) => (prev ? updatedCats.find((cat) => cat.id === prev.id) || null : prev));
-  };
-
-  const handleDeleteMyContributions = async () => {
-    if (!currentUser || !userProfile) return;
-    const confirmed = window.confirm(
-      "Delete your photos, visits, slow blinks and written contributions from Catwalk? Cat profiles you created will stay visible but will be anonymised."
-    );
-    if (!confirmed) return;
-
-    try {
-      await removeCurrentUserContributions();
-      alert("Your contributions have been removed.");
-    } catch (error) {
-      console.error("Error deleting contributions:", error);
-      alert("Could not delete your contributions. Please try again.");
-    }
-  };
-
-  const handleDeleteAccount = async () => {
-    if (!currentUser || !userProfile) return;
-    const confirmed = window.confirm(
-      "Delete your Catwalk account? This removes your profile and contributions, then signs you out. Firebase may ask you to log in again first for security."
-    );
-    if (!confirmed) return;
-
-    try {
-      await removeCurrentUserContributions();
-
-      const userQuery = query(collection(db, "users"), where("uid", "==", currentUser.uid));
-      const userSnapshot = await getDocs(userQuery);
-      await Promise.all(userSnapshot.docs.map((userDoc) => deleteDoc(userDoc.ref)));
-
-      const authUser = auth.currentUser;
-      if (authUser) {
-        await deleteUser(authUser);
-      } else {
-        await firebaseSignOut(auth);
-      }
-
-      setUserProfile(null);
-      setShowProfile(false);
-      alert("Your account has been deleted.");
-    } catch (error: any) {
-      console.error("Error deleting account:", error);
-      if (error?.code === "auth/requires-recent-login") {
-        alert("For security, Firebase needs you to log in again before deleting your account. Please sign out, sign back in, then try Delete my account again.");
-      } else {
-        alert("Could not delete your account. Please try again.");
-      }
     }
   };
 
@@ -6123,26 +5609,6 @@ export default function CatwalkApp() {
                       );
                       manualMarkerRef.current = null;
                     }
-                    if (userLocation && mapInstanceRef.current) {
-                      mapInstanceRef.current.flyTo(userLocation, 15);
-                    } else if (navigator.geolocation) {
-                      navigator.geolocation.getCurrentPosition(
-                        (position) => {
-                          const nextLocation: [number, number] = [
-                            position.coords.latitude,
-                            position.coords.longitude,
-                          ];
-                          setUserLocation(nextLocation);
-                          mapInstanceRef.current?.flyTo(nextLocation, 15);
-                        },
-                        () => {
-                          alert("Could not get your current location. Please check browser location permissions.");
-                        },
-                        { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
-                      );
-                    } else {
-                      alert("Location services are not available in this browser.");
-                    }
                   }}
                 >
                   Reset location
@@ -6344,8 +5810,6 @@ export default function CatwalkApp() {
           onSlowBlink={handleSlowBlink}
           onAddPhoto={handleAddPhoto}
           onUpdatePhotoPosition={handleUpdatePhotoPosition}
-          onDeletePhoto={handleDeletePhoto}
-          onUpdateVisitCount={handleUpdateVisitCount}
           onContribute={() => setShowContributeForm(true)}
           onAuthRequired={() => setShowAuthRequired(true)}
         />
@@ -6368,8 +5832,6 @@ export default function CatwalkApp() {
             setShowProfile(false);
             setShowUserVisits(true);
           }}
-          onDeleteContributions={handleDeleteMyContributions}
-          onDeleteAccount={handleDeleteAccount}
         />
       )}
 
