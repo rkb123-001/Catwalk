@@ -705,72 +705,6 @@ function fuzzyLocation(_lat: number, _lng: number): string {
   return `Near ${street1} & ${street2}`;
 }
 
-function cleanAreaName(value?: string | null): string {
-  if (!value) return "";
-  return value
-    .replace(/\s*Greater London\s*/gi, "")
-    .replace(/\s*London Borough of\s*/gi, "")
-    .replace(/\s*Borough of\s*/gi, "")
-    .replace(/,\s*United Kingdom$/i, "")
-    .trim();
-}
-
-function getAreaNameFromNominatimResult(result: any): string {
-  const address = result?.address || {};
-  const candidate =
-    address.neighbourhood ||
-    address.suburb ||
-    address.city_district ||
-    address.quarter ||
-    address.town ||
-    address.village ||
-    address.hamlet ||
-    address.city ||
-    result?.name ||
-    result?.display_name?.split(",")?.[0];
-  return cleanAreaName(candidate) || "Nearby area";
-}
-
-async function getApproximateAreaName(lat: number, lng: number): Promise<string> {
-  try {
-    const res = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(String(lat))}&lon=${encodeURIComponent(String(lng))}&zoom=15&addressdetails=1`
-    );
-    if (!res.ok) return "Nearby area";
-    const data = await res.json();
-    return getAreaNameFromNominatimResult(data);
-  } catch {
-    return "Nearby area";
-  }
-}
-
-function shouldResolveAreaName(area?: string): boolean {
-  if (!area) return true;
-  const normalised = area.trim().toLowerCase();
-  return normalised === "local area" || normalised === "nearby area";
-}
-
-function DisplayArea({ location }: { location: CatLocation }) {
-  const [resolvedArea, setResolvedArea] = useState(location.area);
-
-  useEffect(() => {
-    let cancelled = false;
-    setResolvedArea(location.area);
-
-    if (!shouldResolveAreaName(location.area)) return;
-
-    getApproximateAreaName(location.lat, location.lng).then((area) => {
-      if (!cancelled) setResolvedArea(area);
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [location.area, location.lat, location.lng]);
-
-  return <>{resolvedArea || "Nearby area"}</>;
-}
-
 function extractLocationFromPhoto(
   _file: File
 ): Promise<[number, number] | null> {
@@ -1414,7 +1348,7 @@ function UserCatsScreen({
                     </h4>
                   </div>
                   <div style={{ fontSize: "12px", color: "#6b7280" }}>
-                    <div>📍 {<DisplayArea location={cat.location} />}</div>
+                    <div>📍 {cat.location.area}</div>
                     <div>
                       📅 Added {formatDate(cat.createdDate)}
                     </div>
@@ -1745,7 +1679,7 @@ function UserVisitsScreen({
                       margin: "0 0 8px 0",
                     }}
                   >
-                    📍 <DisplayArea location={cat.location} />, {cat.location.city}
+                    📍 {cat.location.area}, {cat.location.city}
                   </p>
                   <div
                     style={{
@@ -2074,7 +2008,6 @@ function AddCatForm({
   const [approximateAddress, setApproximateAddress] = useState("");
   const [uploading, setUploading] = useState(false);
   const [catLocation, setCatLocation] = useState<[number, number] | null>(null);
-  const [catAreaName, setCatAreaName] = useState("");
   const [catLocationSearch, setCatLocationSearch] = useState("");
   const [catLocationResults, setCatLocationResults] = useState<any[]>([]);
   const [searchingCatLocation, setSearchingCatLocation] = useState(false);
@@ -2085,14 +2018,9 @@ function AddCatForm({
   const location = catLocation;
   const mapStartingCentre: [number, number] = manualLocation || userLocation || [51.5074, -0.1278];
 
-  const placeCatLocationMarker = (lat: number, lng: number, address?: string, areaName?: string) => {
+  const placeCatLocationMarker = (lat: number, lng: number, address?: string) => {
     setCatLocation([lat, lng]);
     if (address) setApproximateAddress(address);
-    if (areaName) {
-      setCatAreaName(areaName);
-    } else {
-      getApproximateAreaName(lat, lng).then(setCatAreaName);
-    }
 
     const map = pickerMapInstanceRef.current;
     if (!map || !window.L) return;
@@ -2114,7 +2042,6 @@ function AddCatForm({
       if (next) {
         setCatLocation([next.lat, next.lng]);
         setApproximateAddress(fuzzyLocation(next.lat, next.lng));
-        getApproximateAreaName(next.lat, next.lng).then(setCatAreaName);
       }
     });
     map.flyTo([lat, lng], Math.max(map.getZoom(), 15), { duration: 0.35 });
@@ -2187,7 +2114,7 @@ function AddCatForm({
     }
     setSearchingCatLocation(true);
     try {
-      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&q=${encodeURIComponent(queryText)}&limit=5`);
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(queryText)}&limit=5`);
       const data = await res.json();
       setCatLocationResults(data);
     } catch {
@@ -2203,7 +2130,7 @@ function AddCatForm({
     const label = result.display_name.split(",").slice(0, 3).join(",");
     setCatLocationSearch(label);
     setCatLocationResults([]);
-    placeCatLocationMarker(lat, lng, label, getAreaNameFromNominatimResult(result));
+    placeCatLocationMarker(lat, lng, label);
   };
 
   const handleSubmit = async () => {
@@ -2260,8 +2187,6 @@ function AddCatForm({
         userName: activeUserProfile.displayName,
       };
 
-      const resolvedAreaName = catAreaName || await getApproximateAreaName(location[0], location[1]);
-
       // Create the cat document first. Creating a cat also counts as the
       // creator's first visit, because they have physically spotted the cat.
       const catData = {
@@ -2278,7 +2203,7 @@ function AddCatForm({
         location: {
           lat: location[0],
           lng: location[1],
-          area: resolvedAreaName || "Nearby area",
+          area: "Local Area",
           city: "London",
           country: "United Kingdom",
           continent: "Europe",
@@ -3553,7 +3478,7 @@ function CatProfile({
               <span style={{ fontSize: "20px" }}>📍</span>
               <div>
                 <div>
-                  <DisplayArea location={cat.location} />, {cat.location.city}
+                  {cat.location.area}, {cat.location.city}
                 </div>
                 <div style={{ color: "#6b7280", fontSize: "14px" }}>
                   {cat.location.approximateAddress}
@@ -3662,7 +3587,7 @@ function CatProfile({
                 {cat.location.approximateAddress}
               </div>
               <div>
-                <DisplayArea location={cat.location} />, {cat.location.city}
+                {cat.location.area}, {cat.location.city}
               </div>
               <div style={{ fontSize: "12px", marginTop: "8px" }}>
                 📍 Fuzzed location for privacy
@@ -3880,7 +3805,7 @@ function ContributeForm({
           <div>
             <h3 style={{ margin: 0, fontSize: "20px" }}>{cat.name}</h3>
             <p style={{ margin: 0, color: "#6b7280", fontSize: "14px" }}>
-              <DisplayArea location={cat.location} />, {cat.location.city}
+              {cat.location.area}, {cat.location.city}
             </p>
           </div>
         </div>
@@ -5073,7 +4998,6 @@ export default function CatwalkApp() {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
   const manualMarkerRef = useRef<any>(null);
-  const repairedCreatorVisitsRef = useRef<Set<string>>(new Set());
 
   const invalidateMapSize = (map = mapInstanceRef.current) => {
     if (!map) return;
@@ -5135,59 +5059,6 @@ export default function CatwalkApp() {
 
     return () => unsubscribe();
   }, []);
-
-  // Backfill creator visits for cats added before the creator-visit behaviour existed.
-  // This repairs existing profiles like Puss without needing a manual Firebase edit.
-  useEffect(() => {
-    if (!currentUser || !userProfile || cats.length === 0) return;
-
-    const catsMissingCreatorVisit = cats.filter((cat) => {
-      if (cat.creatorId !== currentUser.uid) return false;
-      if (repairedCreatorVisitsRef.current.has(cat.id)) return false;
-
-      const visits = cat.visits || [];
-      return !visits.some((visit) => visit.userId === currentUser.uid);
-    });
-
-    if (catsMissingCreatorVisit.length === 0) return;
-
-    catsMissingCreatorVisit.forEach((cat) => repairedCreatorVisitsRef.current.add(cat.id));
-
-    const repairCreatorVisits = async () => {
-      try {
-        const visitUserName = userProfile.displayName || currentUser.email || "Catwalker";
-
-        await Promise.all(
-          catsMissingCreatorVisit.map(async (cat) => {
-            const visitDate = toDate(cat.createdDate)?.toISOString() || new Date().toISOString();
-            const creatorVisit = {
-              userId: currentUser.uid,
-              date: visitDate,
-              userName: visitUserName,
-            };
-
-            await updateDoc(doc(db, "cats", cat.id), {
-              visits: arrayUnion(creatorVisit),
-              totalVisits: increment(1),
-              [`userVisits.${currentUser.uid}`]: increment(1),
-            });
-          })
-        );
-
-        const userQuery = query(collection(db, "users"), where("uid", "==", currentUser.uid));
-        const userSnapshot = await getDocs(userQuery);
-        if (!userSnapshot.empty) {
-          await updateDoc(userSnapshot.docs[0].ref, {
-            catsVisited: arrayUnion(...catsMissingCreatorVisit.map((cat) => cat.id)),
-          });
-        }
-      } catch (error) {
-        console.error("Error repairing creator visit history:", error);
-      }
-    };
-
-    repairCreatorVisits();
-  }, [cats, currentUser, userProfile]);
 
   // Keep an open cat profile synced with Firestore. Without this, actions like
   // Visit, Slow Blink, or Add Photo can save correctly but the currently open
@@ -6538,7 +6409,7 @@ export default function CatwalkApp() {
                         gap: "4px",
                       }}
                     >
-                      📍 <DisplayArea location={cat.location} />
+                      📍 {cat.location.area}
                     </span>
                     <span>{cat.totalVisits} visits</span>
                   </div>
