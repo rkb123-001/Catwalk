@@ -1743,7 +1743,6 @@ function MapSnapshot({
           html: '<div style="width: 12px; height: 12px; background: #ef4444; border: 2px solid white; border-radius: 50%; box-shadow: 0 1px 4px rgba(239, 68, 68, 0.5);"></div>',
           iconSize: [12, 12],
           iconAnchor: [6, 6],
-          className: '',
         });
 
         // Slightly randomise pin position for privacy when blurred
@@ -2007,131 +2006,8 @@ function AddCatForm({
   const [photoObjectPosition, setPhotoObjectPosition] = useState(DEFAULT_CAT_PHOTO_POSITION);
   const [approximateAddress, setApproximateAddress] = useState("");
   const [uploading, setUploading] = useState(false);
-  const [catLocation, setCatLocation] = useState<[number, number] | null>(null);
-  const [catLocationSearch, setCatLocationSearch] = useState("");
-  const [catLocationResults, setCatLocationResults] = useState<any[]>([]);
-  const [searchingCatLocation, setSearchingCatLocation] = useState(false);
-  const pickerMapRef = useRef<HTMLDivElement>(null);
-  const pickerMapInstanceRef = useRef<any>(null);
-  const pickerMarkerRef = useRef<any>(null);
 
-  const location = catLocation;
-  const mapStartingCentre: [number, number] = manualLocation || userLocation || [51.5074, -0.1278];
-
-  const placeCatLocationMarker = (lat: number, lng: number, address?: string) => {
-    setCatLocation([lat, lng]);
-    if (address) setApproximateAddress(address);
-
-    const map = pickerMapInstanceRef.current;
-    if (!map || !window.L) return;
-
-    if (pickerMarkerRef.current) {
-      map.removeLayer(pickerMarkerRef.current);
-    }
-
-    const icon = window.L.divIcon({
-      html: '<div style="width: 28px; height: 28px; background: #1a0dab; border: 3px solid white; border-radius: 50%; box-shadow: 0 2px 8px rgba(26,13,171,0.45);"></div>',
-      iconSize: [28, 28],
-      iconAnchor: [14, 14],
-      className: '',
-    });
-
-    pickerMarkerRef.current = window.L.marker([lat, lng], { icon, draggable: true }).addTo(map);
-    pickerMarkerRef.current.on("dragend", () => {
-      const next = pickerMarkerRef.current?.getLatLng();
-      if (next) {
-        setCatLocation([next.lat, next.lng]);
-        setApproximateAddress(fuzzyLocation(next.lat, next.lng));
-      }
-    });
-    map.flyTo([lat, lng], Math.max(map.getZoom(), 15), { duration: 0.35 });
-  };
-
-  useEffect(() => {
-    let cancelled = false;
-    let timer: number | undefined;
-
-    const initialisePickerMap = () => {
-      if (cancelled) return;
-      const container = pickerMapRef.current;
-      if (!container || !window.L) {
-        timer = window.setTimeout(initialisePickerMap, 80);
-        return;
-      }
-
-      if (pickerMapInstanceRef.current) {
-        pickerMapInstanceRef.current.invalidateSize();
-        return;
-      }
-
-      if ((container as any)._leaflet_id) {
-        (container as any)._leaflet_id = undefined;
-      }
-      container.innerHTML = "";
-
-      const map = window.L.map(container, {
-        center: mapStartingCentre,
-        zoom: 15,
-        minZoom: 5,
-        maxZoom: 20,
-        zoomControl: true,
-        preferCanvas: true,
-      });
-
-      window.L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: "© OpenStreetMap contributors",
-        maxZoom: 20,
-      }).addTo(map);
-
-      map.on("click", (e: any) => {
-        const { lat, lng } = e.latlng;
-        placeCatLocationMarker(lat, lng, fuzzyLocation(lat, lng));
-      });
-
-      pickerMapInstanceRef.current = map;
-      window.setTimeout(() => map.invalidateSize(), 80);
-      window.setTimeout(() => map.invalidateSize(), 250);
-    };
-
-    initialisePickerMap();
-
-    return () => {
-      cancelled = true;
-      if (timer !== undefined) window.clearTimeout(timer);
-      if (pickerMapInstanceRef.current) {
-        pickerMapInstanceRef.current.remove();
-        pickerMapInstanceRef.current = null;
-        pickerMarkerRef.current = null;
-      }
-    };
-  }, []);
-
-  const handleCatLocationSearch = async (queryText: string) => {
-    setCatLocationSearch(queryText);
-    if (queryText.trim().length < 3) {
-      setCatLocationResults([]);
-      return;
-    }
-    setSearchingCatLocation(true);
-    try {
-      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(queryText)}&limit=5`);
-      const data = await res.json();
-      setCatLocationResults(data);
-    } catch {
-      setCatLocationResults([]);
-    } finally {
-      setSearchingCatLocation(false);
-    }
-  };
-
-  const handleCatLocationSelect = (result: any) => {
-    const lat = parseFloat(result.lat);
-    const lng = parseFloat(result.lon);
-    const label = result.display_name.split(",").slice(0, 3).join(",");
-    setCatLocationSearch(label);
-    setCatLocationResults([]);
-    placeCatLocationMarker(lat, lng, label);
-  };
+  const location = manualLocation || userLocation;
 
   const handleSubmit = async () => {
     if (!currentUser) {
@@ -2140,7 +2016,7 @@ function AddCatForm({
     }
 
     if (!location) {
-      alert("Please choose the cat’s approximate location on the Add Cat page first.");
+      alert("Please choose a location first. Drop a pin on the map, then tap Continue to cat details.");
       return;
     }
 
@@ -2338,118 +2214,53 @@ function AddCatForm({
           gap: "24px",
         }}
       >
-        {/* Cat Location Picker */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-          <div
+        {/* Location Notice */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            padding: "12px",
+            background: "#f3f4f6",
+            borderRadius: "12px",
+            fontSize: "14px",
+            color: "#4b5563",
+          }}
+        >
+          <span>📍</span>
+          {manualLocation
+            ? "Pinned location selected. It will be saved when you tap Save cat."
+            : userLocation
+            ? "Using your current location for this cat"
+            : "Choose a location before saving this cat"}
+        </div>
+
+        {/* Approximate Address */}
+        <div>
+          <label
             style={{
-              display: "flex",
-              alignItems: "flex-start",
-              gap: "10px",
-              padding: "12px",
-              background: location ? "#ecfdf5" : "#fef3c7",
-              borderRadius: "12px",
+              display: "block",
               fontSize: "14px",
-              color: location ? "#065f46" : "#92400e",
+              fontWeight: "500",
+              marginBottom: "8px",
+              color: "#111827",
             }}
           >
-            <span>📍</span>
-            <div>
-              <strong>{location ? "Cat location selected" : "Choose the cat’s approximate location"}</strong>
-              <div style={{ marginTop: "3px" }}>
-                {location
-                  ? "This location will only be saved after you tap Save cat."
-                  : "Search for an area, use your current location, or tap the map below. You can drag the dot to adjust it."}
-              </div>
-            </div>
-          </div>
-
-          <div style={{ position: "relative" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "8px", border: "1px solid #d1d5db", borderRadius: "12px", padding: "10px 12px", background: "white" }}>
-              <span>🔍</span>
-              <input
-                type="text"
-                value={catLocationSearch}
-                onChange={(e) => handleCatLocationSearch(e.target.value)}
-                placeholder="Search for the cat’s approximate area"
-                style={{ border: "none", outline: "none", width: "100%", fontSize: "15px", background: "transparent" }}
-              />
-              {searchingCatLocation && <span style={{ fontSize: "12px", color: "#9ca3af" }}>...</span>}
-            </div>
-            {catLocationResults.length > 0 && (
-              <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 30, background: "white", borderRadius: "12px", boxShadow: "0 6px 18px rgba(0,0,0,0.15)", marginTop: "4px", overflow: "hidden" }}>
-                {catLocationResults.map((result: any, i: number) => (
-                  <button
-                    key={`${result.place_id || result.display_name}-${i}`}
-                    type="button"
-                    onClick={() => handleCatLocationSelect(result)}
-                    style={{ display: "block", width: "100%", padding: "11px 14px", background: "white", border: "none", borderBottom: i < catLocationResults.length - 1 ? "1px solid #f3f4f6" : "none", textAlign: "left", cursor: "pointer", fontSize: "13px", color: "#111827" }}
-                  >
-                    {result.display_name.split(",").slice(0, 3).join(",")}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div
-            ref={pickerMapRef}
+            Approximate Address
+          </label>
+          <input
+            type="text"
+            value={approximateAddress}
+            onChange={(e) => setApproximateAddress(e.target.value)}
+            placeholder="e.g., Near High Street & Park Lane"
             style={{
-              height: "260px",
-              minHeight: "260px",
-              borderRadius: "16px",
-              overflow: "hidden",
-              border: "1px solid #e5e7eb",
-              background: "#e8f5e9",
+              width: "100%",
+              padding: "10px 14px",
+              border: "1px solid #d1d5db",
+              borderRadius: "12px",
+              fontSize: "16px",
             }}
           />
-
-          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-            <button
-              type="button"
-              onClick={() => {
-                if (!navigator.geolocation) {
-                  alert("Location services are not available in this browser.");
-                  return;
-                }
-                navigator.geolocation.getCurrentPosition(
-                  (position) => {
-                    const lat = position.coords.latitude;
-                    const lng = position.coords.longitude;
-                    placeCatLocationMarker(lat, lng, fuzzyLocation(lat, lng));
-                  },
-                  () => alert("Could not get your current location. Please check browser location permissions."),
-                  { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
-                );
-              }}
-              style={{ padding: "9px 12px", borderRadius: "999px", border: "1px solid #d1d5db", background: "white", cursor: "pointer", fontSize: "13px", fontWeight: 600 }}
-            >
-              Use my current location
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                const centre = pickerMapInstanceRef.current?.getCenter?.();
-                if (!centre) return;
-                placeCatLocationMarker(centre.lat, centre.lng, fuzzyLocation(centre.lat, centre.lng));
-              }}
-              style={{ padding: "9px 12px", borderRadius: "999px", border: "1px solid #d1d5db", background: "white", cursor: "pointer", fontSize: "13px", fontWeight: 600 }}
-            >
-              Use centre of this map
-            </button>
-          </div>
-
-          <div>
-            <label style={{ display: "block", fontSize: "14px", fontWeight: "500", marginBottom: "8px", color: "#111827" }}>
-              Approximate address / landmark
-            </label>
-            <input
-              type="text"
-              value={approximateAddress}
-              onChange={(e) => setApproximateAddress(e.target.value)}
-              placeholder="e.g., Near High Street & Park Lane"
-              style={{ width: "100%", padding: "10px 14px", border: "1px solid #d1d5db", borderRadius: "12px", fontSize: "16px" }}
-            />
-          </div>
         </div>
 
         {/* Emoji Selection */}
@@ -5352,7 +5163,6 @@ export default function CatwalkApp() {
             html: '<div style="width: 30px; height: 30px; background: #ef4444; border: 3px solid white; border-radius: 50%; box-shadow: 0 2px 8px rgba(239, 68, 68, 0.5);"></div>',
             iconSize: [30, 30],
             iconAnchor: [15, 15],
-            className: '',
           });
 
           manualMarkerRef.current = window.L.marker([lat, lng], {
@@ -5365,7 +5175,7 @@ export default function CatwalkApp() {
             if (next) setManualLocation([next.lat, next.lng]);
           });
 
-          manualMarkerRef.current.bindPopup("Custom pin placed. To create a cat, tap the + Add cat button and choose the cat’s approximate location in the form.").openPopup();
+          manualMarkerRef.current.bindPopup("Location selected. Next, tap ‘Continue to cat details’. It is not saved until you tap Save cat.").openPopup();
           setIsPlacingPin(false);
         }
       });
@@ -5430,7 +5240,7 @@ export default function CatwalkApp() {
       const location = manualLocation || userLocation;
       if (!location) {
         alert(
-          "Please choose the cat’s approximate location from the Add Cat page."
+          "Please set a location by dropping a pin or allowing location access"
         );
         return;
       }
@@ -6503,7 +6313,7 @@ export default function CatwalkApp() {
               },
               {
                 q: "How do I add a cat?",
-                a: "You need to be signed in. Tap the blue + Add cat button, then choose the cat’s approximate location inside the Add Cat form by searching, tapping the small map, or using your current location. Fill in the name, colour, personality traits, and an optional photo, then tap Save cat."
+                a: "You need to be signed in. On the map, tap 'Add cat' or use the drop pin to mark the location first, then tap 'Add cat'. Fill in the name, colour, personality traits, and an optional photo. The cat will appear on the map immediately."
               },
               {
                 q: "What is Catspotting?",
@@ -6744,16 +6554,35 @@ export default function CatwalkApp() {
             {manualLocation && !isPlacingPin && (
               <div
                 style={{
-                  background: "#eff6ff",
-                  color: "#1e3a8a",
+                  background: "#ecfdf5",
+                  color: "#065f46",
                   padding: "10px 12px",
                   borderRadius: "12px",
                   fontSize: "13px",
                   boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
-                  maxWidth: "280px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "10px",
+                  flexWrap: "wrap",
                 }}
               >
-                Custom pin placed. This adjusts the map area only. To create a new cat, tap the blue + Add cat button.
+                <span>Pin selected. Next, add the cat details.</span>
+                <button
+                  type="button"
+                  onClick={handleCheckForDuplicates}
+                  style={{
+                    background: "#059669",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "999px",
+                    padding: "7px 12px",
+                    fontSize: "13px",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                  }}
+                >
+                  Continue to cat details
+                </button>
               </div>
             )}
             {isPlacingPin && (
@@ -6767,7 +6596,7 @@ export default function CatwalkApp() {
                   boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
                 }}
               >
-Tap the map to place a custom map pin. To create a cat, use the blue + Add cat button.
+Tap the cat’s approximate location on the map. You’ll get a Continue button after the pin is placed.
               </div>
             )}
           </div>
@@ -6866,14 +6695,9 @@ Tap the map to place a custom map pin. To create a cat, use the blue + Add cat b
                   boxShadow: "0 4px 12px rgba(139, 92, 246, 0.4)",
                   cursor: "pointer",
                 }}
-                onClick={() => requireAuth(() => setShowAddCat(true))}
-                aria-label="Add a new cat"
-                title="Add a new cat"
+                onClick={handleCheckForDuplicates}
               >
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", lineHeight: 1 }}>
-                  <PlusIcon />
-                  <span style={{ fontSize: "10px", fontWeight: 700, marginTop: "2px" }}>Add cat</span>
-                </div>
+                <PlusIcon />
               </button>
             </div>
           )}
@@ -6884,7 +6708,7 @@ Tap the map to place a custom map pin. To create a cat, use the blue + Add cat b
         <CatList
           cats={cats}
           onSelectCat={setSelectedCat}
-          onAddCat={() => requireAuth(() => setShowAddCat(true))}
+          onAddCat={handleCheckForDuplicates}
         />
       )}
 
