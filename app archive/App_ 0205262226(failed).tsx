@@ -4967,7 +4967,7 @@ export default function CatwalkApp() {
   const [showAuthRequired, setShowAuthRequired] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
   const [showLocationConsent, setShowLocationConsent] = useState(false);
-  const [potentialDuplicates] = useState<Cat[]>([]);
+  const [potentialDuplicates, setPotentialDuplicates] = useState<Cat[]>([]);
   const [userLocation, setUserLocation] = useState<[number, number] | null>(
     null
   );
