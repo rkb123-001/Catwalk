@@ -4026,6 +4026,11 @@ export default function CatwalkApp() {
       cssLink.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
       document.head.appendChild(cssLink);
 
+      // Push zoom controls below the overlay panel
+      const zoomStyle = document.createElement("style");
+      zoomStyle.textContent = `.leaflet-top.leaflet-left { top: 220px !important; } .leaflet-control-zoom { border: none !important; box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important; } .leaflet-control-zoom a { width: 36px !important; height: 36px !important; line-height: 36px !important; }`;
+      document.head.appendChild(zoomStyle);
+
       const script = document.createElement("script");
       script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
       script.onload = () => {
@@ -4130,9 +4135,10 @@ export default function CatwalkApp() {
 
       cats.forEach((cat) => {
         const catIcon = window.L.divIcon({
-          html: `<div style="width: 40px; height: 40px; background: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2); cursor: pointer;">${cat.emoji}</div>`,
-          iconSize: [40, 40],
-          iconAnchor: [20, 20],
+          html: `<div style="font-size: 28px; line-height: 1; cursor: pointer; filter: drop-shadow(0 1px 3px rgba(0,0,0,0.3));">${cat.emoji}</div>`,
+          iconSize: [36, 36],
+          iconAnchor: [18, 18],
+          className: '',
         });
 
         const marker = window.L.marker([cat.location.lat, cat.location.lng], {
@@ -4143,9 +4149,10 @@ export default function CatwalkApp() {
 
       if (userLocation) {
         const userIcon = window.L.divIcon({
-          html: '<div style="width: 20px; height: 20px; background: #3b82f6; border: 3px solid white; border-radius: 50%; box-shadow: 0 2px 8px rgba(59, 130, 246, 0.5);"></div>',
-          iconSize: [20, 20],
-          iconAnchor: [10, 10],
+          html: '<div style="width: 16px; height: 16px; background: #3b82f6; border: 3px solid white; border-radius: 50%; box-shadow: 0 2px 8px rgba(59, 130, 246, 0.5);"></div>',
+          iconSize: [16, 16],
+          iconAnchor: [8, 8],
+          className: '',
         });
         const userMarker = window.L.marker(userLocation, {
           icon: userIcon,
