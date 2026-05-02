@@ -149,21 +149,6 @@ interface UserProfile {
   identity: "human-of-cat" | "unattached-catwalker";
 }
 
-interface ContributionDeleteOptions {
-  photos: boolean;
-  visits: boolean;
-  slowBlinks: boolean;
-  writtenInfo: boolean;
-  catsCreated: boolean;
-}
-
-interface UserProfileUpdateData {
-  displayName: string;
-  identity: "human-of-cat" | "unattached-catwalker";
-  location: string;
-  profilePictureFile?: File | null;
-}
-
 interface User {
   uid: string;
   email: string | null;
@@ -786,12 +771,6 @@ async function getUserProfile(userId: string): Promise<UserProfile | null> {
     console.error("Error getting user profile:", error);
     return null;
   }
-}
-
-async function getUserProfileDocRef(userId: string) {
-  const q = query(collection(db, "users"), where("uid", "==", userId));
-  const querySnapshot = await getDocs(q);
-  return querySnapshot.empty ? null : querySnapshot.docs[0].ref;
 }
 
 // Auth Required Modal Component
@@ -2501,9 +2480,6 @@ function CatProfile({
   const canEditPhotoPosition = (photo: CatPhoto) =>
     Boolean(currentUser && (photo.contributorId === currentUser.uid || cat.creatorId === currentUser.uid));
 
-  const canDeletePhoto = (photo: CatPhoto) =>
-    Boolean(currentUser && photo.contributorId === currentUser.uid);
-
   const visitorSummaries = Object.values(
     (cat.visits || []).reduce<Record<string, { userId: string; userName: string; count: number; latestDate: string }>>((acc, visit) => {
       const userId = visit.userId || "unknown";
@@ -2559,7 +2535,7 @@ function CatProfile({
   };
 
   const handleDeletePhoto = async (photo: CatPhoto) => {
-    if (!canDeletePhoto(photo)) return;
+    if (!canEditPhotoPosition(photo)) return;
 
     const confirmed = window.confirm("Delete this photo from the cat profile?");
     if (!confirmed) return;
@@ -2792,8 +2768,7 @@ function CatProfile({
                   >
                     <button
                       type="button"
-                      aria-label="Edit photo"
-                      title="Edit photo"
+                      aria-label="Edit photo focus"
                       onClick={() => setEditingPhotoId((prev) => prev === photo.id ? null : photo.id)}
                       style={{
                         width: "36px",
@@ -2811,29 +2786,26 @@ function CatProfile({
                     >
                       <EditIcon />
                     </button>
-                    {canDeletePhoto(photo) && (
-                      <button
-                        type="button"
-                        aria-label="Delete photo"
-                        title="Delete photo"
-                        onClick={() => handleDeletePhoto(photo)}
-                        style={{
-                          width: "36px",
-                          height: "36px",
-                          borderRadius: "999px",
-                          border: "none",
-                          background: "rgba(255,255,255,0.92)",
-                          color: "#dc2626",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          cursor: "pointer",
-                          boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-                        }}
-                      >
-                        <TrashIcon />
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      aria-label="Delete photo"
+                      onClick={() => handleDeletePhoto(photo)}
+                      style={{
+                        width: "36px",
+                        height: "36px",
+                        borderRadius: "999px",
+                        border: "none",
+                        background: "rgba(255,255,255,0.92)",
+                        color: "#dc2626",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        cursor: "pointer",
+                        boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+                      }}
+                    >
+                      <TrashIcon />
+                    </button>
                   </div>
                 )}
               </div>
@@ -3155,7 +3127,7 @@ function CatProfile({
                 }}
                 onClick={() => setShowAllPhotos(true)}
               >
-                {cat.photos.length > 2 ? `View all ${cat.photos.length} photos` : "Edit photo"}
+                {cat.photos.length > 2 ? `View all ${cat.photos.length} photos` : "Edit photo focus"}
               </button>
             )}
           </div>
@@ -4214,8 +4186,7 @@ function UserProfile({
   onShowUserCats,
   onShowUserPhotos,
   onShowUserVisits,
-  onUpdateProfile,
-  onDeleteSelectedContributions,
+  onDeleteContributions,
   onDeleteAccount,
 }: {
   onClose: () => void;
@@ -4223,68 +4194,10 @@ function UserProfile({
   onShowUserCats: () => void;
   onShowUserPhotos: () => void;
   onShowUserVisits: () => void;
-  onUpdateProfile: (data: UserProfileUpdateData) => void | Promise<void>;
-  onDeleteSelectedContributions: (options: ContributionDeleteOptions) => void | Promise<void>;
+  onDeleteContributions: () => void | Promise<void>;
   onDeleteAccount: () => void | Promise<void>;
 }) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [displayName, setDisplayName] = useState(userProfile?.displayName || "");
-  const [identity, setIdentity] = useState<UserProfile["identity"]>(userProfile?.identity || "unattached-catwalker");
-  const [location, setLocation] = useState(userProfile?.location || "");
-  const [profilePictureFile, setProfilePictureFile] = useState<File | null>(null);
-  const [profilePicturePreview, setProfilePicturePreview] = useState<string | null>(null);
-  const [showContributionPicker, setShowContributionPicker] = useState(false);
-  const [deleteOptions, setDeleteOptions] = useState<ContributionDeleteOptions>({
-    photos: false,
-    visits: false,
-    slowBlinks: false,
-    writtenInfo: false,
-    catsCreated: false,
-  });
-
-  useEffect(() => {
-    setDisplayName(userProfile?.displayName || "");
-    setIdentity(userProfile?.identity || "unattached-catwalker");
-    setLocation(userProfile?.location || "");
-    setProfilePictureFile(null);
-    setProfilePicturePreview(null);
-  }, [userProfile]);
-
   if (!userProfile) return null;
-
-  const handleProfilePictureSelect = (file: File) => {
-    setProfilePictureFile(file);
-    const reader = new FileReader();
-    reader.onloadend = () => setProfilePicturePreview(reader.result as string);
-    reader.readAsDataURL(file);
-  };
-
-  const hasSelectedContributions = Object.values(deleteOptions).some(Boolean);
-
-  const handleSaveProfile = async () => {
-    const cleanName = displayName.trim();
-    if (!cleanName) {
-      alert("Please add a display name.");
-      return;
-    }
-    await onUpdateProfile({
-      displayName: cleanName,
-      identity,
-      location: location.trim(),
-      profilePictureFile,
-    });
-    setIsEditing(false);
-    setProfilePictureFile(null);
-    setProfilePicturePreview(null);
-  };
-
-  const contributionChoices: { key: keyof ContributionDeleteOptions; label: string; description: string }[] = [
-    { key: "photos", label: "Photo uploads", description: "Remove photos you uploaded from cat profiles." },
-    { key: "visits", label: "Visit history", description: "Remove your logged visits and update visit totals." },
-    { key: "slowBlinks", label: "Slow blinks", description: "Remove your slow blink reactions." },
-    { key: "writtenInfo", label: "Written information", description: "Remove descriptions, anecdotes and behaviour notes you added." },
-    { key: "catsCreated", label: "Cats you added", description: "Keep the cat profiles visible, but anonymise you as the creator." },
-  ];
 
   return (
     <div
@@ -4348,9 +4261,9 @@ function UserProfile({
             overflow: "hidden",
           }}
         >
-          {profilePicturePreview || userProfile.profilePicture ? (
+          {userProfile.profilePicture ? (
             <img
-              src={profilePicturePreview || userProfile.profilePicture}
+              src={userProfile.profilePicture}
               alt="Profile"
               style={{ width: "100%", height: "100%", objectFit: "cover" }}
             />
@@ -4359,111 +4272,36 @@ function UserProfile({
           )}
         </div>
 
-        {isEditing ? (
-          <div style={{ width: "100%", maxWidth: "420px", display: "flex", flexDirection: "column", gap: "12px", marginBottom: "28px" }}>
-            <label style={{ fontSize: "14px", fontWeight: 600, color: "#374151" }}>
-              Display name
-              <input
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                style={{ width: "100%", marginTop: "6px", padding: "12px", borderRadius: "12px", border: "1px solid #d1d5db", fontSize: "16px" }}
-              />
-            </label>
-            <label style={{ fontSize: "14px", fontWeight: 600, color: "#374151" }}>
-              Profile type
-              <select
-                value={identity}
-                onChange={(e) => setIdentity(e.target.value as UserProfile["identity"])}
-                style={{ width: "100%", marginTop: "6px", padding: "12px", borderRadius: "12px", border: "1px solid #d1d5db", fontSize: "16px", background: "white" }}
-              >
-                <option value="human-of-cat">Human of a Cat</option>
-                <option value="unattached-catwalker">Unattached Catwalker</option>
-              </select>
-            </label>
-            <label style={{ fontSize: "14px", fontWeight: 600, color: "#374151" }}>
-              Location
-              <input
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                placeholder="e.g. London"
-                style={{ width: "100%", marginTop: "6px", padding: "12px", borderRadius: "12px", border: "1px solid #d1d5db", fontSize: "16px" }}
-              />
-            </label>
-            <div>
-              <div style={{ fontSize: "14px", fontWeight: 600, color: "#374151", marginBottom: "6px" }}>Profile picture</div>
-              <PhotoCaptureButton
-                onPhotoSelected={handleProfilePictureSelect}
-                style={{ width: "100%" }}
-              >
-                <button
-                  type="button"
-                  style={{ width: "100%", padding: "12px 14px", borderRadius: "12px", border: "1px solid #d1d5db", background: "#f9fafb", cursor: "pointer", fontWeight: 600 }}
-                >
-                  {profilePictureFile ? "Change profile photo" : "Choose profile photo"}
-                </button>
-              </PhotoCaptureButton>
-            </div>
-            <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end", marginTop: "4px" }}>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsEditing(false);
-                  setDisplayName(userProfile.displayName || "");
-                  setIdentity(userProfile.identity || "unattached-catwalker");
-                  setLocation(userProfile.location || "");
-                  setProfilePictureFile(null);
-                  setProfilePicturePreview(null);
-                }}
-                style={{ padding: "10px 14px", borderRadius: "999px", border: "1px solid #e5e7eb", background: "white", cursor: "pointer" }}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveProfile}
-                style={{ padding: "10px 16px", borderRadius: "999px", border: "none", background: "#1a0dab", color: "white", cursor: "pointer", fontWeight: 600 }}
-              >
-                Save changes
-              </button>
-            </div>
-          </div>
-        ) : (
-          <>
-            <h3 style={{ fontSize: "28px", fontWeight: "600", marginBottom: "8px" }}>
-              {userProfile.displayName}
-            </h3>
-            <p style={{ fontSize: "16px", color: "#6b7280", marginBottom: "8px" }}>
-              {userProfile.email}
-            </p>
-            <p
-              style={{
-                fontSize: "16px",
-                color: "#1a0dab",
-                marginBottom: "8px",
-                fontWeight: "500",
-              }}
-            >
-              {userProfile.identity === "human-of-cat"
-                ? "Human of a Cat"
-                : "Unattached Catwalker"}
-            </p>
-            {userProfile.location && (
-              <p style={{ fontSize: "16px", color: "#6b7280", marginBottom: "8px" }}>
-                📍 {userProfile.location}
-              </p>
-            )}
-            <button
-              type="button"
-              onClick={() => setIsEditing(true)}
-              style={{ padding: "9px 14px", borderRadius: "999px", border: "1px solid #d1d5db", background: "white", color: "#374151", cursor: "pointer", fontWeight: 600, marginBottom: "18px" }}
-            >
-              Edit profile
-            </button>
-          </>
+        <h3
+          style={{ fontSize: "28px", fontWeight: "600", marginBottom: "8px" }}
+        >
+          {userProfile.displayName}
+        </h3>
+        <p style={{ fontSize: "16px", color: "#6b7280", marginBottom: "8px" }}>
+          {userProfile.email}
+        </p>
+        <p
+          style={{
+            fontSize: "16px",
+            color: "#1a0dab",
+            marginBottom: "8px",
+            fontWeight: "500",
+          }}
+        >
+          {userProfile.identity === "human-of-cat"
+            ? "Human of a Cat"
+            : "Unattached Catwalker"}
+        </p>
+        {userProfile.location && (
+          <p
+            style={{ fontSize: "16px", color: "#6b7280", marginBottom: "8px" }}
+          >
+            📍 {userProfile.location}
+          </p>
         )}
-
         <p style={{ fontSize: "14px", color: "#9ca3af", marginBottom: "40px" }}>
-          On the Catwalk since {userProfile.joinDate && formatDate(userProfile.joinDate)}
+          On the Catwalk since{" "}
+          {userProfile.joinDate && formatDate(userProfile.joinDate)}
         </p>
 
         <div
@@ -4475,71 +4313,122 @@ function UserProfile({
             maxWidth: "400px",
           }}
         >
-          <button onClick={onShowUserCats} style={{ textAlign: "center", padding: "20px", background: "#f9fafb", borderRadius: "12px", border: "none", cursor: "pointer", transition: "all 0.2s" }}>
-            <div style={{ fontSize: "36px", fontWeight: "700", color: "#1a0dab", marginBottom: "8px" }}>{userProfile.catsFound}</div>
+          <button
+            onClick={onShowUserCats}
+            style={{
+              textAlign: "center",
+              padding: "20px",
+              background: "#f9fafb",
+              borderRadius: "12px",
+              border: "none",
+              cursor: "pointer",
+              transition: "all 0.2s",
+            }}
+          >
+            <div
+              style={{
+                fontSize: "36px",
+                fontWeight: "700",
+                color: "#1a0dab",
+                marginBottom: "8px",
+              }}
+            >
+              {userProfile.catsFound}
+            </div>
             <div style={{ fontSize: "14px", color: "#6b7280" }}>Cats Added</div>
           </button>
 
-          <button onClick={onShowUserPhotos} style={{ textAlign: "center", padding: "20px", background: "#f9fafb", borderRadius: "12px", border: "none", cursor: "pointer", transition: "all 0.2s" }}>
-            <div style={{ fontSize: "36px", fontWeight: "700", color: "#1a0dab", marginBottom: "8px" }}>{userProfile.photosAdded}</div>
-            <div style={{ fontSize: "14px", color: "#6b7280" }}>Photos Added</div>
+          <button
+            onClick={onShowUserPhotos}
+            style={{
+              textAlign: "center",
+              padding: "20px",
+              background: "#f9fafb",
+              borderRadius: "12px",
+              border: "none",
+              cursor: "pointer",
+              transition: "all 0.2s",
+            }}
+          >
+            <div
+              style={{
+                fontSize: "36px",
+                fontWeight: "700",
+                color: "#1a0dab",
+                marginBottom: "8px",
+              }}
+            >
+              {userProfile.photosAdded}
+            </div>
+            <div style={{ fontSize: "14px", color: "#6b7280" }}>
+              Photos Added
+            </div>
           </button>
 
-          <div style={{ textAlign: "center", padding: "20px", background: "#f9fafb", borderRadius: "12px" }}>
-            <div style={{ fontSize: "36px", fontWeight: "700", color: "#1a0dab", marginBottom: "8px" }}>{userProfile.totalContributions}</div>
-            <div style={{ fontSize: "14px", color: "#6b7280" }}>Info Contributed</div>
+          <div
+            style={{
+              textAlign: "center",
+              padding: "20px",
+              background: "#f9fafb",
+              borderRadius: "12px",
+            }}
+          >
+            <div
+              style={{
+                fontSize: "36px",
+                fontWeight: "700",
+                color: "#1a0dab",
+                marginBottom: "8px",
+              }}
+            >
+              {userProfile.totalContributions}
+            </div>
+            <div style={{ fontSize: "14px", color: "#6b7280" }}>
+              Info Contributed
+            </div>
           </div>
 
-          <button onClick={onShowUserVisits} style={{ textAlign: "center", padding: "20px", background: "#f9fafb", borderRadius: "12px", border: "none", cursor: "pointer", transition: "all 0.2s" }}>
-            <div style={{ fontSize: "36px", fontWeight: "700", color: "#1a0dab", marginBottom: "8px" }}>{userProfile.catsVisited.length}</div>
-            <div style={{ fontSize: "14px", color: "#6b7280" }}>Cats Visited</div>
+          <button
+            onClick={onShowUserVisits}
+            style={{
+              textAlign: "center",
+              padding: "20px",
+              background: "#f9fafb",
+              borderRadius: "12px",
+              border: "none",
+              cursor: "pointer",
+              transition: "all 0.2s",
+            }}
+          >
+            <div
+              style={{
+                fontSize: "36px",
+                fontWeight: "700",
+                color: "#1a0dab",
+                marginBottom: "8px",
+              }}
+            >
+              {userProfile.catsVisited.length}
+            </div>
+            <div style={{ fontSize: "14px", color: "#6b7280" }}>
+              Cats Visited
+            </div>
           </button>
         </div>
 
-        <div style={{ width: "100%", maxWidth: "420px", marginTop: "28px", paddingTop: "20px", borderTop: "1px solid #e5e7eb" }}>
+        <div style={{ width: "100%", maxWidth: "400px", marginTop: "28px", paddingTop: "20px", borderTop: "1px solid #e5e7eb" }}>
           <h4 style={{ margin: "0 0 8px", fontSize: "16px", color: "#111827" }}>Account controls</h4>
           <p style={{ margin: "0 0 14px", fontSize: "13px", color: "#6b7280", lineHeight: 1.45 }}>
-            You can choose exactly which parts of your Catwalk activity to remove. Deleting your account removes your profile record and then signs you out.
+            You can remove your own photos, visits, slow blinks and written contributions. Deleting your account also removes your profile record and then signs you out.
           </p>
           <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
             <button
               type="button"
-              onClick={() => setShowContributionPicker((prev) => !prev)}
+              onClick={onDeleteContributions}
               style={{ padding: "12px 14px", borderRadius: "12px", border: "1px solid #f59e0b", background: "#fffbeb", color: "#92400e", cursor: "pointer", fontWeight: 600 }}
             >
-              Choose contributions to delete
+              Delete my contributions
             </button>
-            {showContributionPicker && (
-              <div style={{ border: "1px solid #fde68a", background: "#fffbeb", borderRadius: "14px", padding: "14px", display: "flex", flexDirection: "column", gap: "12px" }}>
-                {contributionChoices.map((choice) => (
-                  <label key={choice.key} style={{ display: "flex", gap: "10px", alignItems: "flex-start", cursor: "pointer" }}>
-                    <input
-                      type="checkbox"
-                      checked={deleteOptions[choice.key]}
-                      onChange={(e) => setDeleteOptions((prev) => ({ ...prev, [choice.key]: e.target.checked }))}
-                      style={{ marginTop: "3px" }}
-                    />
-                    <span>
-                      <span style={{ display: "block", fontWeight: 700, color: "#111827" }}>{choice.label}</span>
-                      <span style={{ display: "block", fontSize: "13px", color: "#6b7280", lineHeight: 1.4 }}>{choice.description}</span>
-                    </span>
-                  </label>
-                ))}
-                <button
-                  type="button"
-                  disabled={!hasSelectedContributions}
-                  onClick={async () => {
-                    if (!hasSelectedContributions) return;
-                    await onDeleteSelectedContributions(deleteOptions);
-                    setDeleteOptions({ photos: false, visits: false, slowBlinks: false, writtenInfo: false, catsCreated: false });
-                    setShowContributionPicker(false);
-                  }}
-                  style={{ padding: "11px 14px", borderRadius: "999px", border: "none", background: hasSelectedContributions ? "#92400e" : "#e5e7eb", color: hasSelectedContributions ? "white" : "#9ca3af", cursor: hasSelectedContributions ? "pointer" : "not-allowed", fontWeight: 700 }}
-                >
-                  Delete selected contributions
-                </button>
-              </div>
-            )}
             <button
               type="button"
               onClick={onDeleteAccount}
@@ -5348,8 +5237,9 @@ export default function CatwalkApp() {
     const photo = selectedCat.photos.find((item) => item.id === photoId);
     if (!photo) return;
 
-    if (photo.contributorId !== currentUser.uid) {
-      alert("Only the person who uploaded this photo can delete it.");
+    const canEdit = photo.contributorId === currentUser.uid || selectedCat.creatorId === currentUser.uid;
+    if (!canEdit) {
+      alert("Only the photo contributor or cat profile creator can delete this photo.");
       return;
     }
 
@@ -5451,7 +5341,7 @@ export default function CatwalkApp() {
     }
   };
 
-  const removeCurrentUserContributions = async (options: ContributionDeleteOptions) => {
+  const removeCurrentUserContributions = async () => {
     if (!currentUser || !userProfile) return;
 
     const uid = currentUser.uid;
@@ -5459,37 +5349,15 @@ export default function CatwalkApp() {
     const updatedCats: Cat[] = [];
 
     for (const cat of cats) {
-      const previousUserVisitCount = options.visits ? cat.userVisits?.[uid] || 0 : 0;
-      const photosToRemove = options.photos
-        ? (cat.photos || []).filter((photo) => photo.contributorId === uid)
-        : [];
-      const remainingPhotos = options.photos
-        ? (cat.photos || []).filter((photo) => photo.contributorId !== uid)
-        : cat.photos || [];
-      const remainingVisits = options.visits
-        ? (cat.visits || []).filter((visit) => visit.userId !== uid)
-        : cat.visits || [];
-      const remainingSlowBlinks = options.slowBlinks
-        ? (cat.slowBlinks || []).filter((blink) => blink.userId !== uid)
-        : cat.slowBlinks || [];
-      const remainingDescriptions = options.writtenInfo
-        ? (cat.descriptions || []).filter((description) => description.contributorId !== uid)
-        : cat.descriptions || [];
+      const previousUserVisitCount = cat.userVisits?.[uid] || 0;
+      const photosToRemove = (cat.photos || []).filter((photo) => photo.contributorId === uid);
+      const remainingPhotos = (cat.photos || []).filter((photo) => photo.contributorId !== uid);
+      const remainingVisits = (cat.visits || []).filter((visit) => visit.userId !== uid);
+      const remainingSlowBlinks = (cat.slowBlinks || []).filter((blink) => blink.userId !== uid);
+      const remainingDescriptions = (cat.descriptions || []).filter((description) => description.contributorId !== uid);
+      const remainingContributors = (cat.contributors || []).filter((contributor) => contributor.id !== uid);
       const nextUserVisits = { ...(cat.userVisits || {}) };
-
-      if (options.visits) {
-        delete nextUserVisits[uid];
-      }
-
-      const remainingContributors = (cat.contributors || []).filter((contributor) => {
-        if (contributor.id !== uid) return true;
-        if (options.photos && contributor.type === "photo") return false;
-        if (options.writtenInfo && contributor.type === "info") return false;
-        if (options.catsCreated && contributor.type === "creator") return false;
-        return true;
-      });
-
-      const shouldAnonymiseCreatedCat = options.catsCreated && cat.creatorId === uid;
+      delete nextUserVisits[uid];
 
       const wasChanged =
         photosToRemove.length > 0 ||
@@ -5497,7 +5365,7 @@ export default function CatwalkApp() {
         (cat.slowBlinks || []).length !== remainingSlowBlinks.length ||
         (cat.descriptions || []).length !== remainingDescriptions.length ||
         (cat.contributors || []).length !== remainingContributors.length ||
-        shouldAnonymiseCreatedCat;
+        cat.creatorId === uid;
 
       if (!wasChanged) {
         updatedCats.push(cat);
@@ -5513,8 +5381,8 @@ export default function CatwalkApp() {
         contributors: remainingContributors,
         userVisits: nextUserVisits,
         totalVisits: Math.max(0, (cat.totalVisits || 0) - previousUserVisitCount),
-        creator: shouldAnonymiseCreatedCat ? "Deleted user" : cat.creator,
-        creatorId: shouldAnonymiseCreatedCat ? "deleted-user" : cat.creatorId,
+        creator: cat.creatorId === uid ? "Deleted user" : cat.creator,
+        creatorId: cat.creatorId === uid ? "deleted-user" : cat.creatorId,
       };
 
       const catDoc = doc(db, "cats", cat.id);
@@ -5541,88 +5409,23 @@ export default function CatwalkApp() {
       updatedCats.push(nextCat);
     }
 
-    const nextUserProfile: UserProfile = {
-      ...userProfile,
-      photosAdded: options.photos ? 0 : userProfile.photosAdded,
-      catsVisited: options.visits ? [] : userProfile.catsVisited,
-      totalContributions: options.writtenInfo ? 0 : userProfile.totalContributions,
-      catsFound: options.catsCreated ? 0 : userProfile.catsFound,
-    };
-
-    const userDocRef = await getUserProfileDocRef(uid);
-    if (userDocRef) {
-      await updateDoc(userDocRef, {
-        photosAdded: nextUserProfile.photosAdded,
-        catsVisited: nextUserProfile.catsVisited,
-        totalContributions: nextUserProfile.totalContributions,
-        catsFound: nextUserProfile.catsFound,
-      });
-    }
-
     setCats(updatedCats);
-    setUserProfile(nextUserProfile);
     setSelectedCat((prev) => (prev ? updatedCats.find((cat) => cat.id === prev.id) || null : prev));
   };
 
-  const handleUpdateUserProfile = async (data: UserProfileUpdateData) => {
+  const handleDeleteMyContributions = async () => {
     if (!currentUser || !userProfile) return;
-
-    try {
-      let profilePicture = userProfile.profilePicture || "";
-      if (data.profilePictureFile) {
-        profilePicture = await uploadPhotoToStorage(data.profilePictureFile, "profiles", currentUser.uid);
-      }
-
-      const updatedProfile: UserProfile = {
-        ...userProfile,
-        displayName: data.displayName,
-        identity: data.identity,
-        location: data.location,
-        profilePicture,
-      };
-
-      const userDocRef = await getUserProfileDocRef(currentUser.uid);
-      if (!userDocRef) {
-        alert("Could not find your profile to update. Please refresh and try again.");
-        return;
-      }
-
-      await updateDoc(userDocRef, {
-        displayName: updatedProfile.displayName,
-        identity: updatedProfile.identity,
-        location: updatedProfile.location,
-        profilePicture: updatedProfile.profilePicture,
-      });
-
-      setUserProfile(updatedProfile);
-      alert("Your profile has been updated.");
-    } catch (error) {
-      console.error("Error updating profile:", error);
-      alert("Could not update your profile. Please try again.");
-    }
-  };
-
-  const handleDeleteSelectedContributions = async (options: ContributionDeleteOptions) => {
-    if (!currentUser || !userProfile) return;
-    const selectedLabels = [
-      options.photos && "photo uploads",
-      options.visits && "visit history",
-      options.slowBlinks && "slow blinks",
-      options.writtenInfo && "written information",
-      options.catsCreated && "cats you added",
-    ].filter(Boolean).join(", ");
-
     const confirmed = window.confirm(
-      `Delete the selected contributions: ${selectedLabels}? This cannot be undone.`
+      "Delete your photos, visits, slow blinks and written contributions from Catwalk? Cat profiles you created will stay visible but will be anonymised."
     );
     if (!confirmed) return;
 
     try {
-      await removeCurrentUserContributions(options);
-      alert("Your selected contributions have been removed.");
+      await removeCurrentUserContributions();
+      alert("Your contributions have been removed.");
     } catch (error) {
-      console.error("Error deleting selected contributions:", error);
-      alert("Could not delete those contributions. Please try again.");
+      console.error("Error deleting contributions:", error);
+      alert("Could not delete your contributions. Please try again.");
     }
   };
 
@@ -5634,13 +5437,7 @@ export default function CatwalkApp() {
     if (!confirmed) return;
 
     try {
-      await removeCurrentUserContributions({
-        photos: true,
-        visits: true,
-        slowBlinks: true,
-        writtenInfo: true,
-        catsCreated: true,
-      });
+      await removeCurrentUserContributions();
 
       const userQuery = query(collection(db, "users"), where("uid", "==", currentUser.uid));
       const userSnapshot = await getDocs(userQuery);
@@ -6664,8 +6461,7 @@ export default function CatwalkApp() {
             setShowProfile(false);
             setShowUserVisits(true);
           }}
-          onUpdateProfile={handleUpdateUserProfile}
-          onDeleteSelectedContributions={handleDeleteSelectedContributions}
+          onDeleteContributions={handleDeleteMyContributions}
           onDeleteAccount={handleDeleteAccount}
         />
       )}
