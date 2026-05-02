@@ -2447,7 +2447,7 @@ function CatProfile({
   onAddPhoto,
   onUpdatePhotoPosition,
   onDeletePhoto,
-  onDeleteVisit,
+  onUpdateVisitCount,
   onContribute,
   onAuthRequired,
 }: {
@@ -2459,7 +2459,7 @@ function CatProfile({
   onAddPhoto: (file: File, objectPosition?: string) => void | Promise<void>;
   onUpdatePhotoPosition: (photoId: string, objectPosition: string) => void | Promise<void>;
   onDeletePhoto: (photoId: string) => void | Promise<void>;
-  onDeleteVisit: (visitDate: string) => void | Promise<void>;
+  onUpdateVisitCount: (visitCount: number) => void | Promise<void>;
   onContribute: () => void;
   onAuthRequired: () => void;
 }) {
@@ -2532,6 +2532,27 @@ function CatProfile({
     } finally {
       setLoadingVisitorProfileId(null);
     }
+  };
+
+  const handleEditVisitCount = async () => {
+    if (!currentUser) {
+      onAuthRequired();
+      return;
+    }
+
+    const answer = window.prompt(
+      `How many times have you visited ${cat.name}?`,
+      String(userVisitCount)
+    );
+    if (answer === null) return;
+
+    const nextCount = Number.parseInt(answer, 10);
+    if (!Number.isFinite(nextCount) || nextCount < 0) {
+      alert("Please enter a whole number of visits.");
+      return;
+    }
+
+    await onUpdateVisitCount(nextCount);
   };
 
   const handleDeletePhoto = async (photo: CatPhoto) => {
@@ -2638,37 +2659,8 @@ function CatProfile({
               const photosForDate = myPhotosByDate[dateKey] || [];
               return (
                 <div key={`${visit.date}-${index}`} style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: "14px", padding: "14px 16px" }}>
-                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "12px", marginBottom: photosForDate.length ? "10px" : 0 }}>
-                    <div>
-                      <div style={{ fontWeight: 700, color: "#111827" }}>
-                        {formatDateTime(visit.date)}
-                      </div>
-                      {photosForDate.length > 0 && (
-                        <div style={{ fontSize: "13px", color: "#6b7280", marginTop: "3px" }}>
-                          {photosForDate.length} {photosForDate.length === 1 ? "photo" : "photos"} uploaded on this date
-                        </div>
-                      )}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        const confirmed = window.confirm("Delete this visit from your visit history?");
-                        if (!confirmed) return;
-                        await onDeleteVisit(visit.date);
-                      }}
-                      style={{
-                        border: "1px solid #fecaca",
-                        background: "#fff1f2",
-                        color: "#b91c1c",
-                        borderRadius: "999px",
-                        padding: "6px 10px",
-                        cursor: "pointer",
-                        fontSize: "13px",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      Delete visit
-                    </button>
+                  <div style={{ fontWeight: 700, color: "#111827", marginBottom: photosForDate.length ? "10px" : 0 }}>
+                    {formatDateTime(visit.date)}
                   </div>
                   {photosForDate.length > 0 && (
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(90px, 1fr))", gap: "8px" }}>
@@ -3069,7 +3061,26 @@ function CatProfile({
           >
             Your visits: {userVisitCount}
           </button>
-
+          {currentUser && (
+            <button
+              type="button"
+              onClick={handleEditVisitCount}
+              style={{
+                border: "none",
+                background: "#f3f4f6",
+                color: "#374151",
+                borderRadius: "999px",
+                padding: "6px 10px",
+                cursor: "pointer",
+                fontSize: "13px",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "4px",
+              }}
+            >
+              <EditIcon /> Edit visits
+            </button>
+          )}
         </div>
 
         {cat.photos.length > 0 && (
@@ -5263,40 +5274,26 @@ export default function CatwalkApp() {
     }
   };
 
-  const handleDeleteVisit = async (visitDate: string) => {
-    if (!selectedCat || !currentUser) return;
+  const handleUpdateVisitCount = async (visitCount: number) => {
+    if (!selectedCat || !currentUser || !userProfile) return;
 
-    let removed = false;
-    const updatedVisits = (selectedCat.visits || []).filter((visit) => {
-      if (!removed && visit.userId === currentUser.uid && visit.date === visitDate) {
-        removed = true;
-        return false;
-      }
-      return true;
-    });
-
-    if (!removed) {
-      alert("Could not find that visit to delete. Please refresh and try again.");
-      return;
-    }
-
+    const safeCount = Math.max(0, Math.floor(visitCount));
     const previousUserCount = selectedCat.userVisits?.[currentUser.uid] || 0;
-    const nextUserCount = Math.max(0, previousUserCount - 1);
-    const nextTotalVisits = Math.max(0, (selectedCat.totalVisits || 0) - 1);
-    const updatedUserVisits = { ...(selectedCat.userVisits || {}) };
-
-    if (nextUserCount > 0) {
-      updatedUserVisits[currentUser.uid] = nextUserCount;
-    } else {
-      delete updatedUserVisits[currentUser.uid];
-    }
+    const nextTotalVisits = Math.max(0, (selectedCat.totalVisits || 0) - previousUserCount + safeCount);
+    const otherVisits = (selectedCat.visits || []).filter((visit) => visit.userId !== currentUser.uid);
+    const userVisits = Array.from({ length: safeCount }, (_, index) => ({
+      userId: currentUser.uid,
+      userName: userProfile.displayName,
+      date: new Date(Date.now() - (safeCount - index - 1) * 1000).toISOString(),
+    }));
+    const updatedUserVisits = { ...(selectedCat.userVisits || {}), [currentUser.uid]: safeCount };
 
     try {
       const catDoc = doc(db, "cats", selectedCat.id);
       await updateDoc(catDoc, {
         totalVisits: nextTotalVisits,
-        userVisits: updatedUserVisits,
-        visits: updatedVisits,
+        [`userVisits.${currentUser.uid}`]: safeCount,
+        visits: [...otherVisits, ...userVisits],
       });
 
       setSelectedCat((prev) =>
@@ -5305,13 +5302,13 @@ export default function CatwalkApp() {
               ...prev,
               totalVisits: nextTotalVisits,
               userVisits: updatedUserVisits,
-              visits: updatedVisits,
+              visits: [...otherVisits, ...userVisits],
             }
           : prev
       );
     } catch (error) {
-      console.error("Error deleting visit:", error);
-      alert("Could not delete that visit. Please try again.");
+      console.error("Error updating visit count:", error);
+      alert("Could not update the visit count. Please try again.");
     }
   };
 
@@ -6438,7 +6435,7 @@ export default function CatwalkApp() {
           onAddPhoto={handleAddPhoto}
           onUpdatePhotoPosition={handleUpdatePhotoPosition}
           onDeletePhoto={handleDeletePhoto}
-          onDeleteVisit={handleDeleteVisit}
+          onUpdateVisitCount={handleUpdateVisitCount}
           onContribute={() => setShowContributeForm(true)}
           onAuthRequired={() => setShowAuthRequired(true)}
         />
