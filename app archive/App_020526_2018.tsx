@@ -3258,7 +3258,7 @@ function CatspottingScreen({
         <div style={{ width: "40px" }}></div>
       </div>
 
-      <div style={{ padding: "20px 20px 96px" }}>
+      <div style={{ padding: "20px" }}>
         {!currentUser ? (
           <div
             style={{
@@ -4039,49 +4039,25 @@ export default function CatwalkApp() {
 
   // Load Leaflet
   useEffect(() => {
-    if (window.L) {
-      setLeafletLoaded(true);
-      return;
-    }
-
     if (!leafletLoaded && !mapLoading) {
       setMapLoading(true);
 
-      if (!document.querySelector('link[data-catwalk-leaflet="css"]')) {
-        const cssLink = document.createElement("link");
-        cssLink.rel = "stylesheet";
-        cssLink.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
-        cssLink.setAttribute("data-catwalk-leaflet", "css");
-        document.head.appendChild(cssLink);
-      }
+      const cssLink = document.createElement("link");
+      cssLink.rel = "stylesheet";
+      cssLink.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+      document.head.appendChild(cssLink);
 
-      if (!document.querySelector('style[data-catwalk-global="true"]')) {
-        const globalStyle = document.createElement("style");
-        globalStyle.setAttribute("data-catwalk-global", "true");
-        globalStyle.textContent = `* { box-sizing: border-box; }`;
-        document.head.appendChild(globalStyle);
-      }
+      // Global base styles
+      const globalStyle = document.createElement("style");
+      globalStyle.textContent = `* { box-sizing: border-box; }`;
+      document.head.appendChild(globalStyle);
 
-      if (!document.querySelector('style[data-catwalk-leaflet-controls="true"]')) {
-        const zoomStyle = document.createElement("style");
-        zoomStyle.setAttribute("data-catwalk-leaflet-controls", "true");
-        zoomStyle.textContent = `.leaflet-top.leaflet-left { top: 310px !important; } .leaflet-control-zoom { border: none !important; box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important; } .leaflet-control-zoom a { width: 36px !important; height: 36px !important; line-height: 36px !important; }`;
-        document.head.appendChild(zoomStyle);
-      }
-
-      const existingScript = document.querySelector('script[data-catwalk-leaflet="js"]') as HTMLScriptElement | null;
-      if (existingScript) {
-        existingScript.addEventListener("load", () => {
-          setLeafletLoaded(true);
-          setMapLoading(false);
-        });
-        return;
-      }
+      const zoomStyle = document.createElement("style");
+      zoomStyle.textContent = `.leaflet-top.leaflet-left { top: 310px !important; } .leaflet-control-zoom { border: none !important; box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important; } .leaflet-control-zoom a { width: 36px !important; height: 36px !important; line-height: 36px !important; }`;
+      document.head.appendChild(zoomStyle);
 
       const script = document.createElement("script");
       script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
-      script.async = true;
-      script.setAttribute("data-catwalk-leaflet", "js");
       script.onload = () => {
         setLeafletLoaded(true);
         setMapLoading(false);
@@ -4094,56 +4070,45 @@ export default function CatwalkApp() {
     }
   }, [leafletLoaded, mapLoading]);
 
-  // Initialize map
+  // Initialize map - wait briefly for geolocation first
   useEffect(() => {
-    if (currentView !== "catmap" || !leafletLoaded || !mapRef.current || !window.L) return;
-
-    const timer = window.setTimeout(() => {
-      if (!mapRef.current || mapInstanceRef.current) {
-        mapInstanceRef.current?.invalidateSize();
-        return;
-      }
-
-      try {
-        // Hot reloads can leave Leaflet's internal id on the DOM node, which
-        // prevents a fresh map from mounting and leaves the plain green fallback.
-        if ((mapRef.current as any)._leaflet_id) {
-          (mapRef.current as any)._leaflet_id = undefined;
-          mapRef.current.innerHTML = "";
-        }
-
-        const saved = localStorage.getItem("catwalk-last-location");
-        const center: [number, number] = userLocation
-          || (saved ? JSON.parse(saved) : null)
-          || [51.5074, -0.1278];
-
-        const map = window.L.map(mapRef.current, {
-          center,
-          zoom: 15,
-          minZoom: 5,
-          maxZoom: 20,
-          zoomControl: true,
-        });
-
-        window.L.tileLayer(
-          "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-          {
-            attribution: "© OpenStreetMap contributors",
+    if (
+      currentView === "catmap" &&
+      leafletLoaded &&
+      mapRef.current &&
+      window.L
+    ) {
+      const timer = setTimeout(() => {
+        if (!mapInstanceRef.current) {
+          const saved = localStorage.getItem("catwalk-last-location");
+          const center: [number, number] = userLocation
+            || (saved ? JSON.parse(saved) : null)
+            || [51.5074, -0.1278];
+          const map = window.L.map(mapRef.current, {
+            center,
+            zoom: 15,
+            minZoom: 5,
             maxZoom: 20,
-          }
-        ).addTo(map);
+            zoomControl: true,
+          });
 
-        mapInstanceRef.current = map;
-        setLeafletMap(map);
-        window.setTimeout(() => map.invalidateSize(), 100);
-      } catch (error) {
-        console.error("Error initialising Catwalk map:", error);
-        mapInstanceRef.current = null;
-      }
-    }, 100);
+          window.L.tileLayer(
+            "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+            {
+              attribution: "© Catwalk Map",
+            }
+          ).addTo(map);
 
-    return () => window.clearTimeout(timer);
-  }, [currentView, leafletLoaded, userLocation]);
+          mapInstanceRef.current = map;
+          setLeafletMap(map);
+        } else {
+          mapInstanceRef.current.invalidateSize();
+        }
+      }, 800); // short delay so geolocation can resolve first
+
+      return () => clearTimeout(timer);
+    }
+  }, [currentView, leafletLoaded]);
 
   // Update map click handler
   useEffect(() => {
@@ -4468,14 +4433,14 @@ export default function CatwalkApp() {
           >
             Catwalk
           </button>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
           <button
             style={{ background: "#f3f4f6", border: "1px solid #e5e7eb", borderRadius: "999px", padding: "7px 12px", cursor: "pointer", color: "#4b5563", fontSize: "13px", fontWeight: "500" }}
             onClick={onGuide}
           >
             How to use
           </button>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
           {currentUser ? (
             <>
               <button
@@ -4815,15 +4780,15 @@ export default function CatwalkApp() {
         zIndex: 1000,
       }}
     >
-      <button onClick={() => { setShowCatspotting(false); setCurrentView("catmap"); }}
-        style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "4px", background: "none", border: "none", padding: "8px 20px", cursor: "pointer", color: !showCatspotting && currentView === "catmap" ? "#1a0dab" : "#6b7280", fontSize: "14px" }}>
+      <button onClick={() => setCurrentView("catmap")}
+        style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "4px", background: "none", border: "none", padding: "8px 20px", cursor: "pointer", color: currentView === "catmap" ? "#1a0dab" : "#6b7280", fontSize: "14px" }}>
         <MapIcon /><span>Map</span>
       </button>
-      <button onClick={() => { setShowCatspotting(false); setCurrentView("list"); }}
-        style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "4px", background: "none", border: "none", padding: "8px 20px", cursor: "pointer", color: !showCatspotting && currentView === "list" ? "#1a0dab" : "#6b7280", fontSize: "14px" }}>
+      <button onClick={() => setCurrentView("list")}
+        style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "4px", background: "none", border: "none", padding: "8px 20px", cursor: "pointer", color: currentView === "list" ? "#1a0dab" : "#6b7280", fontSize: "14px" }}>
         <SearchIcon /><span>Browse</span>
       </button>
-      <button onClick={() => requireAuth(() => { setCurrentView("catmap"); setShowCatspotting(true); })}
+      <button onClick={() => requireAuth(() => setShowCatspotting(true))}
         style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "4px", background: "none", border: "none", padding: "8px 20px", cursor: "pointer", color: showCatspotting ? "#1a0dab" : "#6b7280", fontSize: "14px" }}>
         <CameraIcon /><span>Catspotting</span>
       </button>
@@ -4855,7 +4820,7 @@ export default function CatwalkApp() {
           <div style={{ background: "white", border: "1px solid #e5e7eb", borderRadius: "12px", padding: "16px 20px", marginBottom: "28px", display: "flex", gap: "12px", alignItems: "flex-start" }}>
             <span style={{ fontSize: "20px", flexShrink: 0 }}>🤝</span>
             <p style={{ fontSize: "13px", color: "#6b7280", lineHeight: "1.6", margin: 0 }}>
-              Catwalk uses approximate locations to protect cats and their humans. Please only visit cats you already know or come across naturally, and never use the map to take, disturb, follow, or harm an animal. Respect each cat’s boundaries, their people, and the neighbourhood they live in.
+              Locations are approximate and intended for visiting cats you already know, not to facilitate theft, disturbance, or harm. Please treat every cat and neighbourhood with respect.
             </p>
           </div>
           <div style={{ background: "white", borderRadius: "16px", padding: "32px", boxShadow: "0 2px 8px rgba(0,0,0,0.08)" }}>
@@ -4885,7 +4850,7 @@ export default function CatwalkApp() {
         currentUser={currentUser}
         onLogin={() => setShowLogin(true)}
         onGuide={() => setShowGuide(true)}
-        onHomeClick={() => { setShowCatspotting(false); setCurrentView("catmap"); setSelectedCat(null); }}
+        onHomeClick={() => { setCurrentView("catmap"); setSelectedCat(null); }}
       />
 
       {currentView === "catmap" && (
@@ -5311,9 +5276,9 @@ export default function CatwalkApp() {
             <div style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: "12px", padding: "16px 18px", marginBottom: "28px", display: "flex", gap: "12px", alignItems: "flex-start" }}>
               <span style={{ fontSize: "20px", flexShrink: 0 }}>🤝</span>
               <div>
-                <h3 style={{ fontSize: "15px", fontWeight: "600", margin: "0 0 6px", fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', color: "#111827" }}>Cat safety & neighbourhood respect</h3>
+                <h3 style={{ fontSize: "15px", fontWeight: "600", margin: "0 0 6px", fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', color: "#111827" }}>Anti-theft acknowledgement</h3>
                 <p style={{ fontSize: "13px", color: "#4b5563", lineHeight: "1.65", margin: 0, fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
-                  Catwalk uses approximate locations to protect cats and their humans. Please only visit cats you already know or come across naturally, and never use the map to take, disturb, follow, or harm an animal. Respect each cat’s boundaries, their people, and the neighbourhood they live in.
+                  Locations are approximate and intended for visiting cats you already know, not to facilitate theft, disturbance, or harm. Please treat every cat and neighbourhood with respect.
                 </p>
               </div>
             </div>
