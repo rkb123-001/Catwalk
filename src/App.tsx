@@ -3370,6 +3370,12 @@ function CatProfile({
       </div>
 
       <div style={{ padding: "20px", paddingBottom: "40px" }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "16px",
+            marginBottom: "20px",
           }}
         >
           <span style={{ fontSize: "48px" }}>{cat.emoji}</span>
