@@ -749,16 +749,16 @@ function LoginScreen({
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        {!embedded && (
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: "20px",
-            }}
-          >
-            <h1 style={{ fontSize: "28px", margin: 0, fontStyle: "italic", fontWeight: "normal" }}>Catwalk</h1>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: "20px",
+          }}
+        >
+          <h1 style={{ fontSize: "28px", margin: 0, fontStyle: "italic", fontWeight: "normal" }}>Catwalk</h1>
+          {!embedded && (
             <button
               onClick={onClose}
               style={{
@@ -771,8 +771,8 @@ function LoginScreen({
             >
               <XIcon />
             </button>
-          </div>
-        )}
+          )}
+        </div>
 
         <h2
           style={{
@@ -4898,6 +4898,7 @@ export default function CatwalkApp() {
       <div style={{ minHeight: "100vh", background: "#f5f5f5", fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}>
         <div style={{ maxWidth: "440px", width: "100%" }}>
           <div style={{ textAlign: "center", marginBottom: "40px" }}>
+            <div style={{ fontSize: "56px", marginBottom: "12px" }}>🐱</div>
             <h1 style={{ fontSize: "32px", fontWeight: "700", color: "#111827", marginBottom: "8px" }}>Catwalk</h1>
             <p style={{ fontSize: "16px", color: "#6b7280", lineHeight: "1.6" }}>A community-built map of neighbourhood cats.</p>
           </div>
