@@ -1106,7 +1106,7 @@ function UserCatsScreen({
                   style={{
                     position: "relative",
                     width: "100%",
-                    height: "260px",
+                    height: "220px",
                     background: "#f3f4f6",
                   }}
                 >
@@ -4872,19 +4872,6 @@ export default function CatwalkApp() {
       filters.acceptsTreats !== null ||
       filters.livingLocation !== null;
 
-    const canEditBrowsePhotoPosition = (cat: Cat, photo?: CatPhoto) =>
-      Boolean(
-        currentUser &&
-          photo &&
-          (photo.contributorId === currentUser.uid || cat.creatorId === currentUser.uid)
-      );
-
-    const browsePhotoPositions: Array<[string, string]> = [
-      ["Top", "center top"],
-      ["Centre", "center center"],
-      ["Bottom", "center bottom"],
-    ];
-
     return (
       <div
         style={{
@@ -5066,52 +5053,6 @@ export default function CatwalkApp() {
                       }}
                     >
                       No photo
-                    </div>
-                  )}
-                  {canEditBrowsePhotoPosition(cat, cat.photos[0]) && (
-                    <div
-                      style={{
-                        position: "absolute",
-                        left: "10px",
-                        bottom: "10px",
-                        display: "flex",
-                        gap: "6px",
-                        padding: "6px",
-                        borderRadius: "999px",
-                        background: "rgba(255, 255, 255, 0.92)",
-                        boxShadow: "0 2px 8px rgba(0, 0, 0, 0.16)",
-                      }}
-                      onClick={(event) => event.stopPropagation()}
-                    >
-                      {browsePhotoPositions.map(([label, position]) => (
-                        <button
-                          key={position}
-                          type="button"
-                          title={`Reposition photo: ${label}`}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            handleUpdatePhotoPosition(cat.photos[0].id, position);
-                          }}
-                          style={{
-                            border: "none",
-                            borderRadius: "999px",
-                            padding: "5px 8px",
-                            background:
-                              getCatPhotoPosition(cat.photos[0]) === position
-                                ? "#1a0dab"
-                                : "transparent",
-                            color:
-                              getCatPhotoPosition(cat.photos[0]) === position
-                                ? "white"
-                                : "#111827",
-                            cursor: "pointer",
-                            fontSize: "11px",
-                            fontWeight: 600,
-                          }}
-                        >
-                          {label}
-                        </button>
-                      ))}
                     </div>
                   )}
                   <div
