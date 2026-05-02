@@ -73,7 +73,6 @@ interface CatPhoto {
   contributorId: string;
   date: string;
   uploadedAt?: any;
-  objectPosition?: string;
   locationMetadata?: {
     lat: number;
     lng: number;
@@ -1090,7 +1089,7 @@ function UserCatsScreen({
                   style={{
                     position: "relative",
                     width: "100%",
-                    height: "220px",
+                    height: "120px",
                     background: "#f3f4f6",
                   }}
                 >
@@ -2188,7 +2187,6 @@ function CatProfile({
   onVisit,
   onSlowBlink,
   onAddPhoto,
-  onUpdatePhotoPosition,
   onContribute,
   onAuthRequired,
 }: {
@@ -2198,7 +2196,6 @@ function CatProfile({
   onVisit: () => void;
   onSlowBlink: () => void;
   onAddPhoto: (file: File) => void | Promise<void>;
-  onUpdatePhotoPosition: (photoId: string, objectPosition: string) => void | Promise<void>;
   onContribute: () => void;
   onAuthRequired: () => void;
 }) {
@@ -2207,9 +2204,6 @@ function CatProfile({
 
   const userVisitCount =
     currentUser && cat.userVisits ? cat.userVisits[currentUser.uid] || 0 : 0;
-
-  const canEditPhotoPosition = (photo: CatPhoto) =>
-    Boolean(currentUser && (photo.contributorId === currentUser.uid || cat.creatorId === currentUser.uid));
 
   const handlePhotoClick = () => {
     if (!currentUser) {
@@ -2293,44 +2287,9 @@ function CatProfile({
                   width: "100%",
                   aspectRatio: "1",
                   objectFit: "cover",
-                  objectPosition: getCatPhotoPosition(photo),
                   borderRadius: "12px",
                 }}
               />
-              {canEditPhotoPosition(photo) && (
-                <div
-                  style={{
-                    display: "flex",
-                    gap: "6px",
-                    justifyContent: "center",
-                    flexWrap: "wrap",
-                    marginTop: "8px",
-                  }}
-                >
-                  {[
-                    ["Top", "center top"],
-                    ["Centre", "center center"],
-                    ["Bottom", "center bottom"],
-                  ].map(([label, position]) => (
-                    <button
-                      key={position}
-                      type="button"
-                      onClick={() => onUpdatePhotoPosition(photo.id, position)}
-                      style={{
-                        border: "1px solid #e5e7eb",
-                        borderRadius: "999px",
-                        padding: "6px 10px",
-                        background: getCatPhotoPosition(photo) === position ? "#eef2ff" : "white",
-                        color: "#111827",
-                        cursor: "pointer",
-                        fontSize: "12px",
-                      }}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              )}
               <div
                 style={{
                   textAlign: "center",
@@ -2553,7 +2512,6 @@ function CatProfile({
                       width: "100%",
                       height: "100%",
                       objectFit: "cover",
-                      objectPosition: getCatPhotoPosition(photo),
                     }}
                   />
                 </div>
@@ -4588,7 +4546,6 @@ export default function CatwalkApp() {
         contributorId: currentUser.uid,
         date: new Date().toISOString(),
         uploadedAt: new Date().toISOString(),
-        objectPosition: DEFAULT_CAT_PHOTO_POSITION,
       };
 
       const catDoc = doc(db, "cats", selectedCat.id);
@@ -4618,33 +4575,6 @@ export default function CatwalkApp() {
       console.error("Error adding photo:", error);
       const message = error instanceof Error ? error.message : "Please try again.";
       alert(`Photo upload failed: ${message}`);
-    }
-  };
-
-  const handleUpdatePhotoPosition = async (photoId: string, objectPosition: string) => {
-    if (!selectedCat || !currentUser) return;
-
-    const photo = selectedCat.photos.find((item) => item.id === photoId);
-    if (!photo) return;
-
-    const canEdit = photo.contributorId === currentUser.uid || selectedCat.creatorId === currentUser.uid;
-    if (!canEdit) {
-      alert("Only the photo contributor or cat profile creator can adjust this image.");
-      return;
-    }
-
-    try {
-      const updatedPhotos = selectedCat.photos.map((item) =>
-        item.id === photoId ? { ...item, objectPosition } : item
-      );
-      const catDoc = doc(db, "cats", selectedCat.id);
-      await updateDoc(catDoc, { photos: updatedPhotos });
-      setSelectedCat((prev) =>
-        prev && prev.id === selectedCat.id ? { ...prev, photos: updatedPhotos } : prev
-      );
-    } catch (error) {
-      console.error("Error updating photo position:", error);
-      alert("Could not update the photo position. Please try again.");
     }
   };
 
@@ -4967,7 +4897,7 @@ export default function CatwalkApp() {
           </div>
         </div>
 
-        <div style={{ padding: "20px 20px 96px" }}>
+        <div style={{ padding: "20px" }}>
           <h3
             style={{
               fontSize: "18px",
@@ -5006,7 +4936,7 @@ export default function CatwalkApp() {
                   style={{
                     position: "relative",
                     width: "100%",
-                    height: "220px",
+                    height: "120px",
                     background: "#f3f4f6",
                   }}
                 >
@@ -5018,7 +4948,6 @@ export default function CatwalkApp() {
                         width: "100%",
                         height: "100%",
                         objectFit: "cover",
-                        objectPosition: getCatPhotoPosition(cat.photos[0]),
                       }}
                       onError={(e) => {
                         e.currentTarget.style.display = "none";
@@ -5568,7 +5497,6 @@ export default function CatwalkApp() {
           onVisit={handleVisit}
           onSlowBlink={handleSlowBlink}
           onAddPhoto={handleAddPhoto}
-          onUpdatePhotoPosition={handleUpdatePhotoPosition}
           onContribute={() => setShowContributeForm(true)}
           onAuthRequired={() => setShowAuthRequired(true)}
         />
