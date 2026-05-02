@@ -5429,6 +5429,36 @@ export default function CatwalkApp() {
     }
   }, [leafletMap, cats, userLocation]);
 
+  const handleCheckForDuplicates = () => {
+    requireAuth(() => {
+      const location = manualLocation || userLocation;
+      if (!location) {
+        alert(
+          "Please choose the cat’s approximate location from the Add Cat page."
+        );
+        return;
+      }
+
+      const [lat, lng] = location;
+      const duplicates = cats.filter((cat) => {
+        const dist = getDistanceFromLatLonInMeters(
+          lat,
+          lng,
+          cat.location.lat,
+          cat.location.lng
+        );
+        return dist < 200;
+      });
+
+      if (duplicates.length > 0) {
+        setPotentialDuplicates(duplicates);
+        setShowDuplicateModal(true);
+      } else {
+        setShowAddCat(true);
+      }
+    });
+  };
+
   const handleAddCat = async (_newCatData: Partial<Cat>) => {
     if (!currentUser || !userProfile) return;
 
