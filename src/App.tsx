@@ -3934,6 +3934,9 @@ export default function CatwalkApp() {
     null
   );
   const [isPlacingPin, setIsPlacingPin] = useState(false);
+  const [locationSearch, setLocationSearch] = useState("");
+  const [locationResults, setLocationResults] = useState<any[]>([]);
+  const [searchingLocation, setSearchingLocation] = useState(false);
   const [cats, setCats] = useState<Cat[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
@@ -4003,13 +4006,13 @@ export default function CatwalkApp() {
         (position) => {
           const loc: [number, number] = [position.coords.latitude, position.coords.longitude];
           setUserLocation(loc);
-          // If map already exists, fly to user location
+          localStorage.setItem("catwalk-last-location", JSON.stringify(loc));
           if (mapInstanceRef.current) {
             mapInstanceRef.current.flyTo(loc, 15);
           }
         },
         () => {
-          // Permission denied or unavailable — keep London default
+          // Permission denied — keep saved/default location
         },
         { timeout: 10000, enableHighAccuracy: true }
       );
@@ -4028,7 +4031,7 @@ export default function CatwalkApp() {
 
       // Push zoom controls below the overlay panel
       const zoomStyle = document.createElement("style");
-      zoomStyle.textContent = `.leaflet-top.leaflet-left { top: 220px !important; } .leaflet-control-zoom { border: none !important; box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important; } .leaflet-control-zoom a { width: 36px !important; height: 36px !important; line-height: 36px !important; }`;
+      zoomStyle.textContent = `.leaflet-top.leaflet-left { top: 310px !important; } .leaflet-control-zoom { border: none !important; box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important; } .leaflet-control-zoom a { width: 36px !important; height: 36px !important; line-height: 36px !important; }`;
       document.head.appendChild(zoomStyle);
 
       const script = document.createElement("script");
@@ -4055,7 +4058,10 @@ export default function CatwalkApp() {
     ) {
       const timer = setTimeout(() => {
         if (!mapInstanceRef.current) {
-          const center = userLocation || [51.5074, -0.1278];
+          const saved = localStorage.getItem("catwalk-last-location");
+          const center: [number, number] = userLocation
+            || (saved ? JSON.parse(saved) : null)
+            || [51.5074, -0.1278];
           const map = window.L.map(mapRef.current, {
             center,
             zoom: 15,
@@ -4335,6 +4341,31 @@ export default function CatwalkApp() {
       await firebaseSignOut(auth);
     } catch (error) {
       console.error("Error signing out:", error);
+    }
+  };
+
+  const handleLocationSearch = async (query: string) => {
+    setLocationSearch(query);
+    if (query.length < 3) { setLocationResults([]); return; }
+    setSearchingLocation(true);
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5`);
+      const data = await res.json();
+      setLocationResults(data);
+    } catch {
+      setLocationResults([]);
+    } finally {
+      setSearchingLocation(false);
+    }
+  };
+
+  const handleLocationSelect = (result: any) => {
+    const lat = parseFloat(result.lat);
+    const lng = parseFloat(result.lon);
+    setLocationSearch(result.display_name.split(",").slice(0, 2).join(","));
+    setLocationResults([]);
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.flyTo([lat, lng], 15);
     }
   };
 
@@ -4845,6 +4876,34 @@ export default function CatwalkApp() {
               gap: "12px",
             }}
           >
+            {/* Location search */}
+            <div style={{ position: "relative" }}>
+              <div style={{ background: "white", borderRadius: "12px", boxShadow: "0 2px 8px rgba(0,0,0,0.1)", display: "flex", alignItems: "center", padding: "10px 14px", gap: "8px" }}>
+                <span>🔍</span>
+                <input
+                  type="text"
+                  placeholder="Search for a location..."
+                  value={locationSearch}
+                  onChange={(e) => handleLocationSearch(e.target.value)}
+                  style={{ border: "none", outline: "none", fontSize: "14px", width: "200px", background: "transparent" }}
+                />
+                {searchingLocation && <span style={{ fontSize: "12px", color: "#9ca3af" }}>...</span>}
+                {locationSearch && <button onClick={() => { setLocationSearch(""); setLocationResults([]); }} style={{ background: "none", border: "none", cursor: "pointer", color: "#9ca3af", fontSize: "16px", padding: 0 }}>×</button>}
+              </div>
+              {locationResults.length > 0 && (
+                <div style={{ position: "absolute", top: "100%", left: 0, right: 0, background: "white", borderRadius: "12px", boxShadow: "0 4px 12px rgba(0,0,0,0.15)", marginTop: "4px", overflow: "hidden", zIndex: 1001 }}>
+                  {locationResults.map((result: any, i: number) => (
+                    <button key={i} onClick={() => handleLocationSelect(result)}
+                      style={{ display: "block", width: "100%", padding: "10px 14px", background: "none", border: "none", textAlign: "left", cursor: "pointer", fontSize: "13px", color: "#374151", borderBottom: i < locationResults.length - 1 ? "1px solid #f3f4f6" : "none" }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = "#f9fafb")}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
+                    >
+                      {result.display_name.split(",").slice(0, 3).join(",")}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
             <div
               style={{
                 background: "white",
