@@ -1708,7 +1708,7 @@ function AddCatForm({
         });
       }
 
-      onSubmit({ id: docRef.id, ...catData });
+      onSubmit({ id: docRef.id, ...catData } as unknown as Partial<Cat>);
     } catch (error) {
       console.error("Error adding cat:", error);
     } finally {
