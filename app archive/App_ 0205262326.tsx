@@ -2777,27 +2777,26 @@ function PublicUserProfileModal({
   onSelectCat?: (cat: Cat) => void;
 }) {
   const [userCats, setUserCats] = useState<Cat[]>([]);
-  const [loadingCats, setLoadingCats] = useState(false);
-  const [showCatsSheet, setShowCatsSheet] = useState(false);
+  const [loadingCats, setLoadingCats] = useState(true);
 
-  const handleShowCats = async () => {
-    setShowCatsSheet(true);
-    if (userCats.length > 0) return; // already loaded
-    setLoadingCats(true);
-    try {
-      const q = query(
-        collection(db, "cats"),
-        where("creatorId", "==", profile.uid),
-        orderBy("createdDate", "desc")
-      );
-      const snap = await getDocs(q);
-      setUserCats(snap.docs.map((d: any) => ({ id: d.id, ...d.data() }) as Cat));
-    } catch {
-      // index may not exist — fail silently
-    } finally {
-      setLoadingCats(false);
-    }
-  };
+  useEffect(() => {
+    const fetchCats = async () => {
+      try {
+        const q = query(
+          collection(db, "cats"),
+          where("creatorId", "==", profile.uid),
+          orderBy("createdDate", "desc")
+        );
+        const snap = await getDocs(q);
+        setUserCats(snap.docs.map((d: any) => ({ id: d.id, ...d.data() }) as Cat));
+      } catch {
+        // index may not exist yet — fail silently
+      } finally {
+        setLoadingCats(false);
+      }
+    };
+    fetchCats();
+  }, [profile.uid]);
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "white", zIndex: 2600, overflowY: "auto", paddingBottom: "80px" }}>
@@ -2808,7 +2807,7 @@ function PublicUserProfileModal({
         </button>
       </div>
 
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "40px 20px 40px" }}>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "40px 20px 32px" }}>
         <div style={{ width: "120px", height: "120px", background: "#e5e7eb", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "24px", overflow: "hidden" }}>
           {profile.profilePicture ? (
             <img src={profile.profilePicture} alt={`${firstName(profile.displayName)} profile`} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
@@ -2829,15 +2828,10 @@ function PublicUserProfileModal({
         </p>
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", width: "100%", maxWidth: "420px" }}>
-          {/* Cats added — clickable */}
-          <button
-            type="button"
-            onClick={handleShowCats}
-            style={{ textAlign: "center", padding: "18px", background: "#f9fafb", borderRadius: "14px", border: "1px solid #e5e7eb", cursor: "pointer" }}
-          >
+          <div style={{ textAlign: "center", padding: "18px", background: "#f9fafb", borderRadius: "14px", border: "1px solid #e5e7eb" }}>
             <div style={{ fontSize: "32px", fontWeight: 800, color: "#1a0dab", marginBottom: "6px" }}>{profile.catsFound || 0}</div>
             <div style={{ fontSize: "14px", color: "#6b7280" }}>Cats added</div>
-          </button>
+          </div>
           <div style={{ textAlign: "center", padding: "18px", background: "#f9fafb", borderRadius: "14px", border: "1px solid #e5e7eb" }}>
             <div style={{ fontSize: "32px", fontWeight: 800, color: "#1a0dab", marginBottom: "6px" }}>{profile.photosAdded || 0}</div>
             <div style={{ fontSize: "14px", color: "#6b7280" }}>Photos added</div>
@@ -2853,59 +2847,54 @@ function PublicUserProfileModal({
         </div>
       </div>
 
-      {/* Cats sheet — slides up from bottom */}
-      {showCatsSheet && (
-        <div
-          style={{ position: "fixed", inset: 0, zIndex: 2700 }}
-          onClick={() => setShowCatsSheet(false)}
-        >
-          <div
-            style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "white", borderRadius: "20px 20px 0 0", maxHeight: "70vh", display: "flex", flexDirection: "column", boxShadow: "0 -4px 24px rgba(0,0,0,0.12)" }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Handle */}
-            <div style={{ display: "flex", justifyContent: "center", padding: "12px 0 0" }}>
-              <div style={{ width: "40px", height: "4px", background: "#e5e7eb", borderRadius: "2px" }} />
-            </div>
-            <div style={{ padding: "16px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #e5e7eb" }}>
-              <h3 style={{ margin: 0, fontSize: "18px", fontWeight: 600 }}>Cats added by {firstName(profile.displayName)}</h3>
-              <button onClick={() => setShowCatsSheet(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "#6b7280", padding: "4px" }}>
-                <XIcon />
-              </button>
-            </div>
-            <div style={{ overflowY: "auto", padding: "16px 20px 32px", flex: 1 }}>
-              {loadingCats ? (
-                <p style={{ color: "#9ca3af", fontSize: "14px", textAlign: "center", padding: "20px" }}>Loading...</p>
-              ) : userCats.length === 0 ? (
-                <p style={{ color: "#9ca3af", fontSize: "14px", textAlign: "center", padding: "20px" }}>{firstName(profile.displayName)} hasn't added any cats yet.</p>
-              ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                  {userCats.map((cat) => (
-                    <button
-                      key={cat.id}
-                      type="button"
-                      onClick={() => { setShowCatsSheet(false); onSelectCat?.(cat); }}
-                      style={{ display: "flex", alignItems: "center", gap: "14px", background: "white", border: "1px solid #e5e7eb", borderRadius: "12px", padding: "10px 14px", cursor: "pointer", textAlign: "left", width: "100%" }}
-                    >
-                      {cat.photos && cat.photos.length > 0 ? (
-                        <img src={cat.photos[0].url} alt={cat.name} style={{ width: "52px", height: "52px", borderRadius: "8px", objectFit: "cover", objectPosition: normalisePhotoObjectPosition(cat.photos[0].objectPosition), flexShrink: 0 }} />
-                      ) : (
-                        <div style={{ width: "52px", height: "52px", borderRadius: "8px", background: "#f3f4f6", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "28px", flexShrink: 0 }}>
-                          {cat.emoji}
-                        </div>
-                      )}
-                      <div>
-                        <div style={{ fontWeight: 600, fontSize: "15px", color: "#111827" }}>{cat.name}</div>
-                        <div style={{ fontSize: "13px", color: "#9ca3af", marginTop: "2px" }}>{cat.location?.area || cat.location?.city || ""}</div>
-                      </div>
-                    </button>
-                  ))}
+      {/* Cats added by this user */}
+      <div style={{ padding: "0 20px 40px" }}>
+        <h3 style={{ fontSize: "18px", fontWeight: 600, marginBottom: "16px", color: "#111827" }}>
+          Cats added by {firstName(profile.displayName)}
+        </h3>
+        {loadingCats ? (
+          <p style={{ color: "#9ca3af", fontSize: "14px" }}>Loading cats...</p>
+        ) : userCats.length === 0 ? (
+          <p style={{ color: "#9ca3af", fontSize: "14px" }}>{firstName(profile.displayName)} hasn't added any cats yet.</p>
+        ) : (
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+            {userCats.map((cat) => (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => onSelectCat?.(cat)}
+                style={{
+                  background: "white",
+                  border: "1px solid #e5e7eb",
+                  borderRadius: "12px",
+                  overflow: "hidden",
+                  cursor: onSelectCat ? "pointer" : "default",
+                  textAlign: "left",
+                  padding: 0,
+                }}
+              >
+                {cat.photos && cat.photos.length > 0 ? (
+                  <div style={{ height: "110px", overflow: "hidden" }}>
+                    <img
+                      src={cat.photos[0].url}
+                      alt={cat.name}
+                      style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: normalisePhotoObjectPosition(cat.photos[0].objectPosition) }}
+                    />
+                  </div>
+                ) : (
+                  <div style={{ height: "110px", background: "#f3f4f6", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "40px" }}>
+                    {cat.emoji}
+                  </div>
+                )}
+                <div style={{ padding: "10px 12px" }}>
+                  <div style={{ fontWeight: 600, fontSize: "14px", color: "#111827" }}>{cat.name}</div>
+                  <div style={{ fontSize: "12px", color: "#9ca3af", marginTop: "2px" }}>{cat.location?.area || cat.location?.city || ""}</div>
                 </div>
-              )}
-            </div>
+              </button>
+            ))}
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
