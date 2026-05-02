@@ -2181,14 +2181,7 @@ function AddCatForm({
         };
       }
 
-      const createdVisit = {
-        userId: currentUser.uid,
-        date: new Date().toISOString(),
-        userName: activeUserProfile.displayName,
-      };
-
-      // Create the cat document first. Creating a cat also counts as the
-      // creator's first visit, because they have physically spotted the cat.
+      // Create the cat document first
       const catData = {
         name: name.trim(),
         emoji: selectedEmoji,
@@ -2211,11 +2204,9 @@ function AddCatForm({
             approximateAddress || fuzzyLocation(location[0], location[1]),
         },
         createdDate: serverTimestamp(),
-        totalVisits: 1,
-        userVisits: {
-          [currentUser.uid]: 1,
-        },
-        visits: [createdVisit],
+        totalVisits: 0,
+        userVisits: {},
+        visits: [],
         slowBlinks: [],
         creator: activeUserProfile.displayName,
         creatorId: currentUser.uid,
@@ -2266,7 +2257,6 @@ function AddCatForm({
         await updateDoc(userDoc.ref, {
           catsFound: increment(1),
           totalContributions: increment(1),
-          catsVisited: arrayUnion(docRef.id),
           ...(photoFile && { photosAdded: increment(1) }),
         });
       }
