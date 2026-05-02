@@ -24,7 +24,6 @@ import {
   serverTimestamp,
   arrayUnion,
   increment,
-  getDoc,
 } from "firebase/firestore";
 import {
   getStorage,
@@ -375,19 +374,6 @@ function extractLocationFromPhoto(
     ];
     setTimeout(() => resolve(mockLocation), 500);
   });
-}
-
-function getContributorBadge(type: "creator" | "photo" | "info"): string {
-  switch (type) {
-    case "creator":
-      return "⭐";
-    case "photo":
-      return "📸";
-    case "info":
-      return "📝";
-    default:
-      return "";
-  }
 }
 
 // Firebase helper functions
@@ -828,7 +814,7 @@ function UserCatsScreen({
           orderBy("createdDate", "desc")
         );
         const querySnapshot = await getDocs(q);
-        const cats = querySnapshot.docs.map((doc) => ({
+        const cats = querySnapshot.docs.map((doc: any) => ({
           id: doc.id,
           ...doc.data(),
         })) as Cat[];
@@ -1009,7 +995,7 @@ function UserPhotosScreen({
         const querySnapshot = await getDocs(q);
         const allPhotos: (CatPhoto & { catName: string })[] = [];
 
-        querySnapshot.docs.forEach((doc) => {
+        querySnapshot.docs.forEach((doc: any) => {
           const catData = doc.data() as Cat;
           const userCatPhotos = catData.photos
             .filter((photo) => photo.contributorId === currentUser.uid)
@@ -1152,7 +1138,7 @@ function UserVisitsScreen({
         const q = query(collection(db, "cats"));
         const querySnapshot = await getDocs(q);
         const cats = querySnapshot.docs
-          .map((doc) => ({ id: doc.id, ...doc.data() }))
+          .map((doc: any) => ({ id: doc.id, ...doc.data() }))
           .filter(
             (cat: any) => cat.userVisits && cat.userVisits[currentUser.uid] > 0
           ) as Cat[];
@@ -1614,10 +1600,10 @@ function AddCatForm({
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [selectedTraits, setSelectedTraits] = useState<string[]>([]);
-  const [allowsPetting, setAllowsPetting] = useState<boolean | null>(null);
-  const [acceptsTreats, setAcceptsTreats] = useState<boolean | null>(null);
-  const [favoriteTreats, setFavoriteTreats] = useState("");
-  const [livingLocation, setLivingLocation] = useState<
+  const [allowsPetting, _setAllowsPetting] = useState<boolean | null>(null);
+  const [acceptsTreats, _setAcceptsTreats] = useState<boolean | null>(null);
+  const [favoriteTreats, _setFavoriteTreats] = useState("");
+  const [livingLocation, _setLivingLocation] = useState<
     "indoor" | "outdoor" | "both" | null
   >(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -1677,7 +1663,7 @@ function AddCatForm({
           {
             id: currentUser.uid,
             name: userProfile.displayName,
-            type: "creator",
+            type: "creator" as const,
             contributions: 1,
           },
         ],
@@ -2578,16 +2564,16 @@ function ContributeForm({
   const [selectedTraits, setSelectedTraits] = useState<string[]>(
     cat.personality || []
   );
-  const [allowsPetting, setAllowsPetting] = useState<boolean | null>(
+  const [allowsPetting, _setAllowsPetting] = useState<boolean | null>(
     cat.allowsPetting
   );
-  const [acceptsTreats, setAcceptsTreats] = useState<boolean | null>(
+  const [acceptsTreats, _setAcceptsTreats] = useState<boolean | null>(
     cat.acceptsTreats
   );
-  const [favoriteTreats, setFavoriteTreats] = useState(
+  const [favoriteTreats, _setFavoriteTreats] = useState(
     cat.favoriteTreats?.join(", ") || ""
   );
-  const [livingLocation, setLivingLocation] = useState<
+  const [livingLocation, _setLivingLocation] = useState<
     "indoor" | "outdoor" | "both" | null
   >(cat.livingLocation);
   const [alternativeNames, setAlternativeNames] = useState(
@@ -3030,7 +3016,7 @@ function CatspottingScreen({
           {
             id: currentUser.uid,
             name: userProfile.displayName,
-            type: "creator",
+            type: "creator" as const,
             contributions: 1,
           },
         ],
@@ -3790,7 +3776,7 @@ export default function CatwalkApp() {
 
   // Firebase Auth State Listener
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user: FirebaseUser | null) => {
       if (user) {
         setCurrentUser({ uid: user.uid, email: user.email });
         const profile = await getUserProfile(user.uid);
@@ -3808,14 +3794,14 @@ export default function CatwalkApp() {
   useEffect(() => {
     const unsubscribe = onSnapshot(
       query(collection(db, "cats"), orderBy("createdDate", "desc")),
-      (snapshot) => {
-        const catsData = snapshot.docs.map((doc) => ({
+      (snapshot: any) => {
+        const catsData = snapshot.docs.map((doc: any) => ({
           id: doc.id,
           ...doc.data(),
         })) as Cat[];
         setCats(catsData);
       },
-      (error) => {
+      (error: any) => {
         console.error("Error fetching cats:", error);
       }
     );
@@ -4008,7 +3994,7 @@ export default function CatwalkApp() {
     });
   };
 
-  const handleAddCat = async (newCatData: Partial<Cat>) => {
+  const handleAddCat = async (_newCatData: Partial<Cat>) => {
     if (!currentUser || !userProfile) return;
 
     try {
