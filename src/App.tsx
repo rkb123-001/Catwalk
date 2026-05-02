@@ -751,7 +751,7 @@ function LoginScreen({
             marginBottom: "20px",
           }}
         >
-          <h1 style={{ fontSize: "28px", margin: 0 }}>🐱 Catwalk</h1>
+          <h1 style={{ fontSize: "28px", margin: 0, fontStyle: "italic", fontWeight: "normal" }}>Catwalk</h1>
           <button
             onClick={onClose}
             style={{
@@ -3926,6 +3926,8 @@ export default function CatwalkApp() {
   const [showCatspotting, setShowCatspotting] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
   const [showAuthRequired, setShowAuthRequired] = useState(false);
+  const [showGuide, setShowGuide] = useState(false);
+  const [showLocationConsent, setShowLocationConsent] = useState(false);
   const [potentialDuplicates, setPotentialDuplicates] = useState<Cat[]>([]);
   const [userLocation, setUserLocation] = useState<[number, number] | null>(
     null
@@ -3998,6 +4000,12 @@ export default function CatwalkApp() {
     }
     action();
   };
+
+  // Show location consent on first visit
+  useEffect(() => {
+    const asked = localStorage.getItem("catwalk-location-asked");
+    if (!asked) setShowLocationConsent(true);
+  }, []);
 
   // Get user location
   useEffect(() => {
@@ -4385,12 +4393,14 @@ export default function CatwalkApp() {
     onLogout,
     currentUser,
     onLogin,
+    onGuide,
   }: {
     onProfileClick: () => void;
     userProfile: UserProfile | null;
     onLogout: () => void;
     currentUser: User | null;
     onLogin: () => void;
+    onGuide: () => void;
   }) {
     return (
       <div
@@ -4423,7 +4433,7 @@ export default function CatwalkApp() {
             color: "#1a1a1a",
           }}
         >
-          🐱 Catwalk
+          Catwalk
         </h1>
         <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
           {currentUser ? (
@@ -4450,6 +4460,12 @@ export default function CatwalkApp() {
                     {userProfile?.totalContributions || 0} contributions
                   </div>
                 </div>
+              </button>
+              <button
+                style={{ background: "none", border: "none", padding: "8px", cursor: "pointer", color: "#888", display: "flex", alignItems: "center", fontFamily: '"Times New Roman", Times, serif', fontSize: "16px", fontStyle: "italic" }}
+                onClick={onGuide}
+              >
+                ?
               </button>
               <button
                 style={{
@@ -4886,6 +4902,7 @@ export default function CatwalkApp() {
         onLogout={handleLogout}
         currentUser={currentUser}
         onLogin={() => setShowLogin(true)}
+        onGuide={() => setShowGuide(true)}
       />
 
       {currentView === "catmap" && (
@@ -5252,6 +5269,120 @@ export default function CatwalkApp() {
             setShowAuthRequired(true);
           }}
         />
+      )}
+
+      {/* Location Consent Modal */}
+      {showLocationConsent && (
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.5)", zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}>
+          <div style={{ background: "white", padding: "40px 36px", maxWidth: "400px", width: "100%", borderTop: "2px solid #1a1a1a" }}>
+            <p style={{ fontSize: "11px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#aaa", marginBottom: "20px", fontFamily: '"Times New Roman", Times, serif' }}>Location</p>
+            <h2 style={{ fontSize: "22px", fontWeight: "normal", fontStyle: "italic", marginBottom: "16px", fontFamily: '"Times New Roman", Times, serif', color: "#1a1a1a" }}>Allow location access?</h2>
+            <p style={{ fontSize: "14px", lineHeight: "1.7", color: "#444", marginBottom: "32px", fontFamily: '"Times New Roman", Times, serif' }}>
+              Catwalk uses your location to centre the map on your neighbourhood and help you find cats nearby. Your precise location is never stored or shared — only used locally in your browser.
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+              <button
+                onClick={() => {
+                  localStorage.setItem("catwalk-location-asked", "true");
+                  setShowLocationConsent(false);
+                  if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(
+                      (pos) => {
+                        const loc: [number, number] = [pos.coords.latitude, pos.coords.longitude];
+                        setUserLocation(loc);
+                        localStorage.setItem("catwalk-last-location", JSON.stringify(loc));
+                        if (mapInstanceRef.current) mapInstanceRef.current.flyTo(loc, 15);
+                      },
+                      () => {}
+                    );
+                  }
+                }}
+                style={{ padding: "12px 20px", background: "white", border: "1px solid #1a1a1a", cursor: "pointer", fontFamily: '"Times New Roman", Times, serif', fontSize: "14px", color: "#1a1a1a" }}
+              >
+                Allow location
+              </button>
+              <button
+                onClick={() => {
+                  localStorage.setItem("catwalk-location-asked", "true");
+                  setShowLocationConsent(false);
+                }}
+                style={{ padding: "12px 20px", background: "none", border: "none", cursor: "pointer", fontFamily: '"Times New Roman", Times, serif', fontSize: "13px", color: "#888", textDecoration: "underline", textUnderlineOffset: "2px" }}
+              >
+                Skip for now
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Guide / FAQ Modal */}
+      {showGuide && (
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "white", zIndex: 3000, overflowY: "auto" }}>
+          <div style={{ maxWidth: "640px", margin: "0 auto", padding: "40px 28px 100px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "40px" }}>
+              <div>
+                <p style={{ fontSize: "11px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#aaa", marginBottom: "12px", fontFamily: '"Times New Roman", Times, serif' }}>Guide</p>
+                <h1 style={{ fontSize: "28px", fontWeight: "normal", fontStyle: "italic", fontFamily: '"Times New Roman", Times, serif', color: "#1a1a1a" }}>How to use Catwalk</h1>
+              </div>
+              <button onClick={() => setShowGuide(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "#888", padding: "4px", fontFamily: '"Times New Roman", Times, serif', fontSize: "20px" }}>×</button>
+            </div>
+
+            {[
+              {
+                q: "What is Catwalk?",
+                a: "Catwalk is a community-built map of neighbourhood cats. Anyone can add a cat they've spotted, contribute information about it, upload photos, and log visits. The more people contribute, the richer each cat's profile becomes."
+              },
+              {
+                q: "How do I navigate the map?",
+                a: "The map opens centred on your location. Pinch to zoom, drag to pan. Cat markers appear as emoji — tap one to open that cat's profile. Use the search box in the top-left to fly the map to any location in the world. The + / − controls adjust zoom."
+              },
+              {
+                q: "How do I add a cat?",
+                a: "You need to be signed in. On the map, tap 'Add cat' or use the drop pin to mark the location first, then tap 'Add cat'. Fill in the name, colour, personality traits, and an optional photo. The cat will appear on the map immediately."
+              },
+              {
+                q: "What is Catspotting?",
+                a: "Catspotting (the camera tab) lets you snap a photo of a cat you've just seen. It tries to detect nearby cats and lets you attach the photo to an existing profile, or create a new one. Useful when you're out and spot a cat quickly."
+              },
+              {
+                q: "How do I contribute to an existing cat's profile?",
+                a: "Open a cat's profile and tap 'Contribute'. You can update the description, add personality traits, or submit a community description — a short note about the cat's behaviour, appearance, or an anecdote. Choose the type (description, anecdote, or behaviour) before submitting."
+              },
+              {
+                q: "What does 'Visited' do?",
+                a: "Tapping 'Visited' on a cat's profile logs a visit for your account. Your visit count is visible on the profile. It's a way to track cats you've actually met in person. The profile shows total community visits and your personal count separately."
+              },
+              {
+                q: "What is a slow blink?",
+                a: "A slow blink is a cat's way of showing trust and affection — sometimes called a 'cat kiss'. Tapping 'Slow Blink' on a profile records that you've exchanged a slow blink with that cat. The total count is a loose measure of how friendly or well-known the cat is."
+              },
+              {
+                q: "Why is the map location blurred on cat profiles?",
+                a: "Cat profile maps show an approximate location, not an exact one, to protect the cat's safety. The pin is slightly randomised and the zoom is pulled back. The neighbourhood and street name are shown in text, but the precise coordinates are never displayed."
+              },
+              {
+                q: "Do I need an account to use Catwalk?",
+                a: "You can browse the map and view cat profiles without an account. To add cats, upload photos, log visits, or contribute information, you need to sign in. Creating an account is free and just requires an email and password."
+              },
+              {
+                q: "How do I change what location the map shows?",
+                a: "Type any place — a street name, neighbourhood, city, or country — into the search box in the top-left of the map. Results from OpenStreetMap will appear below; tap one to fly there. You can also drop a custom pin anywhere on the map using the 'Drop custom pin' button."
+              },
+            ].map((item, i) => (
+              <div key={i} style={{ borderTop: "1px solid #e5e5e5", paddingTop: "24px", paddingBottom: "24px" }}>
+                <h3 style={{ fontSize: "16px", fontWeight: "normal", fontStyle: "italic", marginBottom: "10px", fontFamily: '"Times New Roman", Times, serif', color: "#1a1a1a" }}>{item.q}</h3>
+                <p style={{ fontSize: "14px", lineHeight: "1.75", color: "#444", fontFamily: '"Times New Roman", Times, serif' }}>{item.a}</p>
+              </div>
+            ))}
+
+            <div style={{ borderTop: "1px solid #1a1a1a", paddingTop: "24px", marginTop: "8px" }}>
+              <button onClick={() => setShowGuide(false)}
+                style={{ padding: "10px 24px", background: "white", border: "1px solid #1a1a1a", cursor: "pointer", fontFamily: '"Times New Roman", Times, serif', fontSize: "13px", color: "#1a1a1a", letterSpacing: "0.04em" }}>
+                Close guide
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       <BottomBar />
