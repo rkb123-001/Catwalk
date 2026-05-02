@@ -2340,10 +2340,6 @@ function AddCatForm({
       >
         {/* Cat Location Picker */}
         <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-          <div>
-            <h3 style={{ fontSize: "16px", fontWeight: 700, margin: "0 0 4px", color: "#111827" }}>Cat location *</h3>
-            <p style={{ fontSize: "13px", color: "#6b7280", margin: 0 }}>Choose an approximate spot for this cat. This is separate from your map search, your general location, or any pin you dropped on the main map.</p>
-          </div>
           <div
             style={{
               display: "flex",
@@ -2361,8 +2357,8 @@ function AddCatForm({
               <strong>{location ? "Cat location selected" : "Choose the cat’s approximate location"}</strong>
               <div style={{ marginTop: "3px" }}>
                 {location
-                  ? "Approximate cat location selected. You can still move the dot before tapping Save cat."
-                  : "Search for an area, tap the map, drag the dot, or use your current location. The cat will not be saved until you tap Save cat."}
+                  ? "This location will only be saved after you tap Save cat."
+                  : "Search for an area, use your current location, or tap the map below. You can drag the dot to adjust it."}
               </div>
             </div>
           </div>
@@ -2374,7 +2370,7 @@ function AddCatForm({
                 type="text"
                 value={catLocationSearch}
                 onChange={(e) => handleCatLocationSearch(e.target.value)}
-                placeholder="Search for the cat’s approximate area, e.g. Dalston"
+                placeholder="Search for the cat’s approximate area"
                 style={{ border: "none", outline: "none", width: "100%", fontSize: "15px", background: "transparent" }}
               />
               {searchingCatLocation && <span style={{ fontSize: "12px", color: "#9ca3af" }}>...</span>}
@@ -2444,7 +2440,7 @@ function AddCatForm({
 
           <div>
             <label style={{ display: "block", fontSize: "14px", fontWeight: "500", marginBottom: "8px", color: "#111827" }}>
-              Approximate address / landmark, optional
+              Approximate address / landmark
             </label>
             <input
               type="text"
