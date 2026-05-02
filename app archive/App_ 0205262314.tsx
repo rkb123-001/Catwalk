@@ -3053,12 +3053,7 @@ function CatProfile({
           <PublicUserProfileModal
             profile={selectedVisitorProfile}
             onClose={() => setSelectedVisitorProfile(null)}
-            onSelectCat={(selectedCat) => {
-              setSelectedVisitorProfile(null);
-              setShowVisitList(false);
-              onClose();
-              onSelectCatFromProfile?.(selectedCat);
-            }}
+            onSelectCat={(cat) => { setSelectedVisitorProfile(null); setShowVisitList(false); onClose(); setTimeout(() => onSelectCatFromProfile?.(cat), 50); }}
           />
         )}
         <div style={{ position: "sticky", top: 0, background: "white", padding: "16px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #e5e7eb", zIndex: 10 }}>
@@ -6630,7 +6625,7 @@ export default function CatwalkApp() {
                     >
                       📍 <DisplayArea location={cat.location} />
                     </span>
-                    <span>{cat.totalVisits === 1 ? "1 visit" : `${cat.totalVisits} visits`}</span>
+                    <span>{cat.totalVisits} visits</span>
                   </div>
                 </div>
               </button>
