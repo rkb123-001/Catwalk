@@ -2376,67 +2376,6 @@ function AddCatForm({
   );
 }
 
-
-// Public profile preview shown from visitor lists
-function PublicUserProfileModal({
-  profile,
-  onClose,
-}: {
-  profile: UserProfile;
-  onClose: () => void;
-}) {
-  return (
-    <div style={{ position: "fixed", inset: 0, background: "white", zIndex: 2600, overflowY: "auto" }}>
-      <div style={{ position: "sticky", top: 0, background: "white", padding: "16px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #e5e7eb", zIndex: 10 }}>
-        <h2 style={{ margin: 0 }}>{profile.displayName}</h2>
-        <button onClick={onClose} style={{ background: "none", border: "none", padding: "8px", cursor: "pointer", color: "#6b7280" }} aria-label="Close profile">
-          <XIcon />
-        </button>
-      </div>
-
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "40px 20px 96px" }}>
-        <div style={{ width: "120px", height: "120px", background: "#e5e7eb", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "24px", overflow: "hidden" }}>
-          {profile.profilePicture ? (
-            <img src={profile.profilePicture} alt={`${profile.displayName} profile`} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-          ) : (
-            <UserIcon />
-          )}
-        </div>
-
-        <h3 style={{ fontSize: "28px", fontWeight: 700, margin: "0 0 8px", color: "#111827" }}>{profile.displayName}</h3>
-        <p style={{ fontSize: "16px", color: "#1a0dab", margin: "0 0 8px", fontWeight: 600 }}>
-          {profile.identity === "human-of-cat" ? "Human of a cat" : "Unattached catwalker"}
-        </p>
-        {profile.location && (
-          <p style={{ fontSize: "16px", color: "#6b7280", margin: "0 0 8px" }}>📍 {profile.location}</p>
-        )}
-        <p style={{ fontSize: "14px", color: "#9ca3af", margin: "0 0 32px" }}>
-          On the Catwalk since {profile.joinDate && formatDate(profile.joinDate)}
-        </p>
-
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", width: "100%", maxWidth: "420px" }}>
-          <div style={{ textAlign: "center", padding: "18px", background: "#f9fafb", borderRadius: "14px", border: "1px solid #e5e7eb" }}>
-            <div style={{ fontSize: "32px", fontWeight: 800, color: "#1a0dab", marginBottom: "6px" }}>{profile.catsFound || 0}</div>
-            <div style={{ fontSize: "14px", color: "#6b7280" }}>Cats added</div>
-          </div>
-          <div style={{ textAlign: "center", padding: "18px", background: "#f9fafb", borderRadius: "14px", border: "1px solid #e5e7eb" }}>
-            <div style={{ fontSize: "32px", fontWeight: 800, color: "#1a0dab", marginBottom: "6px" }}>{profile.photosAdded || 0}</div>
-            <div style={{ fontSize: "14px", color: "#6b7280" }}>Photos added</div>
-          </div>
-          <div style={{ textAlign: "center", padding: "18px", background: "#f9fafb", borderRadius: "14px", border: "1px solid #e5e7eb" }}>
-            <div style={{ fontSize: "32px", fontWeight: 800, color: "#1a0dab", marginBottom: "6px" }}>{profile.totalContributions || 0}</div>
-            <div style={{ fontSize: "14px", color: "#6b7280" }}>Info contributed</div>
-          </div>
-          <div style={{ textAlign: "center", padding: "18px", background: "#f9fafb", borderRadius: "14px", border: "1px solid #e5e7eb" }}>
-            <div style={{ fontSize: "32px", fontWeight: 800, color: "#1a0dab", marginBottom: "6px" }}>{profile.catsVisited?.length || 0}</div>
-            <div style={{ fontSize: "14px", color: "#6b7280" }}>Cats visited</div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // Cat Profile Component - Updated with auth requirement
 function CatProfile({
   cat,
@@ -2466,8 +2405,6 @@ function CatProfile({
   const [showAllPhotos, setShowAllPhotos] = useState(false);
   const [showVisitList, setShowVisitList] = useState(false);
   const [showMyVisitDetails, setShowMyVisitDetails] = useState(false);
-  const [selectedVisitorProfile, setSelectedVisitorProfile] = useState<UserProfile | null>(null);
-  const [loadingVisitorProfileId, setLoadingVisitorProfileId] = useState<string | null>(null);
   const [editingPhotoId, setEditingPhotoId] = useState<string | null>(null);
   const [pendingPhotoFile, setPendingPhotoFile] = useState<File | null>(null);
   const [pendingPhotoPreview, setPendingPhotoPreview] = useState<string | null>(null);
@@ -2511,28 +2448,6 @@ function CatProfile({
         return acc;
       }, {})
     : {};
-
-  const handleOpenVisitorProfile = async (visitor: { userId: string; userName: string }) => {
-    if (!visitor.userId || visitor.userId === "unknown") {
-      alert("This visitor profile isn’t available.");
-      return;
-    }
-
-    setLoadingVisitorProfileId(visitor.userId);
-    try {
-      const profile = await getUserProfile(visitor.userId);
-      if (profile) {
-        setSelectedVisitorProfile(profile);
-      } else {
-        alert(`${visitor.userName}'s profile could not be found.`);
-      }
-    } catch (error) {
-      console.error("Error opening visitor profile:", error);
-      alert("Sorry, this profile couldn’t be opened right now.");
-    } finally {
-      setLoadingVisitorProfileId(null);
-    }
-  };
 
   const handleEditVisitCount = async () => {
     if (!currentUser) {
@@ -2603,9 +2518,6 @@ function CatProfile({
   if (showVisitList) {
     return (
       <div style={{ position: "fixed", inset: 0, background: "white", zIndex: 2200, overflowY: "auto" }}>
-        {selectedVisitorProfile && (
-          <PublicUserProfileModal profile={selectedVisitorProfile} onClose={() => setSelectedVisitorProfile(null)} />
-        )}
         <div style={{ position: "sticky", top: 0, background: "white", padding: "16px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #e5e7eb", zIndex: 10 }}>
           <h2 style={{ margin: 0 }}>Visits to {cat.name}</h2>
           <button onClick={() => setShowVisitList(false)} style={{ background: "none", border: "none", padding: "8px", cursor: "pointer", color: "#6b7280" }}><XIcon /></button>
@@ -2618,7 +2530,7 @@ function CatProfile({
               <button
                 key={visitor.userId}
                 type="button"
-                onClick={() => handleOpenVisitorProfile(visitor)}
+                onClick={() => alert(`${visitor.userName}'s public profile page can be linked here once public profiles are added.`)}
                 style={{
                   width: "100%",
                   textAlign: "left",
@@ -2631,9 +2543,7 @@ function CatProfile({
               >
                 <div style={{ fontWeight: 700, color: "#111827", marginBottom: "4px" }}>{visitor.userName}</div>
                 <div style={{ fontSize: "14px", color: "#6b7280" }}>
-                  {loadingVisitorProfileId === visitor.userId
-                    ? "Opening profile…"
-                    : `${visitor.count} ${visitor.count === 1 ? "visit" : "visits"} · Last visited ${formatDate(visitor.latestDate)}`}
+                  {visitor.count} {visitor.count === 1 ? "visit" : "visits"} · Last visited {formatDate(visitor.latestDate)}
                 </div>
               </button>
             ))
