@@ -2184,7 +2184,7 @@ function CatProfile({
   currentUser: User | null;
   onVisit: () => void;
   onSlowBlink: () => void;
-  onAddPhoto: (file: File) => void | Promise<void>;
+  onAddPhoto: (file: File) => void;
   onContribute: () => void;
   onAuthRequired: () => void;
 }) {
@@ -2202,12 +2202,9 @@ function CatProfile({
     fileInputRef.current?.click();
   };
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      await onAddPhoto(file);
-      e.target.value = "";
-    }
+    if (file) onAddPhoto(file);
   };
 
   const handleActionClick = (action: () => void) => {
@@ -4026,17 +4023,6 @@ export default function CatwalkApp() {
     return () => unsubscribe();
   }, []);
 
-  // Keep an open cat profile synced with Firestore. Without this, actions like
-  // Visit, Slow Blink, or Add Photo can save correctly but the currently open
-  // profile still shows the old in-memory cat until you close and reopen it.
-  useEffect(() => {
-    if (!selectedCat) return;
-    const latestCat = cats.find((cat) => cat.id === selectedCat.id);
-    if (latestCat && latestCat !== selectedCat) {
-      setSelectedCat(latestCat);
-    }
-  }, [cats, selectedCat?.id]);
-
   const requireAuth = (action: () => void) => {
     if (!currentUser) {
       setShowAuthRequired(true);
@@ -4185,37 +4171,18 @@ export default function CatwalkApp() {
   }, [leafletLoaded, mapLoading]);
 
   // Initialize map. Keep this independent from geolocation so the first map
-  // render is not delayed by the browser's location lookup. This waits until
-  // the map container has a real size before constructing Leaflet, which fixes
-  // the blank first-load map that only appeared after changing tabs.
+  // render is not delayed by the browser's location lookup.
   useEffect(() => {
     const mapShouldBeVisible = currentView === "catmap" && !showCatspotting;
-    if (!mapShouldBeVisible || !leafletLoaded || !window.L) return;
+    if (!mapShouldBeVisible || !leafletLoaded || !mapRef.current || !window.L) return;
 
-    let cancelled = false;
-    let attempts = 0;
-    let retryTimer: number | undefined;
-
-    const initialiseWhenReady = () => {
-      if (cancelled) return;
-      const container = mapRef.current;
-      if (!container) {
-        retryTimer = window.setTimeout(initialiseWhenReady, 50);
-        return;
-      }
-
-      const rect = container.getBoundingClientRect();
-      const hasUsableSize = rect.width > 50 && rect.height > 50;
-      if (!hasUsableSize && attempts < 30) {
-        attempts += 1;
-        retryTimer = window.setTimeout(initialiseWhenReady, 80);
-        return;
-      }
+    const timer = window.setTimeout(() => {
+      if (!mapRef.current) return;
 
       try {
         const existingContainer = mapInstanceRef.current?.getContainer?.();
-        if (mapInstanceRef.current && existingContainer === container) {
-          invalidateMapSize(mapInstanceRef.current);
+        if (mapInstanceRef.current && existingContainer === mapRef.current) {
+          mapInstanceRef.current.invalidateSize();
           return;
         }
 
@@ -4227,25 +4194,15 @@ export default function CatwalkApp() {
 
         // Hot reloads can leave Leaflet's internal id on the DOM node, which
         // prevents a fresh map from mounting and leaves the plain green fallback.
-        if ((container as any)._leaflet_id) {
-          (container as any)._leaflet_id = undefined;
+        if ((mapRef.current as any)._leaflet_id) {
+          (mapRef.current as any)._leaflet_id = undefined;
         }
-        container.innerHTML = "";
+        mapRef.current.innerHTML = "";
 
-        let center: [number, number] = [51.5074, -0.1278];
         const saved = localStorage.getItem("catwalk-last-location");
-        if (saved) {
-          try {
-            const parsed = JSON.parse(saved);
-            if (Array.isArray(parsed) && parsed.length === 2) {
-              center = [Number(parsed[0]), Number(parsed[1])];
-            }
-          } catch {
-            // Keep London default if saved location is malformed.
-          }
-        }
+        const center: [number, number] = saved ? JSON.parse(saved) : [51.5074, -0.1278];
 
-        const map = window.L.map(container, {
+        const map = window.L.map(mapRef.current, {
           center,
           zoom: 15,
           minZoom: 5,
@@ -4259,12 +4216,11 @@ export default function CatwalkApp() {
           {
             attribution: "© OpenStreetMap contributors",
             maxZoom: 20,
-            updateWhenIdle: false,
-            keepBuffer: 3,
+            updateWhenIdle: true,
+            keepBuffer: 2,
           }
         ).addTo(map);
 
-        map.whenReady(() => invalidateMapSize(map));
         mapInstanceRef.current = map;
         setLeafletMap(map);
         invalidateMapSize(map);
@@ -4273,14 +4229,9 @@ export default function CatwalkApp() {
         mapInstanceRef.current = null;
         setLeafletMap(null);
       }
-    };
+    }, 0);
 
-    retryTimer = window.setTimeout(initialiseWhenReady, 0);
-
-    return () => {
-      cancelled = true;
-      if (retryTimer !== undefined) window.clearTimeout(retryTimer);
-    };
+    return () => window.clearTimeout(timer);
   }, [currentView, showCatspotting, leafletLoaded]);
 
   // Keep Leaflet in sync with the actual rendered container size. This prevents
@@ -4460,20 +4411,6 @@ export default function CatwalkApp() {
         visits: arrayUnion(newVisit),
       });
 
-      setSelectedCat((prev) =>
-        prev && prev.id === selectedCat.id
-          ? {
-              ...prev,
-              totalVisits: (prev.totalVisits || 0) + 1,
-              userVisits: {
-                ...(prev.userVisits || {}),
-                [currentUser.uid]: ((prev.userVisits || {})[currentUser.uid] || 0) + 1,
-              },
-              visits: [...(prev.visits || []), newVisit],
-            }
-          : prev
-      );
-
       // Update user's visited cats list
       const userQuery = query(
         collection(db, "users"),
@@ -4508,12 +4445,6 @@ export default function CatwalkApp() {
       await updateDoc(catDoc, {
         slowBlinks: arrayUnion(newSlowBlink),
       });
-
-      setSelectedCat((prev) =>
-        prev && prev.id === selectedCat.id
-          ? { ...prev, slowBlinks: [...(prev.slowBlinks || []), newSlowBlink] }
-          : prev
-      );
     } catch (error) {
       console.error("Error recording slow blink:", error);
     }
@@ -4541,12 +4472,6 @@ export default function CatwalkApp() {
       await updateDoc(catDoc, {
         photos: arrayUnion(photoData),
       });
-
-      setSelectedCat((prev) =>
-        prev && prev.id === selectedCat.id
-          ? { ...prev, photos: [...(prev.photos || []), photoData] }
-          : prev
-      );
 
       // Update user profile
       const userQuery = query(
@@ -5330,9 +5255,7 @@ export default function CatwalkApp() {
               left: 0,
               right: 0,
               bottom: "60px",
-              minHeight: "320px",
               background: "#e8f5e9",
-              zIndex: 1,
               pointerEvents: screenOverlayOpen ? "none" : "auto",
             }}
           />
