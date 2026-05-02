@@ -406,7 +406,7 @@ function PhotoCaptureButton({
                     <CameraIcon /> Choose from Gallery
                   </button>
                   <button onClick={startCamera}
-                    style={{ display: "flex", alignItems: "center", gap: "12px", padding: "16px", background: "#8b5cf6", color: "white", border: "none", borderRadius: "12px", cursor: "pointer", fontSize: "16px" }}>
+                    style={{ display: "flex", alignItems: "center", gap: "12px", padding: "16px", background: "#1a0dab", color: "white", border: "none", borderRadius: "12px", cursor: "pointer", fontSize: "16px" }}>
                     <CameraCaptureIcon /> Take Photo
                   </button>
                 </div>
@@ -631,7 +631,7 @@ function AuthRequiredModal({
             onClick={onLogin}
             style={{
               padding: "12px 24px",
-              background: "#8b5cf6",
+              background: "#1a0dab",
               color: "white",
               border: "none",
               borderRadius: "12px",
@@ -828,7 +828,7 @@ function LoginScreen({
                       border: "none",
                       borderRadius: "12px",
                       background:
-                        identity === "human-of-cat" ? "#8b5cf6" : "#f3f4f6",
+                        identity === "human-of-cat" ? "#1a0dab" : "#f3f4f6",
                       color: identity === "human-of-cat" ? "white" : "#111827",
                       fontSize: "14px",
                       cursor: "pointer",
@@ -846,7 +846,7 @@ function LoginScreen({
                       borderRadius: "12px",
                       background:
                         identity === "unattached-catwalker"
-                          ? "#8b5cf6"
+                          ? "#1a0dab"
                           : "#f3f4f6",
                       color:
                         identity === "unattached-catwalker"
@@ -917,7 +917,7 @@ function LoginScreen({
             disabled={loading}
             style={{
               padding: "14px",
-              background: "#8b5cf6",
+              background: "#1a0dab",
               color: "white",
               border: "none",
               borderRadius: "10px",
@@ -940,7 +940,7 @@ function LoginScreen({
           style={{
             background: "none",
             border: "none",
-            color: "#8b5cf6",
+            color: "#1a0dab",
             fontSize: "14px",
             cursor: "pointer",
             marginTop: "20px",
@@ -1458,7 +1458,7 @@ function UserVisitsScreen({
                   <div
                     style={{
                       background: "rgba(26,13,171,0.08)",
-                      color: "#8b5cf6",
+                      color: "#1a0dab",
                       padding: "4px 12px",
                       borderRadius: "12px",
                       fontSize: "12px",
@@ -1626,7 +1626,7 @@ function FilterModal({
             style={{
               background: "none",
               border: "none",
-              color: "#8b5cf6",
+              color: "#1a0dab",
               fontSize: "16px",
               cursor: "pointer",
             }}
@@ -1667,7 +1667,7 @@ function FilterModal({
                       : "#f3f4f6",
                   border:
                     tempFilters.emoji === catEmoji.emoji
-                      ? "2px solid #8b5cf6"
+                      ? "2px solid #1a0dab"
                       : "2px solid transparent",
                   cursor: "pointer",
                   display: "flex",
@@ -1716,7 +1716,7 @@ function FilterModal({
                     ? "rgba(26,13,171,0.08)"
                     : "#f3f4f6",
                   color: tempFilters.personality.includes(trait)
-                    ? "#8b5cf6"
+                    ? "#1a0dab"
                     : "#6b7280",
                   border: "none",
                   cursor: "pointer",
@@ -1733,7 +1733,7 @@ function FilterModal({
           style={{
             width: "100%",
             padding: "16px",
-            background: "#8b5cf6",
+            background: "#1a0dab",
             color: "white",
             border: "none",
             borderRadius: "12px",
@@ -1920,7 +1920,7 @@ function AddCatForm({
           onClick={handleSubmit}
           disabled={!name || uploading}
           style={{
-            color: "#8b5cf6",
+            color: "#1a0dab",
             fontWeight: "500",
             background: "none",
             border: "none",
@@ -2014,7 +2014,7 @@ function AddCatForm({
                     selectedEmoji === catEmoji.emoji ? "rgba(26,13,171,0.08)" : "#f3f4f6",
                   border:
                     selectedEmoji === catEmoji.emoji
-                      ? "2px solid #8b5cf6"
+                      ? "2px solid #1a0dab"
                       : "2px solid transparent",
                   cursor: "pointer",
                   display: "flex",
@@ -2120,7 +2120,7 @@ function AddCatForm({
                   background: selectedTraits.includes(trait)
                     ? "rgba(26,13,171,0.08)"
                     : "#f3f4f6",
-                  color: selectedTraits.includes(trait) ? "#8b5cf6" : "#6b7280",
+                  color: selectedTraits.includes(trait) ? "#1a0dab" : "#6b7280",
                   border: "none",
                   cursor: "pointer",
                 }}
@@ -2500,7 +2500,7 @@ function CatProfile({
                 style={{
                   background: "none",
                   border: "none",
-                  color: "#8b5cf6",
+                  color: "#1a0dab",
                   fontSize: "16px",
                   fontWeight: "500",
                   cursor: "pointer",
@@ -2609,7 +2609,7 @@ function CatProfile({
                 style={{
                   padding: "4px 12px",
                   background: "transparent",
-                  color: "#8b5cf6",
+                  color: "#1a0dab",
                   borderRadius: "12px",
                   fontSize: "14px",
                 }}
@@ -2672,7 +2672,7 @@ function CatProfile({
               {cat.descriptions.map((desc) => (
                 <div key={desc.id} style={{ background: "#f9fafb", borderRadius: "12px", padding: "16px", border: "1px solid #e5e7eb" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-                    <span style={{ fontSize: "12px", fontWeight: "600", textTransform: "capitalize", background: "rgba(26,13,171,0.08)", color: "#8b5cf6", padding: "2px 8px", borderRadius: "12px" }}>
+                    <span style={{ fontSize: "12px", fontWeight: "600", textTransform: "capitalize", background: "rgba(26,13,171,0.08)", color: "#1a0dab", padding: "2px 8px", borderRadius: "12px" }}>
                       {desc.type}
                     </span>
                     <span style={{ fontSize: "12px", color: "#9ca3af" }}>
@@ -2835,7 +2835,7 @@ function ContributeForm({
           onClick={handleSubmit}
           disabled={saving}
           style={{
-            color: "#8b5cf6",
+            color: "#1a0dab",
             fontWeight: "500",
             background: "none",
             border: "none",
@@ -2941,7 +2941,7 @@ function ContributeForm({
           <div style={{ display: "flex", gap: "8px", marginBottom: "8px" }}>
             {(["description", "anecdote", "behavior"] as const).map((type) => (
               <button key={type} type="button" onClick={() => setDescriptionType(type)}
-                style={{ padding: "6px 12px", border: "none", borderRadius: "12px", background: descriptionType === type ? "#8b5cf6" : "#f3f4f6", color: descriptionType === type ? "white" : "#111827", fontSize: "12px", cursor: "pointer", textTransform: "capitalize" }}>
+                style={{ padding: "6px 12px", border: "none", borderRadius: "12px", background: descriptionType === type ? "#1a0dab" : "#f3f4f6", color: descriptionType === type ? "white" : "#111827", fontSize: "12px", cursor: "pointer", textTransform: "capitalize" }}>
                 {type}
               </button>
             ))}
@@ -2986,7 +2986,7 @@ function ContributeForm({
                   background: selectedTraits.includes(trait)
                     ? "rgba(26,13,171,0.08)"
                     : "#f3f4f6",
-                  color: selectedTraits.includes(trait) ? "#8b5cf6" : "#6b7280",
+                  color: selectedTraits.includes(trait) ? "#1a0dab" : "#6b7280",
                   border: "none",
                   cursor: "pointer",
                 }}
@@ -3276,7 +3276,7 @@ function CatspottingScreen({
               style={{
                 marginTop: "16px",
                 padding: "12px 24px",
-                background: "#8b5cf6",
+                background: "#1a0dab",
                 color: "white",
                 border: "none",
                 borderRadius: "12px",
@@ -3387,7 +3387,7 @@ function CatspottingScreen({
                             padding: "12px",
                             border:
                               selectedCat?.id === cat.id
-                                ? "2px solid #8b5cf6"
+                                ? "2px solid #1a0dab"
                                 : "1px solid #e5e7eb",
                             borderRadius: "12px",
                             cursor: "pointer",
@@ -3452,8 +3452,8 @@ function CatspottingScreen({
                         style={{
                           padding: "12px 20px",
                           background: "white",
-                          color: "#8b5cf6",
-                          border: "2px solid #8b5cf6",
+                          color: "#1a0dab",
+                          border: "2px solid #1a0dab",
                           borderRadius: "12px",
                           fontSize: "16px",
                           fontWeight: "500",
@@ -3491,7 +3491,7 @@ function CatspottingScreen({
                       style={{
                         width: "100%",
                         padding: "12px 20px",
-                        background: "#8b5cf6",
+                        background: "#1a0dab",
                         color: "white",
                         border: "none",
                         borderRadius: "12px",
@@ -3528,7 +3528,7 @@ function CatspottingScreen({
                   style={{
                     width: "100%",
                     padding: "12px 20px",
-                    background: "#8b5cf6",
+                    background: "#1a0dab",
                     color: "white",
                     border: "none",
                     borderRadius: "12px",
@@ -3655,7 +3655,7 @@ function UserProfile({
         <p
           style={{
             fontSize: "16px",
-            color: "#8b5cf6",
+            color: "#1a0dab",
             marginBottom: "8px",
             fontWeight: "500",
           }}
@@ -3701,7 +3701,7 @@ function UserProfile({
               style={{
                 fontSize: "36px",
                 fontWeight: "700",
-                color: "#8b5cf6",
+                color: "#1a0dab",
                 marginBottom: "8px",
               }}
             >
@@ -3726,7 +3726,7 @@ function UserProfile({
               style={{
                 fontSize: "36px",
                 fontWeight: "700",
-                color: "#8b5cf6",
+                color: "#1a0dab",
                 marginBottom: "8px",
               }}
             >
@@ -3749,7 +3749,7 @@ function UserProfile({
               style={{
                 fontSize: "36px",
                 fontWeight: "700",
-                color: "#8b5cf6",
+                color: "#1a0dab",
                 marginBottom: "8px",
               }}
             >
@@ -3776,7 +3776,7 @@ function UserProfile({
               style={{
                 fontSize: "36px",
                 fontWeight: "700",
-                color: "#8b5cf6",
+                color: "#1a0dab",
                 marginBottom: "8px",
               }}
             >
@@ -3882,7 +3882,7 @@ function DuplicateModal({
             style={{
               flex: 1,
               padding: "12px",
-              background: "#8b5cf6",
+              background: "#1a0dab",
               color: "white",
               border: "none",
               borderRadius: "12px",
@@ -3942,6 +3942,7 @@ export default function CatwalkApp() {
   const [cats, setCats] = useState<Cat[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const [leafletLoaded, setLeafletLoaded] = useState(false);
   const [mapLoading, setMapLoading] = useState(false);
   const [leafletMap, setLeafletMap] = useState<any>(null);
@@ -3969,6 +3970,7 @@ export default function CatwalkApp() {
         setCurrentUser(null);
         setUserProfile(null);
       }
+      setAuthLoading(false);
     });
 
     return () => unsubscribe();
@@ -4389,6 +4391,7 @@ export default function CatwalkApp() {
     currentUser,
     onLogin,
     onGuide,
+    onHomeClick,
   }: {
     onProfileClick: () => void;
     userProfile: UserProfile | null;
@@ -4396,6 +4399,7 @@ export default function CatwalkApp() {
     currentUser: User | null;
     onLogin: () => void;
     onGuide: () => void;
+    onHomeClick: () => void;
   }) {
     return (
       <div
@@ -4414,9 +4418,12 @@ export default function CatwalkApp() {
           height: "72px",
         }}
       >
-        <h1 style={{ fontSize: "24px", fontWeight: "bold", display: "flex", alignItems: "center", gap: "8px", margin: 0 }}>
-          🐱 Catwalk
-        </h1>
+        <button
+          onClick={onHomeClick}
+          style={{ fontSize: "24px", fontWeight: "bold", margin: 0, background: "none", border: "none", cursor: "pointer", padding: 0, color: "#111827" }}
+        >
+          Catwalk
+        </button>
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
           {currentUser ? (
             <>
@@ -4443,7 +4450,7 @@ export default function CatwalkApp() {
             </>
           ) : (
             <button
-              style={{ padding: "8px 16px", background: "#8b5cf6", color: "white", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "14px", fontWeight: "500" }}
+              style={{ padding: "8px 16px", background: "#1a0dab", color: "white", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "14px", fontWeight: "500" }}
               onClick={onLogin}
             >
               Sign In
@@ -4563,7 +4570,7 @@ export default function CatwalkApp() {
                 alignItems: "center",
                 gap: "8px",
                 padding: "12px 16px",
-                background: hasActiveFilters ? "#8b5cf6" : "white",
+                background: hasActiveFilters ? "#1a0dab" : "white",
                 color: hasActiveFilters ? "white" : "#111827",
                 border: hasActiveFilters ? "none" : "1px solid #e5e7eb",
                 borderRadius: "12px",
@@ -4596,7 +4603,7 @@ export default function CatwalkApp() {
                 alignItems: "center",
                 gap: "8px",
                 padding: "10px 20px",
-                background: "#8b5cf6",
+                background: "#1a0dab",
                 border: "none",
                 borderRadius: "12px",
                 color: "white",
@@ -4761,19 +4768,55 @@ export default function CatwalkApp() {
       }}
     >
       <button onClick={() => setCurrentView("catmap")}
-        style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "4px", background: "none", border: "none", padding: "8px 20px", cursor: "pointer", color: currentView === "catmap" ? "#8b5cf6" : "#6b7280", fontSize: "14px" }}>
+        style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "4px", background: "none", border: "none", padding: "8px 20px", cursor: "pointer", color: currentView === "catmap" ? "#1a0dab" : "#6b7280", fontSize: "14px" }}>
         <MapIcon /><span>Map</span>
       </button>
       <button onClick={() => setCurrentView("list")}
-        style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "4px", background: "none", border: "none", padding: "8px 20px", cursor: "pointer", color: currentView === "list" ? "#8b5cf6" : "#6b7280", fontSize: "14px" }}>
+        style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "4px", background: "none", border: "none", padding: "8px 20px", cursor: "pointer", color: currentView === "list" ? "#1a0dab" : "#6b7280", fontSize: "14px" }}>
         <SearchIcon /><span>Browse</span>
       </button>
       <button onClick={() => requireAuth(() => setShowCatspotting(true))}
-        style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "4px", background: "none", border: "none", padding: "8px 20px", cursor: "pointer", color: showCatspotting ? "#8b5cf6" : "#6b7280", fontSize: "14px" }}>
+        style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "4px", background: "none", border: "none", padding: "8px 20px", cursor: "pointer", color: showCatspotting ? "#1a0dab" : "#6b7280", fontSize: "14px" }}>
         <CameraIcon /><span>Catspotting</span>
       </button>
     </div>
   );
+
+  // Loading state while Firebase resolves auth
+  if (authLoading) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "#f5f5f5" }}>
+        <div style={{ textAlign: "center", color: "#6b7280" }}>
+          <div style={{ fontSize: "48px", marginBottom: "16px" }}>🐱</div>
+          <p>Loading Catwalk...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Login wall — shown if not signed in
+  if (!currentUser) {
+    return (
+      <div style={{ minHeight: "100vh", background: "#f5f5f5", fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}>
+        <div style={{ maxWidth: "440px", width: "100%" }}>
+          <div style={{ textAlign: "center", marginBottom: "40px" }}>
+            <div style={{ fontSize: "56px", marginBottom: "12px" }}>🐱</div>
+            <h1 style={{ fontSize: "32px", fontWeight: "700", color: "#111827", marginBottom: "8px" }}>Catwalk</h1>
+            <p style={{ fontSize: "16px", color: "#6b7280", lineHeight: "1.6" }}>A community-built map of neighbourhood cats.</p>
+          </div>
+          <div style={{ background: "white", border: "1px solid #e5e7eb", borderRadius: "12px", padding: "16px 20px", marginBottom: "28px", display: "flex", gap: "12px", alignItems: "flex-start" }}>
+            <span style={{ fontSize: "20px", flexShrink: 0 }}>🤝</span>
+            <p style={{ fontSize: "13px", color: "#6b7280", lineHeight: "1.6", margin: 0 }}>
+              Catwalk celebrates cats in your community — it is not a tool for harm. Location information is approximate and intended to help people visit cats they already know, not to facilitate theft, disturbance, or any harm to animals. Please treat every cat and their neighbourhood with respect.
+            </p>
+          </div>
+          <div style={{ background: "white", borderRadius: "16px", padding: "32px", boxShadow: "0 2px 8px rgba(0,0,0,0.08)" }}>
+            <LoginScreen onLogin={() => {}} onClose={() => {}} />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -4794,6 +4837,7 @@ export default function CatwalkApp() {
         currentUser={currentUser}
         onLogin={() => setShowLogin(true)}
         onGuide={() => setShowGuide(true)}
+        onHomeClick={() => { setCurrentView("catmap"); setSelectedCat(null); }}
       />
 
       {currentView === "catmap" && (
@@ -4886,7 +4930,7 @@ export default function CatwalkApp() {
             </div>
             <button
               style={{
-                background: isPlacingPin ? "#8b5cf6" : "white",
+                background: isPlacingPin ? "#1a0dab" : "white",
                 color: isPlacingPin ? "white" : "black",
                 padding: "12px 20px",
                 border: "none",
@@ -4993,7 +5037,7 @@ export default function CatwalkApp() {
                 style={{
                   width: "64px",
                   height: "64px",
-                  background: "#8b5cf6",
+                  background: "#1a0dab",
                   border: "none",
                   borderRadius: "50%",
                   display: "flex",
