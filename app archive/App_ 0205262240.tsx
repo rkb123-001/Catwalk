@@ -490,8 +490,8 @@ function PhotoCaptureButton({
               <>
                 <video ref={videoRef} autoPlay playsInline style={{ width: "100%", borderRadius: "12px", marginBottom: "16px" }} />
                 <div style={{ display: "flex", gap: "12px", justifyContent: "center" }}>
-                  <button onClick={capturePhoto} style={{ padding: "12px 24px", background: "#1a0dab", color: "white", border: "none", borderRadius: "12px", cursor: "pointer" }}>Capture</button>
-                  <button onClick={() => { stopCamera(); setShowOptions(false); }} style={{ padding: "12px 24px", background: "#f3f4f6", color: "#374151", border: "none", borderRadius: "12px", cursor: "pointer" }}>Cancel</button>
+                  <button onClick={capturePhoto} style={{ padding: "12px 24px", background: "#10b981", color: "white", border: "none", borderRadius: "12px", cursor: "pointer" }}>Capture</button>
+                  <button onClick={() => { stopCamera(); setShowOptions(false); }} style={{ padding: "12px 24px", background: "#ef4444", color: "white", border: "none", borderRadius: "12px", cursor: "pointer" }}>Cancel</button>
                 </div>
               </>
             )}
@@ -645,12 +645,6 @@ const PERSONALITY_TRAITS = [
 ];
 
 // Helper functions
-
-// Returns only the first name from a display name string
-function firstName(name: string | undefined | null): string {
-  if (!name) return "Catwalker";
-  return name.trim().split(/\s+/)[0];
-}
 
 // Handles both Firestore Timestamps and ISO strings
 function toDate(value: any): Date | null {
@@ -1296,7 +1290,7 @@ function UserCatsScreen({
         top: "72px",
         left: 0,
         right: 0,
-        bottom: "80px",
+        bottom: "60px",
         background: "white",
         zIndex: 1500,
         overflowY: "auto",
@@ -1332,7 +1326,7 @@ function UserCatsScreen({
         </h2>
       </div>
 
-      <div style={{ padding: "20px", paddingBottom: "40px" }}>
+      <div style={{ padding: "20px" }}>
         {loading ? (
           <div style={{ textAlign: "center", padding: "40px" }}>
             Loading your cats...
@@ -1485,7 +1479,7 @@ function UserPhotosScreen({
         top: "72px",
         left: 0,
         right: 0,
-        bottom: "80px",
+        bottom: "60px",
         background: "white",
         zIndex: 1500,
         overflowY: "auto",
@@ -1627,7 +1621,7 @@ function UserVisitsScreen({
         top: "72px",
         left: 0,
         right: 0,
-        bottom: "80px",
+        bottom: "60px",
         background: "white",
         zIndex: 1500,
         overflowY: "auto",
@@ -2263,7 +2257,7 @@ function AddCatForm({
       const createdVisit = {
         userId: currentUser.uid,
         date: new Date().toISOString(),
-        userName: firstName(activeUserProfile.displayName),
+        userName: activeUserProfile.displayName,
       };
 
       const resolvedAreaName = catAreaName || await getApproximateAreaName(location[0], location[1]);
@@ -2298,12 +2292,12 @@ function AddCatForm({
         },
         visits: [createdVisit],
         slowBlinks: [],
-        creator: firstName(activeUserProfile.displayName),
+        creator: activeUserProfile.displayName,
         creatorId: currentUser.uid,
         contributors: [
           {
             id: currentUser.uid,
-            name: firstName(activeUserProfile.displayName),
+            name: activeUserProfile.displayName,
             type: "creator" as const,
             contributions: 1,
           },
@@ -2324,7 +2318,7 @@ function AddCatForm({
         const photoData = {
           id: `${docRef.id}_${Date.now()}`,
           url: photoURL,
-          contributor: firstName(activeUserProfile.displayName),
+          contributor: activeUserProfile.displayName,
           contributorId: currentUser.uid,
           date: new Date().toISOString(),
           uploadedAt: new Date().toISOString(),
@@ -2370,7 +2364,7 @@ function AddCatForm({
         top: "72px",
         left: 0,
         right: 0,
-        bottom: "80px",
+        bottom: "60px",
         background: "white",
         zIndex: 1500,
         overflowY: "auto",
@@ -2775,9 +2769,9 @@ function PublicUserProfileModal({
   onClose: () => void;
 }) {
   return (
-    <div style={{ position: "fixed", inset: 0, background: "white", zIndex: 2600, overflowY: "auto", paddingBottom: "80px" }}>
+    <div style={{ position: "fixed", inset: 0, background: "white", zIndex: 2600, overflowY: "auto" }}>
       <div style={{ position: "sticky", top: 0, background: "white", padding: "16px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #e5e7eb", zIndex: 10 }}>
-        <h2 style={{ margin: 0 }}>{firstName(profile.displayName)}</h2>
+        <h2 style={{ margin: 0 }}>{profile.displayName}</h2>
         <button onClick={onClose} style={{ background: "none", border: "none", padding: "8px", cursor: "pointer", color: "#6b7280" }} aria-label="Close profile">
           <XIcon />
         </button>
@@ -2786,13 +2780,13 @@ function PublicUserProfileModal({
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "40px 20px 96px" }}>
         <div style={{ width: "120px", height: "120px", background: "#e5e7eb", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "24px", overflow: "hidden" }}>
           {profile.profilePicture ? (
-            <img src={profile.profilePicture} alt={`${firstName(profile.displayName)} profile`} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            <img src={profile.profilePicture} alt={`${profile.displayName} profile`} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
           ) : (
             <UserIcon />
           )}
         </div>
 
-        <h3 style={{ fontSize: "28px", fontWeight: 700, margin: "0 0 8px", color: "#111827" }}>{firstName(profile.displayName)}</h3>
+        <h3 style={{ fontSize: "28px", fontWeight: 700, margin: "0 0 8px", color: "#111827" }}>{profile.displayName}</h3>
         <p style={{ fontSize: "16px", color: "#1a0dab", margin: "0 0 8px", fontWeight: 600 }}>
           {profile.identity === "human-of-cat" ? "Human of a cat" : "Unattached catwalker"}
         </p>
@@ -2916,7 +2910,7 @@ function CatProfile({
       if (profile) {
         setSelectedVisitorProfile(profile);
       } else {
-        alert(`${firstName(visitor.userName)}'s profile could not be found.`);
+        alert(`${visitor.userName}'s profile could not be found.`);
       }
     } catch (error) {
       console.error("Error opening visitor profile:", error);
@@ -2973,7 +2967,7 @@ function CatProfile({
 
   if (showVisitList) {
     return (
-      <div style={{ position: "fixed", inset: 0, background: "white", zIndex: 2200, overflowY: "auto", paddingBottom: "80px" }}>
+      <div style={{ position: "fixed", inset: 0, background: "white", zIndex: 2200, overflowY: "auto" }}>
         {selectedVisitorProfile && (
           <PublicUserProfileModal profile={selectedVisitorProfile} onClose={() => setSelectedVisitorProfile(null)} />
         )}
@@ -3000,7 +2994,7 @@ function CatProfile({
                   cursor: "pointer",
                 }}
               >
-                <div style={{ fontWeight: 700, color: "#111827", marginBottom: "4px" }}>{firstName(visitor.userName)}</div>
+                <div style={{ fontWeight: 700, color: "#111827", marginBottom: "4px" }}>{visitor.userName}</div>
                 <div style={{ fontSize: "14px", color: "#6b7280" }}>
                   {loadingVisitorProfileId === visitor.userId
                     ? "Opening profile…"
@@ -3016,7 +3010,7 @@ function CatProfile({
 
   if (showMyVisitDetails) {
     return (
-      <div style={{ position: "fixed", inset: 0, background: "white", zIndex: 2200, overflowY: "auto", paddingBottom: "80px" }}>
+      <div style={{ position: "fixed", inset: 0, background: "white", zIndex: 2200, overflowY: "auto" }}>
         <div style={{ position: "sticky", top: 0, background: "white", padding: "16px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #e5e7eb", zIndex: 10 }}>
           <h2 style={{ margin: 0 }}>Your visits to {cat.name}</h2>
           <button onClick={() => setShowMyVisitDetails(false)} style={{ background: "none", border: "none", padding: "8px", cursor: "pointer", color: "#6b7280" }}><XIcon /></button>
@@ -3239,7 +3233,7 @@ function CatProfile({
         top: "72px",
         left: 0,
         right: 0,
-        bottom: "80px",
+        bottom: "60px",
         background: "white",
         zIndex: 1500,
         overflowY: "auto",
@@ -3334,7 +3328,7 @@ function CatProfile({
               fontSize: "16px",
               fontWeight: "500",
               cursor: "pointer",
-              background: "#1a0dab",
+              background: "#10b981",
               color: "white",
             }}
             onClick={() => handleActionClick(onContribute)}
@@ -3347,13 +3341,13 @@ function CatProfile({
               alignItems: "center",
               gap: "6px",
               padding: "8px 16px",
-              border: "1px solid #1a0dab",
+              border: "none",
               borderRadius: "20px",
               fontSize: "16px",
               fontWeight: "500",
               cursor: "pointer",
-              background: "white",
-              color: "#1a0dab",
+              background: "#3b82f6",
+              color: "white",
             }}
             onClick={handlePhotoClick}
           >
@@ -3369,7 +3363,13 @@ function CatProfile({
         </div>
       </div>
 
-      <div style={{ padding: "20px", paddingBottom: "40px" }}>
+      <div style={{ padding: "20px" }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "16px",
+            marginBottom: "20px",
           }}
         >
           <span style={{ fontSize: "48px" }}>{cat.emoji}</span>
@@ -3450,14 +3450,14 @@ function CatProfile({
             onClick={() => setShowVisitList(true)}
             style={{ border: "none", background: "none", color: "#1a0dab", padding: 0, cursor: "pointer", fontSize: "14px", textDecoration: "underline" }}
           >
-            Total {cat.totalVisits === 1 ? "1 visit" : `${cat.totalVisits} visits`}
+            Total visits: {cat.totalVisits}
           </button>
           <button
             type="button"
             onClick={() => currentUser ? setShowMyVisitDetails(true) : onAuthRequired()}
             style={{ border: "none", background: "none", color: "#1a0dab", padding: 0, cursor: "pointer", fontSize: "14px", textDecoration: "underline" }}
           >
-            Your {userVisitCount === 1 ? "1 visit" : `${userVisitCount} visits`}
+            Your visits: {userVisitCount}
           </button>
 
         </div>
@@ -3689,7 +3689,7 @@ function CatProfile({
                     </span>
                   </div>
                   <p style={{ fontSize: "15px", color: "#111827", lineHeight: "1.6", margin: "0 0 8px 0" }}>{desc.text}</p>
-                  <p style={{ fontSize: "13px", color: "#9ca3af", margin: 0 }}>— {firstName(desc.contributor)}</p>
+                  <p style={{ fontSize: "13px", color: "#9ca3af", margin: 0 }}>— {desc.contributor}</p>
                 </div>
               ))}
             </div>
@@ -3766,7 +3766,7 @@ function ContributeForm({
         const newDescObj: Description = {
           id: `desc_${Date.now()}`,
           text: newDescription.trim(),
-          contributor: firstName(userProfile.displayName),
+          contributor: userProfile.displayName,
           contributorId: currentUser.uid,
           date: new Date().toISOString(),
           type: descriptionType,
@@ -3806,7 +3806,7 @@ function ContributeForm({
         top: "72px",
         left: 0,
         right: 0,
-        bottom: "80px",
+        bottom: "60px",
         background: "white",
         zIndex: 1500,
         overflowY: "auto",
@@ -4118,7 +4118,7 @@ function CatspottingScreen({
       const photoData = {
         id: `${selectedCat.id}_${Date.now()}`,
         url: photoURL,
-        contributor: firstName(userProfile.displayName),
+        contributor: userProfile.displayName,
         contributorId: currentUser.uid,
         date: new Date().toISOString(),
         uploadedAt: new Date().toISOString(),
@@ -4183,7 +4183,7 @@ function CatspottingScreen({
           {
             id: `new_${Date.now()}`,
             url: photoPreview || "",
-            contributor: firstName(userProfile.displayName),
+            contributor: userProfile.displayName,
             contributorId: currentUser.uid,
             date: new Date().toISOString(),
             uploadedAt: new Date().toISOString(),
@@ -4203,12 +4203,12 @@ function CatspottingScreen({
         allowsPetting: null,
         acceptsTreats: null,
         livingLocation: null,
-        creator: firstName(userProfile.displayName),
+        creator: userProfile.displayName,
         creatorId: currentUser.uid,
         contributors: [
           {
             id: currentUser.uid,
-            name: firstName(userProfile.displayName),
+            name: userProfile.displayName,
             type: "creator" as const,
             contributions: 1,
           },
@@ -4226,7 +4226,7 @@ function CatspottingScreen({
         top: "72px",
         left: 0,
         right: 0,
-        bottom: "80px",
+        bottom: "60px",
         background: "white",
         zIndex: 1500,
         overflowY: "auto",
@@ -4448,7 +4448,7 @@ function CatspottingScreen({
                         disabled={!selectedCat}
                         style={{
                           padding: "12px 20px",
-                          background: selectedCat ? "#1a0dab" : "#e5e7eb",
+                          background: selectedCat ? "#10b981" : "#e5e7eb",
                           color: selectedCat ? "white" : "#9ca3af",
                           border: "none",
                           borderRadius: "12px",
@@ -5444,7 +5444,7 @@ export default function CatwalkApp() {
       cancelled = true;
       if (retryTimer !== undefined) window.clearTimeout(retryTimer);
     };
-  }, [currentView, showCatspotting, leafletLoaded, currentUser]);
+  }, [currentView, showCatspotting, leafletLoaded]);
 
   // Keep Leaflet in sync with the actual rendered container size. This prevents
   // the first map view from staying blank until the user changes tabs/views.
@@ -5592,7 +5592,7 @@ export default function CatwalkApp() {
       const newVisit = {
         userId: currentUser.uid,
         date: new Date().toISOString(),
-        userName: firstName(userProfile.displayName),
+        userName: userProfile.displayName,
       };
 
       await updateDoc(catDoc, {
@@ -5642,7 +5642,7 @@ export default function CatwalkApp() {
       const catDoc = doc(db, "cats", selectedCat.id);
       const newSlowBlink = {
         userId: currentUser.uid,
-        userName: firstName(userProfile.displayName),
+        userName: userProfile.displayName,
         date: new Date().toISOString(),
       };
 
@@ -5672,7 +5672,7 @@ export default function CatwalkApp() {
       const photoData = {
         id: `${selectedCat.id}_${Date.now()}`,
         url: photoURL,
-        contributor: firstName(userProfile.displayName),
+        contributor: userProfile.displayName,
         contributorId: currentUser.uid,
         date: new Date().toISOString(),
         uploadedAt: new Date().toISOString(),
@@ -6262,7 +6262,7 @@ export default function CatwalkApp() {
           top: 0,
           left: 0,
           right: 0,
-          bottom: "80px",
+          bottom: "60px",
           background: "#f9fafb",
           overflowY: "auto",
         }}
@@ -6893,7 +6893,7 @@ Tap the map to place a custom map pin. To create a cat, use the blue + Add cat b
               top: 0,
               left: 0,
               right: 0,
-              bottom: "80px",
+              bottom: "60px",
               minHeight: "320px",
               background: "#e8f5e9",
               zIndex: 1,
@@ -6949,14 +6949,14 @@ Tap the map to place a custom map pin. To create a cat, use the blue + Add cat b
                 style={{
                   width: "64px",
                   height: "64px",
-                  background: "#1a0dab",
+                  background: "#10b981",
                   border: "none",
                   borderRadius: "50%",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
                   color: "white",
-                  boxShadow: "0 4px 12px rgba(26, 13, 171, 0.3)",
+                  boxShadow: "0 4px 12px rgba(16, 185, 129, 0.4)",
                   cursor: "pointer",
                 }}
                 onClick={() => navigateTo("catspotting")}
