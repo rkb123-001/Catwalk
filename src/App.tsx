@@ -1,4 +1,53 @@
-import { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect } from "react";
+
+// Firebase imports - Real Firebase integration
+import { initializeApp } from "firebase/app";
+import {
+  getAuth,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signOut as firebaseSignOut,
+  onAuthStateChanged,
+  User as FirebaseUser,
+} from "firebase/auth";
+import {
+  getFirestore,
+  collection,
+  doc,
+  addDoc,
+  updateDoc,
+  getDocs,
+  query,
+  where,
+  orderBy,
+  onSnapshot,
+  serverTimestamp,
+  arrayUnion,
+  increment,
+  getDoc,
+} from "firebase/firestore";
+import {
+  getStorage,
+  ref as storageRef,
+  uploadBytes,
+  getDownloadURL,
+} from "firebase/storage";
+
+// Updated Firebase configuration with your real config
+const firebaseConfig = {
+  apiKey: "AIzaSyCSCjlUR-_9qRJjPGyhqOaowzX2NItmHh0",
+  authDomain: "catwalkapp1.firebaseapp.com",
+  projectId: "catwalkapp1",
+  storageBucket: "catwalkapp1.firebasestorage.app",
+  messagingSenderId: "90595764395",
+  appId: "1:90595764395:web:93b4eab99394cb56afafee",
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const storage = getStorage(app);
 
 // TypeScript declarations
 declare global {
@@ -19,14 +68,20 @@ interface CatLocation {
 }
 
 interface CatPhoto {
+  id: string;
   url: string;
   contributor: string;
   contributorId: string;
   date: string;
+  uploadedAt?: any;
+  locationMetadata?: {
+    lat: number;
+    lng: number;
+  };
 }
 
 interface Cat {
-  id: number;
+  id: string;
   createdDate: string;
   name: string;
   alternativeNames?: string[];
@@ -38,7 +93,10 @@ interface Cat {
   allowsPetting: boolean | null;
   acceptsTreats: boolean | null;
   favoriteTreats?: string[];
+  livingLocation: "indoor" | "outdoor" | "both" | null;
   visits: Visit[];
+  userVisits?: { [userId: string]: number };
+  totalVisits: number;
   slowBlinks: SlowBlink[];
   contributors: Contributor[];
   creator: string;
@@ -48,6 +106,7 @@ interface Cat {
 interface Visit {
   userId: string;
   date: string;
+  userName?: string;
 }
 
 interface SlowBlink {
@@ -61,6 +120,33 @@ interface Contributor {
   name: string;
   type: "creator" | "photo" | "info";
   contributions: number;
+}
+
+interface UserProfile {
+  uid: string;
+  email: string;
+  displayName: string;
+  joinDate: string;
+  totalContributions: number;
+  catsFound: number;
+  photosAdded: number;
+  catsVisited: string[];
+  location?: string;
+  profilePicture?: string;
+  identity: "human-of-cat" | "unattached-catwalker";
+}
+
+interface User {
+  uid: string;
+  email: string | null;
+}
+
+interface FilterState {
+  emoji: string | null;
+  personality: string[];
+  allowsPetting: boolean | null;
+  acceptsTreats: boolean | null;
+  livingLocation: "indoor" | "outdoor" | "both" | null;
 }
 
 // Icons as React components
@@ -148,10 +234,10 @@ const EditIcon = () => (
   </svg>
 );
 
-const PlusIcon = () => (
+const PlusIcon = ({ size = 32 }: { size?: number }) => (
   <svg
-    width="32"
-    height="32"
+    width={size}
+    height={size}
     viewBox="0 0 24 24"
     fill="none"
     stroke="currentColor"
@@ -162,60 +248,1922 @@ const PlusIcon = () => (
   </svg>
 );
 
+const LogoutIcon = () => (
+  <svg
+    width="20"
+    height="20"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+  >
+    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+    <polyline points="16 17 21 12 16 7"></polyline>
+    <line x1="21" y1="12" x2="9" y2="12"></line>
+  </svg>
+);
 
+const FilterIcon = () => (
+  <svg
+    width="20"
+    height="20"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+  >
+    <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+  </svg>
+);
 
-// Components
-function HeaderBar({
-  onProfileClick,
-  userName = "Sarah Chen",
-  contributions = 15,
+const ArrowBackIcon = () => (
+  <svg
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+  >
+    <path d="m12 19-7-7 7-7"></path>
+    <path d="M19 12H5"></path>
+  </svg>
+);
+
+const LockIcon = () => (
+  <svg
+    width="20"
+    height="20"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+  >
+    <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+  </svg>
+);
+
+// Updated Cat emoji options with color coding
+const CAT_EMOJIS = [
+  { emoji: "🐈‍⬛", label: "Black cats", color: "black" },
+  { emoji: "🐈", label: "Orange cats", color: "orange" },
+  { emoji: "🩶", label: "Grey cats", color: "grey" },
+  { emoji: "💙", label: "Blue cats", color: "blue" },
+  { emoji: "🤍", label: "White cats", color: "white" },
+  { emoji: "🤎", label: "Brown cats", color: "brown" },
+  { emoji: "🐱", label: "Multi-coloured cats", color: "multi" },
+  { emoji: "🩷", label: "Any colour cats", color: "any" },
+];
+
+// Personality traits
+const PERSONALITY_TRAITS = [
+  "Friendly",
+  "Shy",
+  "Playful",
+  "Vocal",
+  "Curious",
+  "Independent",
+  "Cuddly",
+  "Energetic",
+  "Calm",
+  "Mysterious",
+  "Loves sunbathing",
+  "Very vocal",
+];
+
+// Helper functions
+function getDistanceFromLatLonInMeters(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number
+) {
+  const R = 6371000;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+function fuzzyLocation(_lat: number, _lng: number): string {
+  const streets = [
+    "High Street",
+    "Main Street",
+    "Park Lane",
+    "Church Road",
+    "Victoria Street",
+  ];
+  const street1 = streets[Math.floor(Math.random() * streets.length)];
+  const street2 = streets[Math.floor(Math.random() * streets.length)];
+  return `Near ${street1} & ${street2}`;
+}
+
+function extractLocationFromPhoto(
+  _file: File
+): Promise<[number, number] | null> {
+  return new Promise((resolve) => {
+    const mockLocation: [number, number] = [
+      51.5074 + (Math.random() - 0.5) * 0.01,
+      -0.1278 + (Math.random() - 0.5) * 0.01,
+    ];
+    setTimeout(() => resolve(mockLocation), 500);
+  });
+}
+
+function getContributorBadge(type: "creator" | "photo" | "info"): string {
+  switch (type) {
+    case "creator":
+      return "⭐";
+    case "photo":
+      return "📸";
+    case "info":
+      return "📝";
+    default:
+      return "";
+  }
+}
+
+// Firebase helper functions
+async function uploadPhotoToStorage(
+  file: File,
+  catId: string,
+  userId: string
+): Promise<string> {
+  try {
+    const timestamp = Date.now();
+    const fileName = `cats/${catId}/photos/${userId}_${timestamp}_${file.name}`;
+    const imageRef = storageRef(storage, fileName);
+
+    const snapshot = await uploadBytes(imageRef, file);
+    const downloadURL = await getDownloadURL(snapshot.ref);
+    return downloadURL;
+  } catch (error) {
+    console.error("Error uploading photo:", error);
+    // Fallback to demo image
+    return "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=400";
+  }
+}
+
+async function createUserProfile(
+  user: FirebaseUser,
+  additionalData: any
+): Promise<void> {
+  try {
+    await addDoc(collection(db, "users"), {
+      uid: user.uid,
+      email: user.email,
+      displayName: additionalData.displayName || user.email?.split("@")[0],
+      joinDate: serverTimestamp(),
+      totalContributions: 0,
+      catsFound: 0,
+      photosAdded: 0,
+      catsVisited: [],
+      location: additionalData.location || "",
+      identity: additionalData.identity || "unattached-catwalker",
+      profilePicture: additionalData.profilePicture || "",
+    });
+  } catch (error) {
+    console.error("Error creating user profile:", error);
+  }
+}
+
+async function getUserProfile(userId: string): Promise<UserProfile | null> {
+  try {
+    const q = query(collection(db, "users"), where("uid", "==", userId));
+    const querySnapshot = await getDocs(q);
+
+    if (!querySnapshot.empty) {
+      const doc = querySnapshot.docs[0];
+      return { ...(doc.data() as UserProfile) };
+    }
+    return null;
+  } catch (error) {
+    console.error("Error getting user profile:", error);
+    return null;
+  }
+}
+
+// Auth Required Modal Component
+function AuthRequiredModal({
+  onClose,
+  onLogin,
 }: {
-  onProfileClick: () => void;
-  userName?: string;
-  contributions?: number;
+  onClose: () => void;
+  onLogin: () => void;
 }) {
   return (
-    <div className="header-bar">
-      <h1 className="header-title">
-        <span className="cat-logo">😺</span> Catwalk
-      </h1>
-      <button className="profile-button" onClick={onProfileClick}>
-        <UserIcon />
-        <div className="profile-info">
-          <div className="profile-name">{userName}</div>
-          <div className="profile-contributions">
-            {contributions} contributions
-          </div>
+    <div
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: "rgba(0, 0, 0, 0.5)",
+        zIndex: 2000,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "20px",
+      }}
+      onClick={onClose}
+    >
+      <div
+        style={{
+          background: "white",
+          borderRadius: "16px",
+          padding: "32px",
+          maxWidth: "400px",
+          width: "100%",
+          textAlign: "center",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div style={{ fontSize: "48px", marginBottom: "16px" }}>
+          <LockIcon />
         </div>
-      </button>
+        <h3
+          style={{ fontSize: "20px", fontWeight: "600", marginBottom: "12px" }}
+        >
+          Sign in required
+        </h3>
+        <p
+          style={{ color: "#6b7280", marginBottom: "24px", lineHeight: "1.5" }}
+        >
+          To interact with cats, add new cats, or upload photos, you need to
+          create an account or sign in.
+        </p>
+        <div style={{ display: "flex", gap: "12px", justifyContent: "center" }}>
+          <button
+            onClick={onLogin}
+            style={{
+              padding: "12px 24px",
+              background: "#8b5cf6",
+              color: "white",
+              border: "none",
+              borderRadius: "8px",
+              cursor: "pointer",
+              fontSize: "16px",
+              fontWeight: "500",
+            }}
+          >
+            Sign In
+          </button>
+          <button
+            onClick={onClose}
+            style={{
+              padding: "12px 24px",
+              background: "#f3f4f6",
+              color: "#374151",
+              border: "none",
+              borderRadius: "8px",
+              cursor: "pointer",
+              fontSize: "16px",
+            }}
+          >
+            Browse as Guest
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
 
-function CatProfile({ cat, onClose }: { cat: Cat; onClose: () => void }) {
-  const [showAllPhotos, setShowAllPhotos] = useState(false);
+// Login Component
+function LoginScreen({
+  onLogin,
+  onClose,
+}: {
+  onLogin: () => void;
+  onClose: () => void;
+}) {
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [displayName, setDisplayName] = useState("");
+  const [identity, setIdentity] = useState<
+    "human-of-cat" | "unattached-catwalker"
+  >("unattached-catwalker");
+  const [location, setLocation] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  if (showAllPhotos) {
-    return (
-      <div className="cat-profile">
-        <div className="profile-header">
-          <h2>Photos of {cat.name}</h2>
+  const handleSubmit = async () => {
+    setError("");
+    setLoading(true);
+
+    try {
+      if (isRegistering) {
+        const userCredential = await createUserWithEmailAndPassword(
+          auth,
+          email,
+          password
+        );
+        await createUserProfile(userCredential.user, {
+          displayName,
+          identity,
+          location,
+        });
+      } else {
+        await signInWithEmailAndPassword(auth, email, password);
+      }
+      onLogin();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: "rgba(0, 0, 0, 0.5)",
+        zIndex: 2000,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "20px",
+      }}
+      onClick={onClose}
+    >
+      <div
+        style={{
+          background: "white",
+          padding: "40px",
+          borderRadius: "20px",
+          boxShadow: "0 20px 40px rgba(0, 0, 0, 0.1)",
+          width: "100%",
+          maxWidth: "400px",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: "20px",
+          }}
+        >
+          <h1 style={{ fontSize: "28px", margin: 0 }}>🐱 Catwalk</h1>
           <button
-            onClick={() => setShowAllPhotos(false)}
-            className="close-button"
+            onClick={onClose}
+            style={{
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              color: "#6b7280",
+              padding: "4px",
+            }}
           >
             <XIcon />
           </button>
         </div>
-        <div className="photos-grid full-gallery">
-          {cat.photos.map((photo, index) => (
-            <div key={index} className="photo-item">
-              <img src={photo.url} alt={`${cat.name} photo ${index + 1}`} />
-              <div className="photo-label">
-                <div>{cat.name}</div>
-                <div>Photo {index + 1}</div>
+
+        <h2
+          style={{
+            textAlign: "center",
+            color: "#4a5568",
+            marginBottom: "30px",
+            fontSize: "20px",
+          }}
+        >
+          {isRegistering ? "Join the Community" : "Welcome Back"}
+        </h2>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
+          {isRegistering && (
+            <>
+              <input
+                type="text"
+                placeholder="Display Name"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                style={{
+                  padding: "12px 16px",
+                  border: "2px solid #e2e8f0",
+                  borderRadius: "10px",
+                  fontSize: "16px",
+                }}
+              />
+              <div>
+                <label
+                  style={{
+                    fontSize: "14px",
+                    fontWeight: "500",
+                    marginBottom: "8px",
+                    display: "block",
+                  }}
+                >
+                  I am a:
+                </label>
+                <div style={{ display: "flex", gap: "8px" }}>
+                  <button
+                    type="button"
+                    onClick={() => setIdentity("human-of-cat")}
+                    style={{
+                      flex: 1,
+                      padding: "8px 12px",
+                      border: "none",
+                      borderRadius: "8px",
+                      background:
+                        identity === "human-of-cat" ? "#8b5cf6" : "#f3f4f6",
+                      color: identity === "human-of-cat" ? "white" : "#374151",
+                      fontSize: "14px",
+                      cursor: "pointer",
+                    }}
+                  >
+                    Human of a Cat
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIdentity("unattached-catwalker")}
+                    style={{
+                      flex: 1,
+                      padding: "8px 12px",
+                      border: "none",
+                      borderRadius: "8px",
+                      background:
+                        identity === "unattached-catwalker"
+                          ? "#8b5cf6"
+                          : "#f3f4f6",
+                      color:
+                        identity === "unattached-catwalker"
+                          ? "white"
+                          : "#374151",
+                      fontSize: "14px",
+                      cursor: "pointer",
+                    }}
+                  >
+                    Unattached Catwalker
+                  </button>
+                </div>
               </div>
-              <div className="photo-caption">
+              <input
+                type="text"
+                placeholder="Location (optional)"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                style={{
+                  padding: "12px 16px",
+                  border: "2px solid #e2e8f0",
+                  borderRadius: "10px",
+                  fontSize: "16px",
+                }}
+              />
+            </>
+          )}
+
+          <input
+            type="email"
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            style={{
+              padding: "12px 16px",
+              border: "2px solid #e2e8f0",
+              borderRadius: "10px",
+              fontSize: "16px",
+            }}
+          />
+          <input
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            style={{
+              padding: "12px 16px",
+              border: "2px solid #e2e8f0",
+              borderRadius: "10px",
+              fontSize: "16px",
+            }}
+          />
+
+          {error && (
+            <div
+              style={{
+                color: "#e53e3e",
+                fontSize: "14px",
+                textAlign: "center",
+              }}
+            >
+              {error}
+            </div>
+          )}
+
+          <button
+            onClick={handleSubmit}
+            disabled={loading}
+            style={{
+              padding: "14px",
+              background: "#8b5cf6",
+              color: "white",
+              border: "none",
+              borderRadius: "10px",
+              fontSize: "16px",
+              fontWeight: "600",
+              cursor: loading ? "not-allowed" : "pointer",
+              opacity: loading ? 0.6 : 1,
+            }}
+          >
+            {loading
+              ? "Loading..."
+              : isRegistering
+              ? "Create Account"
+              : "Sign In"}
+          </button>
+        </div>
+
+        <button
+          onClick={() => setIsRegistering(!isRegistering)}
+          style={{
+            background: "none",
+            border: "none",
+            color: "#8b5cf6",
+            fontSize: "14px",
+            cursor: "pointer",
+            marginTop: "20px",
+            width: "100%",
+          }}
+        >
+          {isRegistering
+            ? "Already have an account? Sign in"
+            : "Need an account? Register"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// User's Cats List Component
+function UserCatsScreen({
+  onBack,
+  currentUser,
+}: {
+  onBack: () => void;
+  currentUser: User;
+}) {
+  const [userCats, setUserCats] = useState<Cat[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchUserCats = async () => {
+      try {
+        const q = query(
+          collection(db, "cats"),
+          where("creatorId", "==", currentUser.uid),
+          orderBy("createdDate", "desc")
+        );
+        const querySnapshot = await getDocs(q);
+        const cats = querySnapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        })) as Cat[];
+        setUserCats(cats);
+      } catch (error) {
+        console.error("Error fetching user cats:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUserCats();
+  }, [currentUser.uid]);
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: "white",
+        zIndex: 2000,
+        overflowY: "auto",
+      }}
+    >
+      <div
+        style={{
+          position: "sticky",
+          top: 0,
+          background: "white",
+          padding: "16px 20px",
+          display: "flex",
+          alignItems: "center",
+          gap: "16px",
+          borderBottom: "1px solid #e5e7eb",
+          zIndex: 10,
+        }}
+      >
+        <button
+          onClick={onBack}
+          style={{
+            background: "none",
+            border: "none",
+            padding: "8px",
+            cursor: "pointer",
+            color: "#6b7280",
+          }}
+        >
+          <ArrowBackIcon />
+        </button>
+        <h2 style={{ fontSize: "18px", fontWeight: "600", margin: 0 }}>
+          My Cats ({userCats.length})
+        </h2>
+      </div>
+
+      <div style={{ padding: "20px" }}>
+        {loading ? (
+          <div style={{ textAlign: "center", padding: "40px" }}>
+            Loading your cats...
+          </div>
+        ) : userCats.length === 0 ? (
+          <div
+            style={{ textAlign: "center", padding: "40px", color: "#6b7280" }}
+          >
+            <div style={{ fontSize: "48px", marginBottom: "16px" }}>🐱</div>
+            <p>You haven't added any cats yet!</p>
+            <p>Start by adding a cat to the map.</p>
+          </div>
+        ) : (
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: "16px",
+            }}
+          >
+            {userCats.map((cat) => (
+              <div
+                key={cat.id}
+                style={{
+                  background: "white",
+                  borderRadius: "16px",
+                  overflow: "hidden",
+                  boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+                  cursor: "pointer",
+                }}
+              >
+                <div
+                  style={{
+                    position: "relative",
+                    width: "100%",
+                    height: "120px",
+                    background: "#f3f4f6",
+                  }}
+                >
+                  {cat.photos[0] ? (
+                    <img
+                      src={cat.photos[0].url}
+                      alt={cat.name}
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover",
+                      }}
+                    />
+                  ) : (
+                    <div
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        color: "#9ca3af",
+                        fontSize: "14px",
+                      }}
+                    >
+                      No photo
+                    </div>
+                  )}
+                </div>
+                <div style={{ padding: "12px" }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      marginBottom: "8px",
+                    }}
+                  >
+                    <span style={{ fontSize: "20px" }}>{cat.emoji}</span>
+                    <h4
+                      style={{
+                        fontSize: "16px",
+                        fontWeight: "600",
+                        margin: 0,
+                        color: "#111",
+                      }}
+                    >
+                      {cat.name}
+                    </h4>
+                  </div>
+                  <div style={{ fontSize: "12px", color: "#6b7280" }}>
+                    <div>📍 {cat.location.area}</div>
+                    <div>
+                      📅 Added {new Date(cat.createdDate).toLocaleDateString()}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// User's Photos Gallery Component
+function UserPhotosScreen({
+  onBack,
+  currentUser,
+}: {
+  onBack: () => void;
+  currentUser: User;
+}) {
+  const [userPhotos, setUserPhotos] = useState<
+    (CatPhoto & { catName: string })[]
+  >([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchUserPhotos = async () => {
+      try {
+        const q = query(collection(db, "cats"));
+        const querySnapshot = await getDocs(q);
+        const allPhotos: (CatPhoto & { catName: string })[] = [];
+
+        querySnapshot.docs.forEach((doc) => {
+          const catData = doc.data() as Cat;
+          const userCatPhotos = catData.photos
+            .filter((photo) => photo.contributorId === currentUser.uid)
+            .map((photo) => ({ ...photo, catName: catData.name }));
+          allPhotos.push(...userCatPhotos);
+        });
+
+        // Sort by date (newest first)
+        allPhotos.sort(
+          (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+        );
+        setUserPhotos(allPhotos);
+      } catch (error) {
+        console.error("Error fetching user photos:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUserPhotos();
+  }, [currentUser.uid]);
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: "white",
+        zIndex: 2000,
+        overflowY: "auto",
+      }}
+    >
+      <div
+        style={{
+          position: "sticky",
+          top: 0,
+          background: "white",
+          padding: "16px 20px",
+          display: "flex",
+          alignItems: "center",
+          gap: "16px",
+          borderBottom: "1px solid #e5e7eb",
+          zIndex: 10,
+        }}
+      >
+        <button
+          onClick={onBack}
+          style={{
+            background: "none",
+            border: "none",
+            padding: "8px",
+            cursor: "pointer",
+            color: "#6b7280",
+          }}
+        >
+          <ArrowBackIcon />
+        </button>
+        <h2 style={{ fontSize: "18px", fontWeight: "600", margin: 0 }}>
+          My Photos ({userPhotos.length})
+        </h2>
+      </div>
+
+      <div style={{ padding: "20px" }}>
+        {loading ? (
+          <div style={{ textAlign: "center", padding: "40px" }}>
+            Loading your photos...
+          </div>
+        ) : userPhotos.length === 0 ? (
+          <div
+            style={{ textAlign: "center", padding: "40px", color: "#6b7280" }}
+          >
+            <div style={{ fontSize: "48px", marginBottom: "16px" }}>📸</div>
+            <p>You haven't uploaded any photos yet!</p>
+            <p>Start by adding photos to cat profiles.</p>
+          </div>
+        ) : (
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr 1fr",
+              gap: "12px",
+            }}
+          >
+            {userPhotos.map((photo, index) => (
+              <div
+                key={photo.id || index}
+                style={{
+                  position: "relative",
+                  aspectRatio: "1",
+                  borderRadius: "12px",
+                  overflow: "hidden",
+                  boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+                }}
+              >
+                <img
+                  src={photo.url}
+                  alt={`Photo of ${photo.catName}`}
+                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                />
+                <div
+                  style={{
+                    position: "absolute",
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    background: "linear-gradient(transparent, rgba(0,0,0,0.7))",
+                    color: "white",
+                    padding: "8px",
+                    fontSize: "12px",
+                  }}
+                >
+                  {photo.catName}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// User's Visited Cats Component
+function UserVisitsScreen({
+  onBack,
+  currentUser,
+}: {
+  onBack: () => void;
+  currentUser: User;
+}) {
+  const [visitedCats, setVisitedCats] = useState<Cat[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchVisitedCats = async () => {
+      try {
+        const q = query(collection(db, "cats"));
+        const querySnapshot = await getDocs(q);
+        const cats = querySnapshot.docs
+          .map((doc) => ({ id: doc.id, ...doc.data() }))
+          .filter(
+            (cat: any) => cat.userVisits && cat.userVisits[currentUser.uid] > 0
+          ) as Cat[];
+
+        // Sort by visit count (most visited first)
+        cats.sort(
+          (a, b) =>
+            (b.userVisits?.[currentUser.uid] || 0) -
+            (a.userVisits?.[currentUser.uid] || 0)
+        );
+        setVisitedCats(cats);
+      } catch (error) {
+        console.error("Error fetching visited cats:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchVisitedCats();
+  }, [currentUser.uid]);
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: "white",
+        zIndex: 2000,
+        overflowY: "auto",
+      }}
+    >
+      <div
+        style={{
+          position: "sticky",
+          top: 0,
+          background: "white",
+          padding: "16px 20px",
+          display: "flex",
+          alignItems: "center",
+          gap: "16px",
+          borderBottom: "1px solid #e5e7eb",
+          zIndex: 10,
+        }}
+      >
+        <button
+          onClick={onBack}
+          style={{
+            background: "none",
+            border: "none",
+            padding: "8px",
+            cursor: "pointer",
+            color: "#6b7280",
+          }}
+        >
+          <ArrowBackIcon />
+        </button>
+        <h2 style={{ fontSize: "18px", fontWeight: "600", margin: 0 }}>
+          Visited Cats ({visitedCats.length})
+        </h2>
+      </div>
+
+      <div style={{ padding: "20px" }}>
+        {loading ? (
+          <div style={{ textAlign: "center", padding: "40px" }}>
+            Loading visited cats...
+          </div>
+        ) : visitedCats.length === 0 ? (
+          <div
+            style={{ textAlign: "center", padding: "40px", color: "#6b7280" }}
+          >
+            <div style={{ fontSize: "48px", marginBottom: "16px" }}>🐾</div>
+            <p>You haven't visited any cats yet!</p>
+            <p>Mark cats as visited when you see them.</p>
+          </div>
+        ) : (
+          <div
+            style={{ display: "flex", flexDirection: "column", gap: "16px" }}
+          >
+            {visitedCats.map((cat) => (
+              <div
+                key={cat.id}
+                style={{
+                  background: "white",
+                  borderRadius: "16px",
+                  padding: "16px",
+                  boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "16px",
+                }}
+              >
+                <div
+                  style={{
+                    width: "64px",
+                    height: "64px",
+                    borderRadius: "12px",
+                    overflow: "hidden",
+                    background: "#f3f4f6",
+                    flexShrink: 0,
+                  }}
+                >
+                  {cat.photos[0] ? (
+                    <img
+                      src={cat.photos[0].url}
+                      alt={cat.name}
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover",
+                      }}
+                    />
+                  ) : (
+                    <div
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: "24px",
+                      }}
+                    >
+                      {cat.emoji}
+                    </div>
+                  )}
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      marginBottom: "4px",
+                    }}
+                  >
+                    <span style={{ fontSize: "20px" }}>{cat.emoji}</span>
+                    <h4
+                      style={{ fontSize: "18px", fontWeight: "600", margin: 0 }}
+                    >
+                      {cat.name}
+                    </h4>
+                  </div>
+                  <p
+                    style={{
+                      fontSize: "14px",
+                      color: "#6b7280",
+                      margin: "0 0 8px 0",
+                    }}
+                  >
+                    📍 {cat.location.area}, {cat.location.city}
+                  </p>
+                  <div
+                    style={{
+                      background: "#e9d5ff",
+                      color: "#7c3aed",
+                      padding: "4px 12px",
+                      borderRadius: "16px",
+                      fontSize: "12px",
+                      fontWeight: "500",
+                      display: "inline-block",
+                    }}
+                  >
+                    Visited {cat.userVisits?.[currentUser.uid] || 0} times
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Map Snapshot Component for location display
+function MapSnapshot({
+  lat,
+  lng,
+  zoom = 16,
+}: {
+  lat: number;
+  lng: number;
+  zoom?: number;
+}) {
+  const mapRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (mapRef.current && window.L && !mapInstanceRef.current) {
+      const timer = setTimeout(() => {
+        const map = window.L.map(mapRef.current, {
+          center: [lat, lng],
+          zoom,
+          zoomControl: false,
+          scrollWheelZoom: false,
+          doubleClickZoom: false,
+          dragging: false,
+          touchZoom: false,
+          boxZoom: false,
+          keyboard: false,
+          attributionControl: false,
+        });
+
+        window.L.tileLayer(
+          "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        ).addTo(map);
+
+        // Add location marker
+        const locationIcon = window.L.divIcon({
+          html: '<div style="width: 12px; height: 12px; background: #ef4444; border: 2px solid white; border-radius: 50%; box-shadow: 0 1px 4px rgba(239, 68, 68, 0.5);"></div>',
+          iconSize: [12, 12],
+          iconAnchor: [6, 6],
+        });
+
+        window.L.marker([lat, lng], { icon: locationIcon }).addTo(map);
+        mapInstanceRef.current = map;
+      }, 100);
+
+      return () => clearTimeout(timer);
+    }
+  }, [lat, lng, zoom]);
+
+  useEffect(() => {
+    return () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
+    };
+  }, []);
+
+  return (
+    <div
+      ref={mapRef}
+      style={{
+        width: "100%",
+        height: "100%",
+        borderRadius: "8px",
+        overflow: "hidden",
+      }}
+    />
+  );
+}
+
+// Filter Modal Component
+function FilterModal({
+  filters,
+  onUpdateFilters,
+  onClose,
+}: {
+  filters: FilterState;
+  onUpdateFilters: (newFilters: FilterState) => void;
+  onClose: () => void;
+}) {
+  const [tempFilters, setTempFilters] = useState(filters);
+
+  const handleApply = () => {
+    onUpdateFilters(tempFilters);
+    onClose();
+  };
+
+  const handleReset = () => {
+    const resetFilters: FilterState = {
+      emoji: null,
+      personality: [],
+      allowsPetting: null,
+      acceptsTreats: null,
+      livingLocation: null,
+    };
+    setTempFilters(resetFilters);
+    onUpdateFilters(resetFilters);
+  };
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: "rgba(0, 0, 0, 0.5)",
+        zIndex: 2000,
+        display: "flex",
+        alignItems: "flex-end",
+      }}
+      onClick={onClose}
+    >
+      <div
+        style={{
+          background: "white",
+          width: "100%",
+          maxHeight: "80vh",
+          borderRadius: "24px 24px 0 0",
+          padding: "24px",
+          overflowY: "auto",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            marginBottom: "24px",
+          }}
+        >
+          <h2 style={{ margin: 0, fontSize: "20px", fontWeight: "600" }}>
+            Filter Cats
+          </h2>
+          <button
+            onClick={handleReset}
+            style={{
+              background: "none",
+              border: "none",
+              color: "#8b5cf6",
+              fontSize: "16px",
+              cursor: "pointer",
+            }}
+          >
+            Reset
+          </button>
+        </div>
+
+        {/* Emoji Filter */}
+        <div style={{ marginBottom: "24px" }}>
+          <h3
+            style={{
+              fontSize: "16px",
+              fontWeight: "500",
+              marginBottom: "12px",
+            }}
+          >
+            Cat Color
+          </h3>
+          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+            {CAT_EMOJIS.map((catEmoji) => (
+              <button
+                key={catEmoji.emoji}
+                onClick={() =>
+                  setTempFilters((prev) => ({
+                    ...prev,
+                    emoji:
+                      prev.emoji === catEmoji.emoji ? null : catEmoji.emoji,
+                  }))
+                }
+                style={{
+                  fontSize: "28px",
+                  padding: "8px",
+                  borderRadius: "8px",
+                  background:
+                    tempFilters.emoji === catEmoji.emoji
+                      ? "#e9d5ff"
+                      : "#f3f4f6",
+                  border:
+                    tempFilters.emoji === catEmoji.emoji
+                      ? "2px solid #8b5cf6"
+                      : "2px solid transparent",
+                  cursor: "pointer",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: "4px",
+                }}
+              >
+                <span>{catEmoji.emoji}</span>
+                <span style={{ fontSize: "10px", color: "#6b7280" }}>
+                  {catEmoji.label.split(" ")[0]}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Personality Filter */}
+        <div style={{ marginBottom: "24px" }}>
+          <h3
+            style={{
+              fontSize: "16px",
+              fontWeight: "500",
+              marginBottom: "12px",
+            }}
+          >
+            Personality Traits
+          </h3>
+          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+            {PERSONALITY_TRAITS.map((trait) => (
+              <button
+                key={trait}
+                onClick={() =>
+                  setTempFilters((prev) => ({
+                    ...prev,
+                    personality: prev.personality.includes(trait)
+                      ? prev.personality.filter((t) => t !== trait)
+                      : [...prev.personality, trait],
+                  }))
+                }
+                style={{
+                  padding: "6px 16px",
+                  borderRadius: "20px",
+                  fontSize: "14px",
+                  background: tempFilters.personality.includes(trait)
+                    ? "#e9d5ff"
+                    : "#f3f4f6",
+                  color: tempFilters.personality.includes(trait)
+                    ? "#7c3aed"
+                    : "#6b7280",
+                  border: "none",
+                  cursor: "pointer",
+                }}
+              >
+                {trait}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <button
+          onClick={handleApply}
+          style={{
+            width: "100%",
+            padding: "16px",
+            background: "#8b5cf6",
+            color: "white",
+            border: "none",
+            borderRadius: "12px",
+            fontSize: "16px",
+            fontWeight: "600",
+            cursor: "pointer",
+          }}
+        >
+          Apply Filters
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// Add Cat Form Component
+function AddCatForm({
+  userLocation,
+  manualLocation,
+  onSubmit,
+  onCancel,
+  currentUser,
+  userProfile,
+}: {
+  userLocation: [number, number] | null;
+  manualLocation: [number, number] | null;
+  onSubmit: (cat: Partial<Cat>) => void;
+  onCancel: () => void;
+  currentUser: User | null;
+  userProfile: UserProfile | null;
+}) {
+  const [selectedEmoji, setSelectedEmoji] = useState(CAT_EMOJIS[0].emoji);
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [selectedTraits, setSelectedTraits] = useState<string[]>([]);
+  const [allowsPetting, setAllowsPetting] = useState<boolean | null>(null);
+  const [acceptsTreats, setAcceptsTreats] = useState<boolean | null>(null);
+  const [favoriteTreats, setFavoriteTreats] = useState("");
+  const [livingLocation, setLivingLocation] = useState<
+    "indoor" | "outdoor" | "both" | null
+  >(null);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [approximateAddress, setApproximateAddress] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const location = manualLocation || userLocation;
+
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setPhotoFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => setPhotoPreview(reader.result as string);
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!name || !location || !currentUser || !userProfile) return;
+
+    setUploading(true);
+
+    try {
+      // Create the cat document first
+      const catData = {
+        name,
+        emoji: selectedEmoji,
+        description,
+        personality: selectedTraits,
+        allowsPetting,
+        acceptsTreats,
+        favoriteTreats: favoriteTreats
+          ? favoriteTreats.split(",").map((t) => t.trim())
+          : [],
+        livingLocation,
+        location: {
+          lat: location[0],
+          lng: location[1],
+          area: "Local Area",
+          city: "London",
+          country: "United Kingdom",
+          continent: "Europe",
+          approximateAddress:
+            approximateAddress || fuzzyLocation(location[0], location[1]),
+        },
+        createdDate: serverTimestamp(),
+        totalVisits: 0,
+        userVisits: {},
+        visits: [],
+        slowBlinks: [],
+        creator: userProfile.displayName,
+        creatorId: currentUser.uid,
+        contributors: [
+          {
+            id: currentUser.uid,
+            name: userProfile.displayName,
+            type: "creator",
+            contributions: 1,
+          },
+        ],
+        photos: [],
+      };
+
+      const docRef = await addDoc(collection(db, "cats"), catData);
+
+      // Upload photo if provided
+      if (photoFile) {
+        const photoURL = await uploadPhotoToStorage(
+          photoFile,
+          docRef.id,
+          currentUser.uid
+        );
+        const photoData = {
+          id: `${docRef.id}_${Date.now()}`,
+          url: photoURL,
+          contributor: userProfile.displayName,
+          contributorId: currentUser.uid,
+          date: new Date().toISOString(),
+          uploadedAt: serverTimestamp(),
+        };
+
+        await updateDoc(docRef, {
+          photos: arrayUnion(photoData),
+        });
+      }
+
+      // Update user profile
+      const userQuery = query(
+        collection(db, "users"),
+        where("uid", "==", currentUser.uid)
+      );
+      const userSnapshot = await getDocs(userQuery);
+      if (!userSnapshot.empty) {
+        const userDoc = userSnapshot.docs[0];
+        await updateDoc(userDoc.ref, {
+          catsFound: increment(1),
+          totalContributions: increment(1),
+          ...(photoFile && { photosAdded: increment(1) }),
+        });
+      }
+
+      onSubmit({ id: docRef.id, ...catData });
+    } catch (error) {
+      console.error("Error adding cat:", error);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: "white",
+        zIndex: 2000,
+        overflowY: "auto",
+      }}
+    >
+      <div
+        style={{
+          position: "sticky",
+          top: 0,
+          background: "white",
+          padding: "16px 20px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          borderBottom: "1px solid #e5e7eb",
+          zIndex: 10,
+        }}
+      >
+        <button
+          onClick={onCancel}
+          style={{
+            background: "none",
+            border: "none",
+            padding: "8px",
+            cursor: "pointer",
+            color: "#6b7280",
+          }}
+        >
+          <XIcon />
+        </button>
+        <h2 style={{ fontSize: "18px", fontWeight: "600", margin: 0 }}>
+          Add New Cat
+        </h2>
+        <button
+          onClick={handleSubmit}
+          disabled={!name || uploading}
+          style={{
+            color: "#8b5cf6",
+            fontWeight: "500",
+            background: "none",
+            border: "none",
+            cursor: name && !uploading ? "pointer" : "not-allowed",
+            fontSize: "16px",
+            opacity: name && !uploading ? 1 : 0.5,
+          }}
+        >
+          {uploading ? "Saving..." : "Save"}
+        </button>
+      </div>
+
+      <div
+        style={{
+          padding: "20px",
+          display: "flex",
+          flexDirection: "column",
+          gap: "24px",
+        }}
+      >
+        {/* Location Notice */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            padding: "12px",
+            background: "#f3f4f6",
+            borderRadius: "8px",
+            fontSize: "14px",
+            color: "#4b5563",
+          }}
+        >
+          <span>📍</span>
+          {manualLocation
+            ? "Using manually selected location"
+            : "Using your current location"}
+        </div>
+
+        {/* Approximate Address */}
+        <div>
+          <label
+            style={{
+              display: "block",
+              fontSize: "14px",
+              fontWeight: "500",
+              marginBottom: "8px",
+              color: "#374151",
+            }}
+          >
+            Approximate Address
+          </label>
+          <input
+            type="text"
+            value={approximateAddress}
+            onChange={(e) => setApproximateAddress(e.target.value)}
+            placeholder="e.g., Near High Street & Park Lane"
+            style={{
+              width: "100%",
+              padding: "10px 14px",
+              border: "1px solid #d1d5db",
+              borderRadius: "8px",
+              fontSize: "16px",
+            }}
+          />
+        </div>
+
+        {/* Emoji Selection */}
+        <div>
+          <label
+            style={{
+              display: "block",
+              fontSize: "14px",
+              fontWeight: "500",
+              marginBottom: "8px",
+              color: "#374151",
+            }}
+          >
+            Choose Cat Color
+          </label>
+          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+            {CAT_EMOJIS.map((catEmoji) => (
+              <button
+                key={catEmoji.emoji}
+                onClick={() => setSelectedEmoji(catEmoji.emoji)}
+                style={{
+                  fontSize: "24px",
+                  padding: "8px",
+                  borderRadius: "8px",
+                  background:
+                    selectedEmoji === catEmoji.emoji ? "#e9d5ff" : "#f3f4f6",
+                  border:
+                    selectedEmoji === catEmoji.emoji
+                      ? "2px solid #8b5cf6"
+                      : "2px solid transparent",
+                  cursor: "pointer",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: "4px",
+                }}
+              >
+                <span>{catEmoji.emoji}</span>
+                <span style={{ fontSize: "10px", color: "#6b7280" }}>
+                  {catEmoji.label.split(" ")[0]}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Name */}
+        <div>
+          <label
+            style={{
+              display: "block",
+              fontSize: "14px",
+              fontWeight: "500",
+              marginBottom: "8px",
+              color: "#374151",
+            }}
+          >
+            Cat Name *
+          </label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Enter cat's name"
+            style={{
+              width: "100%",
+              padding: "10px 14px",
+              border: "1px solid #d1d5db",
+              borderRadius: "8px",
+              fontSize: "16px",
+            }}
+          />
+        </div>
+
+        {/* Description */}
+        <div>
+          <label
+            style={{
+              display: "block",
+              fontSize: "14px",
+              fontWeight: "500",
+              marginBottom: "8px",
+              color: "#374151",
+            }}
+          >
+            Description
+          </label>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={3}
+            placeholder="Tell us about this cat..."
+            style={{
+              width: "100%",
+              padding: "10px 14px",
+              border: "1px solid #d1d5db",
+              borderRadius: "8px",
+              fontSize: "16px",
+              resize: "vertical",
+            }}
+          />
+        </div>
+
+        {/* Personality Traits */}
+        <div>
+          <label
+            style={{
+              display: "block",
+              fontSize: "14px",
+              fontWeight: "500",
+              marginBottom: "8px",
+              color: "#374151",
+            }}
+          >
+            Personality Traits
+          </label>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+            {PERSONALITY_TRAITS.map((trait) => (
+              <button
+                key={trait}
+                onClick={() => {
+                  setSelectedTraits((prev) =>
+                    prev.includes(trait)
+                      ? prev.filter((t) => t !== trait)
+                      : [...prev, trait]
+                  );
+                }}
+                style={{
+                  padding: "6px 16px",
+                  borderRadius: "20px",
+                  fontSize: "14px",
+                  background: selectedTraits.includes(trait)
+                    ? "#e9d5ff"
+                    : "#f3f4f6",
+                  color: selectedTraits.includes(trait) ? "#7c3aed" : "#6b7280",
+                  border: "none",
+                  cursor: "pointer",
+                }}
+              >
+                {trait}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Photo Upload */}
+        <div>
+          <label
+            style={{
+              display: "block",
+              fontSize: "14px",
+              fontWeight: "500",
+              marginBottom: "8px",
+              color: "#374151",
+            }}
+          >
+            Add Photo
+          </label>
+          <div
+            style={{
+              border: "2px dashed #d1d5db",
+              borderRadius: "12px",
+              padding: "32px",
+              textAlign: "center",
+              cursor: "pointer",
+            }}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            {photoPreview ? (
+              <img
+                src={photoPreview}
+                alt="Preview"
+                style={{
+                  width: "100%",
+                  height: "200px",
+                  objectFit: "cover",
+                  borderRadius: "8px",
+                }}
+              />
+            ) : (
+              <>
+                <CameraIcon />
+                <p
+                  style={{
+                    marginTop: "8px",
+                    color: "#6b7280",
+                    fontSize: "14px",
+                  }}
+                >
+                  Tap to add photo
+                </p>
+              </>
+            )}
+          </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handlePhotoChange}
+            style={{ display: "none" }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Cat Profile Component - Updated with auth requirement
+function CatProfile({
+  cat,
+  onClose,
+  currentUser,
+  onVisit,
+  onSlowBlink,
+  onAddPhoto,
+  onContribute,
+  onAuthRequired,
+}: {
+  cat: Cat;
+  onClose: () => void;
+  currentUser: User | null;
+  onVisit: () => void;
+  onSlowBlink: () => void;
+  onAddPhoto: (file: File) => void;
+  onContribute: () => void;
+  onAuthRequired: () => void;
+}) {
+  const [showAllPhotos, setShowAllPhotos] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const userVisitCount =
+    currentUser && cat.userVisits ? cat.userVisits[currentUser.uid] || 0 : 0;
+
+  const handlePhotoClick = () => {
+    if (!currentUser) {
+      onAuthRequired();
+      return;
+    }
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) onAddPhoto(file);
+  };
+
+  const handleActionClick = (action: () => void) => {
+    if (!currentUser) {
+      onAuthRequired();
+      return;
+    }
+    action();
+  };
+
+  if (showAllPhotos) {
+    return (
+      <div
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: "white",
+          zIndex: 2000,
+          overflowY: "auto",
+        }}
+      >
+        <div
+          style={{
+            position: "sticky",
+            top: 0,
+            background: "white",
+            padding: "16px 20px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            borderBottom: "1px solid #e5e7eb",
+            zIndex: 10,
+          }}
+        >
+          <h2>Photos of {cat.name}</h2>
+          <button
+            onClick={() => setShowAllPhotos(false)}
+            style={{
+              background: "none",
+              border: "none",
+              padding: "8px",
+              cursor: "pointer",
+              color: "#6b7280",
+            }}
+          >
+            <XIcon />
+          </button>
+        </div>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: "16px",
+            padding: "20px",
+          }}
+        >
+          {cat.photos.map((photo, index) => (
+            <div key={photo.id || index} style={{ position: "relative" }}>
+              <img
+                src={photo.url}
+                alt={`${cat.name} photo ${index + 1}`}
+                style={{
+                  width: "100%",
+                  aspectRatio: "1",
+                  objectFit: "cover",
+                  borderRadius: "12px",
+                }}
+              />
+              <div
+                style={{
+                  textAlign: "center",
+                  fontSize: "14px",
+                  color: "#6b7280",
+                  marginTop: "8px",
+                }}
+              >
                 Photo {index + 1} of {cat.photos.length}
               </div>
             </div>
@@ -226,44 +2174,226 @@ function CatProfile({ cat, onClose }: { cat: Cat; onClose: () => void }) {
   }
 
   return (
-    <div className="cat-profile">
-      <div className="profile-header">
-        <button onClick={onClose} className="close-button">
+    <div
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: "white",
+        zIndex: 2000,
+        overflowY: "auto",
+      }}
+    >
+      <div
+        style={{
+          position: "sticky",
+          top: 0,
+          background: "white",
+          padding: "16px 20px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          borderBottom: "1px solid #e5e7eb",
+          zIndex: 10,
+        }}
+      >
+        <button
+          onClick={onClose}
+          style={{
+            background: "none",
+            border: "none",
+            padding: "8px",
+            cursor: "pointer",
+            color: "#6b7280",
+          }}
+        >
           <XIcon />
         </button>
-        <div className="profile-actions">
-          <button className="action-button contribute">
-            <EditIcon /> Contribute
+        <div style={{ display: "flex", gap: "12px" }}>
+          <button
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              padding: "8px 16px",
+              border: "none",
+              borderRadius: "20px",
+              fontSize: "16px",
+              fontWeight: "500",
+              cursor: "pointer",
+              background: "#10b981",
+              color: "white",
+            }}
+            onClick={() => handleActionClick(onContribute)}
+          >
+            <EditIcon /> {currentUser ? "Contribute" : "Sign in to Contribute"}
           </button>
-          <button className="action-button add-photo">
-            <CameraIcon /> Add Photo
+          <button
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              padding: "8px 16px",
+              border: "none",
+              borderRadius: "20px",
+              fontSize: "16px",
+              fontWeight: "500",
+              cursor: "pointer",
+              background: "#3b82f6",
+              color: "white",
+            }}
+            onClick={handlePhotoClick}
+          >
+            <CameraIcon /> {currentUser ? "Add Photo" : "Sign in to Add Photo"}
           </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleFileChange}
+            style={{ display: "none" }}
+          />
         </div>
       </div>
 
-      <div className="profile-content">
-        <div className="cat-header">
-          <span className="cat-emoji">{cat.emoji}</span>
-          <h1 className="cat-name">{cat.name}</h1>
+      <div style={{ padding: "20px" }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "16px",
+            marginBottom: "20px",
+          }}
+        >
+          <span style={{ fontSize: "48px" }}>{cat.emoji}</span>
+          <div>
+            <h1 style={{ fontSize: "32px", fontWeight: "700", margin: 0 }}>
+              {cat.name}
+            </h1>
+            {cat.alternativeNames && cat.alternativeNames.length > 0 && (
+              <p
+                style={{
+                  margin: "4px 0 0 0",
+                  fontSize: "16px",
+                  color: "#6b7280",
+                }}
+              >
+                Also known as: {cat.alternativeNames.join(", ")}
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Visit and Slow Blink buttons */}
+        <div style={{ display: "flex", gap: "12px", marginBottom: "12px" }}>
+          <button
+            onClick={() => handleActionClick(onVisit)}
+            style={{
+              flex: 1,
+              padding: "12px 20px",
+              border: "none",
+              borderRadius: "12px",
+              fontSize: "16px",
+              fontWeight: "500",
+              cursor: "pointer",
+              background: userVisitCount > 0 ? "#d1fae5" : "#f3f4f6",
+              color: userVisitCount > 0 ? "#065f46" : "#4b5563",
+            }}
+          >
+            {currentUser
+              ? userVisitCount > 0
+                ? `Visited ✓ x${userVisitCount}`
+                : "Mark as Visited"
+              : "Sign in to Mark Visited"}
+          </button>
+          <button
+            onClick={() => handleActionClick(onSlowBlink)}
+            style={{
+              flex: 1,
+              padding: "12px 20px",
+              border: "none",
+              borderRadius: "12px",
+              fontSize: "16px",
+              fontWeight: "500",
+              cursor: "pointer",
+              background: "#fef3c7",
+              color: "#92400e",
+            }}
+          >
+            😊{" "}
+            {currentUser
+              ? `Slow Blink (${cat.slowBlinks.length})`
+              : "Sign in to Slow Blink"}
+          </button>
+        </div>
+
+        <div
+          style={{
+            display: "flex",
+            gap: "20px",
+            marginBottom: "24px",
+            fontSize: "14px",
+            color: "#6b7280",
+          }}
+        >
+          <span>Total visits: {cat.totalVisits}</span>
+          {userVisitCount > 0 && <span>Your visits: {userVisitCount}</span>}
         </div>
 
         {cat.photos.length > 0 && (
-          <div className="photos-section">
-            <h3>Photos ({cat.photos.length})</h3>
-            <div className="photos-preview">
+          <div style={{ marginBottom: "32px" }}>
+            <h3
+              style={{
+                fontSize: "18px",
+                fontWeight: "600",
+                marginBottom: "16px",
+              }}
+            >
+              Photos ({cat.photos.length})
+            </h3>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: "12px",
+                marginBottom: "16px",
+              }}
+            >
               {cat.photos.slice(0, 2).map((photo, index) => (
-                <div key={index} className="photo-item">
-                  <img src={photo.url} alt={`${cat.name} photo ${index + 1}`} />
-                  <div className="photo-label">
-                    <div>{cat.name}</div>
-                    <div>Photo {index + 1}</div>
-                  </div>
+                <div
+                  key={photo.id || index}
+                  style={{
+                    position: "relative",
+                    aspectRatio: "1",
+                    borderRadius: "12px",
+                    overflow: "hidden",
+                  }}
+                >
+                  <img
+                    src={photo.url}
+                    alt={`${cat.name} photo ${index + 1}`}
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                    }}
+                  />
                 </div>
               ))}
             </div>
             {cat.photos.length > 2 && (
               <button
-                className="view-all-photos"
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: "#8b5cf6",
+                  fontSize: "16px",
+                  fontWeight: "500",
+                  cursor: "pointer",
+                  textDecoration: "none",
+                }}
                 onClick={() => setShowAllPhotos(true)}
               >
                 View all {cat.photos.length} photos
@@ -272,90 +2402,155 @@ function CatProfile({ cat, onClose }: { cat: Cat; onClose: () => void }) {
           </div>
         )}
 
-        <p className="cat-description">{cat.description}</p>
+        <p
+          style={{
+            fontSize: "16px",
+            color: "#4b5563",
+            lineHeight: "1.6",
+            marginBottom: "24px",
+          }}
+        >
+          {cat.description}
+        </p>
 
-        <div className="info-section">
-          <h3>What we know about this cat:</h3>
-          <div className="info-list">
-            <div className="info-item">
-              <span className="info-icon">📍</span>
+        <div style={{ marginBottom: "32px" }}>
+          <h3
+            style={{
+              fontSize: "18px",
+              fontWeight: "600",
+              marginBottom: "16px",
+            }}
+          >
+            What we know about this cat:
+          </h3>
+          <div
+            style={{ display: "flex", flexDirection: "column", gap: "12px" }}
+          >
+            <div
+              style={{ display: "flex", alignItems: "flex-start", gap: "12px" }}
+            >
+              <span style={{ fontSize: "20px" }}>📍</span>
               <div>
                 <div>
                   {cat.location.area}, {cat.location.city}
                 </div>
-                <div className="info-detail">
+                <div style={{ color: "#6b7280", fontSize: "14px" }}>
                   {cat.location.approximateAddress}
                 </div>
               </div>
             </div>
-            <div className="info-item">
-              <span className="info-icon">🏴</span>
+            <div
+              style={{ display: "flex", alignItems: "flex-start", gap: "12px" }}
+            >
+              <span style={{ fontSize: "20px" }}>🌍</span>
               <div>{cat.location.country}</div>
             </div>
-            <div className="info-item">
-              <span className="info-icon">📅</span>
+            <div
+              style={{ display: "flex", alignItems: "flex-start", gap: "12px" }}
+            >
+              <span style={{ fontSize: "20px" }}>📅</span>
               <div>
                 Added{" "}
-                {new Date(cat.createdDate).toLocaleDateString("en-US", {
-                  month: "short",
-                  day: "numeric",
-                  year: "numeric",
-                })}
+                {cat.createdDate &&
+                  new Date(cat.createdDate).toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  })}
               </div>
             </div>
             {cat.allowsPetting && (
-              <div className="info-item">
-                <span className="info-icon">😺</span>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: "12px",
+                }}
+              >
+                <span style={{ fontSize: "20px" }}>🤗</span>
                 <div>Likes being petted</div>
               </div>
             )}
             {cat.acceptsTreats && (
-              <div className="info-item">
-                <span className="info-icon">🐟</span>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: "12px",
+                }}
+              >
+                <span style={{ fontSize: "20px" }}>🍖</span>
                 <div>Likes treats</div>
-              </div>
-            )}
-            {cat.favoriteTreats && cat.favoriteTreats.length > 0 && (
-              <div className="info-item">
-                <span className="info-icon">❤️</span>
-                <div>Loves: {cat.favoriteTreats.join(", ")}</div>
               </div>
             )}
           </div>
         </div>
 
-        <div className="characteristics-section">
-          <h3>Characteristics:</h3>
-          <div className="traits-list">
+        <div style={{ marginBottom: "32px" }}>
+          <h3
+            style={{
+              fontSize: "18px",
+              fontWeight: "600",
+              marginBottom: "16px",
+            }}
+          >
+            Characteristics:
+          </h3>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
             {cat.personality.map((trait) => (
-              <span key={trait} className="trait-tag">
+              <span
+                key={trait}
+                style={{
+                  padding: "4px 12px",
+                  background: "#e9d5ff",
+                  color: "#7c3aed",
+                  borderRadius: "16px",
+                  fontSize: "14px",
+                }}
+              >
                 {trait}
               </span>
             ))}
           </div>
         </div>
 
-        <div className="contributors-info">
-          {cat.contributors.length} contributors
-        </div>
-
-        <div className="location-section">
-          <h3>Location</h3>
-          <div className="mini-map">
-            <div className="map-placeholder">
-              <div className="map-info">
-                <div>
-                  Added{" "}
-                  {new Date(cat.createdDate).toLocaleDateString("en-US", {
-                    month: "short",
-                    day: "numeric",
-                  })}
-                </div>
+        {/* Location Display with Map Snapshot */}
+        <div style={{ marginBottom: "32px" }}>
+          <h3
+            style={{
+              fontSize: "18px",
+              fontWeight: "600",
+              marginBottom: "16px",
+            }}
+          >
+            Location
+          </h3>
+          <div
+            style={{
+              background: "#f9fafb",
+              borderRadius: "12px",
+              padding: "16px",
+              border: "1px solid #e5e7eb",
+            }}
+          >
+            <div style={{ height: "200px", marginBottom: "12px" }}>
+              <MapSnapshot lat={cat.location.lat} lng={cat.location.lng} />
+            </div>
+            <div
+              style={{
+                textAlign: "center",
+                fontSize: "14px",
+                color: "#6b7280",
+              }}
+            >
+              <div style={{ fontWeight: "500", marginBottom: "4px" }}>
+                {cat.location.approximateAddress}
               </div>
-              <div className="map-marker">{cat.emoji}</div>
-              <div className="map-location">
-                <div>{cat.location.approximateAddress}</div>
-                <div>{cat.location.area}</div>
+              <div>
+                {cat.location.area}, {cat.location.city}
+              </div>
+              <div style={{ fontSize: "12px", marginTop: "8px" }}>
+                📍 Fuzzed location for privacy
               </div>
             </div>
           </div>
@@ -365,244 +2560,1285 @@ function CatProfile({ cat, onClose }: { cat: Cat; onClose: () => void }) {
   );
 }
 
-function UserProfile({
+// Contribute Form Component
+function ContributeForm({
+  cat,
+  onSubmit,
+  onCancel,
+  currentUser,
+  userProfile,
+}: {
+  cat: Cat;
+  onSubmit: (updates: Partial<Cat>) => void;
+  onCancel: () => void;
+  currentUser: User | null;
+  userProfile: UserProfile | null;
+}) {
+  const [description, setDescription] = useState(cat.description || "");
+  const [selectedTraits, setSelectedTraits] = useState<string[]>(
+    cat.personality || []
+  );
+  const [allowsPetting, setAllowsPetting] = useState<boolean | null>(
+    cat.allowsPetting
+  );
+  const [acceptsTreats, setAcceptsTreats] = useState<boolean | null>(
+    cat.acceptsTreats
+  );
+  const [favoriteTreats, setFavoriteTreats] = useState(
+    cat.favoriteTreats?.join(", ") || ""
+  );
+  const [livingLocation, setLivingLocation] = useState<
+    "indoor" | "outdoor" | "both" | null
+  >(cat.livingLocation);
+  const [alternativeNames, setAlternativeNames] = useState(
+    cat.alternativeNames?.join(", ") || ""
+  );
+  const [saving, setSaving] = useState(false);
+
+  const handleSubmit = async () => {
+    if (!currentUser || !userProfile) return;
+
+    setSaving(true);
+
+    try {
+      const updates = {
+        description,
+        personality: selectedTraits,
+        allowsPetting,
+        acceptsTreats,
+        favoriteTreats: favoriteTreats
+          ? favoriteTreats
+              .split(",")
+              .map((t) => t.trim())
+              .filter((t) => t)
+          : [],
+        livingLocation,
+        alternativeNames: alternativeNames
+          ? alternativeNames
+              .split(",")
+              .map((n) => n.trim())
+              .filter((n) => n)
+          : [],
+      };
+
+      // Update in Firebase
+      const catDoc = doc(db, "cats", cat.id);
+      await updateDoc(catDoc, updates);
+
+      // Update user contribution count
+      const userQuery = query(
+        collection(db, "users"),
+        where("uid", "==", currentUser.uid)
+      );
+      const userSnapshot = await getDocs(userQuery);
+      if (!userSnapshot.empty) {
+        const userDoc = userSnapshot.docs[0];
+        await updateDoc(userDoc.ref, {
+          totalContributions: increment(1),
+        });
+      }
+
+      onSubmit(updates);
+    } catch (error) {
+      console.error("Error saving contribution:", error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: "white",
+        zIndex: 2000,
+        overflowY: "auto",
+      }}
+    >
+      <div
+        style={{
+          position: "sticky",
+          top: 0,
+          background: "white",
+          padding: "16px 20px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          borderBottom: "1px solid #e5e7eb",
+          zIndex: 10,
+        }}
+      >
+        <button
+          onClick={onCancel}
+          style={{
+            background: "none",
+            border: "none",
+            padding: "8px",
+            cursor: "pointer",
+            color: "#6b7280",
+          }}
+        >
+          <XIcon />
+        </button>
+        <h2 style={{ fontSize: "18px", fontWeight: "600", margin: 0 }}>
+          Contribute to {cat.name}
+        </h2>
+        <button
+          onClick={handleSubmit}
+          disabled={saving}
+          style={{
+            color: "#8b5cf6",
+            fontWeight: "500",
+            background: "none",
+            border: "none",
+            cursor: saving ? "not-allowed" : "pointer",
+            fontSize: "16px",
+            opacity: saving ? 0.5 : 1,
+          }}
+        >
+          {saving ? "Saving..." : "Save"}
+        </button>
+      </div>
+
+      <div
+        style={{
+          padding: "20px",
+          display: "flex",
+          flexDirection: "column",
+          gap: "24px",
+        }}
+      >
+        {/* Cat Header */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "16px",
+            padding: "16px",
+            background: "#f9fafb",
+            borderRadius: "12px",
+          }}
+        >
+          <span style={{ fontSize: "32px" }}>{cat.emoji}</span>
+          <div>
+            <h3 style={{ margin: 0, fontSize: "20px" }}>{cat.name}</h3>
+            <p style={{ margin: 0, color: "#6b7280", fontSize: "14px" }}>
+              {cat.location.area}, {cat.location.city}
+            </p>
+          </div>
+        </div>
+
+        {/* Alternative Names */}
+        <div>
+          <label
+            style={{
+              display: "block",
+              fontSize: "14px",
+              fontWeight: "500",
+              marginBottom: "8px",
+              color: "#374151",
+            }}
+          >
+            Alternative Names
+          </label>
+          <input
+            type="text"
+            value={alternativeNames}
+            onChange={(e) => setAlternativeNames(e.target.value)}
+            placeholder="Other names this cat goes by (comma separated)"
+            style={{
+              width: "100%",
+              padding: "10px 14px",
+              border: "1px solid #d1d5db",
+              borderRadius: "8px",
+              fontSize: "16px",
+            }}
+          />
+        </div>
+
+        {/* Description */}
+        <div>
+          <label
+            style={{
+              display: "block",
+              fontSize: "14px",
+              fontWeight: "500",
+              marginBottom: "8px",
+              color: "#374151",
+            }}
+          >
+            Description
+          </label>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={3}
+            placeholder="Tell us more about this cat..."
+            style={{
+              width: "100%",
+              padding: "10px 14px",
+              border: "1px solid #d1d5db",
+              borderRadius: "8px",
+              fontSize: "16px",
+              resize: "vertical",
+            }}
+          />
+        </div>
+
+        {/* Personality Traits */}
+        <div>
+          <label
+            style={{
+              display: "block",
+              fontSize: "14px",
+              fontWeight: "500",
+              marginBottom: "8px",
+              color: "#374151",
+            }}
+          >
+            Personality Traits
+          </label>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+            {PERSONALITY_TRAITS.map((trait) => (
+              <button
+                key={trait}
+                onClick={() => {
+                  setSelectedTraits((prev) =>
+                    prev.includes(trait)
+                      ? prev.filter((t) => t !== trait)
+                      : [...prev, trait]
+                  );
+                }}
+                style={{
+                  padding: "6px 16px",
+                  borderRadius: "20px",
+                  fontSize: "14px",
+                  background: selectedTraits.includes(trait)
+                    ? "#e9d5ff"
+                    : "#f3f4f6",
+                  color: selectedTraits.includes(trait) ? "#7c3aed" : "#6b7280",
+                  border: "none",
+                  cursor: "pointer",
+                }}
+              >
+                {trait}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Contribution Info */}
+        <div
+          style={{
+            background: "#f0f9ff",
+            padding: "16px",
+            borderRadius: "12px",
+            border: "1px solid #e0f2fe",
+          }}
+        >
+          <h4
+            style={{ margin: "0 0 8px 0", fontSize: "16px", color: "#0369a1" }}
+          >
+            ✨ Thank you for contributing!
+          </h4>
+          <p
+            style={{
+              margin: 0,
+              fontSize: "14px",
+              color: "#0891b2",
+              lineHeight: "1.5",
+            }}
+          >
+            Your updates help other cat lovers learn more about {cat.name}. All
+            contributions are appreciated and help build a better community
+            resource.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Catspotting Component - Updated with auth requirement
+function CatspottingScreen({
   onClose,
-  userName = "Sarah Chen",
-  location = "London, United Kingdom",
+  currentUser,
+  userProfile,
+  cats,
+  onAddCat,
+  onAuthRequired,
 }: {
   onClose: () => void;
-  userName?: string;
-  location?: string;
+  currentUser: User | null;
+  userProfile: UserProfile | null;
+  cats: Cat[];
+  onAddCat: (cat: Partial<Cat>) => void;
+  onAuthRequired: () => void;
 }) {
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [extractedLocation, setExtractedLocation] = useState<
+    [number, number] | null
+  >(null);
+  const [nearbyCats, setNearbyCats] = useState<Cat[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [showCatSelection, setShowCatSelection] = useState(false);
+  const [selectedCat, setSelectedCat] = useState<Cat | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!currentUser) {
+      onAuthRequired();
+      return;
+    }
+
+    const file = e.target.files?.[0];
+    if (file) {
+      setPhotoFile(file);
+      setLoading(true);
+
+      const reader = new FileReader();
+      reader.onloadend = () => setPhotoPreview(reader.result as string);
+      reader.readAsDataURL(file);
+
+      try {
+        const location = await extractLocationFromPhoto(file);
+        if (location) {
+          setExtractedLocation(location);
+          const nearby = cats.filter((cat) => {
+            const distance = getDistanceFromLatLonInMeters(
+              location[0],
+              location[1],
+              cat.location.lat,
+              cat.location.lng
+            );
+            return distance < 200;
+          });
+          setNearbyCats(nearby);
+          if (nearby.length > 0) setShowCatSelection(true);
+        }
+      } catch (error) {
+        console.error("Error extracting location:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
+  const handleAddToExistingCat = async () => {
+    if (!selectedCat || !photoFile || !currentUser || !userProfile) return;
+
+    try {
+      const photoURL = await uploadPhotoToStorage(
+        photoFile,
+        selectedCat.id,
+        currentUser.uid
+      );
+      const photoData = {
+        id: `${selectedCat.id}_${Date.now()}`,
+        url: photoURL,
+        contributor: userProfile.displayName,
+        contributorId: currentUser.uid,
+        date: new Date().toISOString(),
+        uploadedAt: serverTimestamp(),
+        locationMetadata: extractedLocation
+          ? {
+              lat: extractedLocation[0],
+              lng: extractedLocation[1],
+            }
+          : undefined,
+      };
+
+      const catDoc = doc(db, "cats", selectedCat.id);
+      await updateDoc(catDoc, {
+        photos: arrayUnion(photoData),
+      });
+
+      // Update user profile
+      const userQuery = query(
+        collection(db, "users"),
+        where("uid", "==", currentUser.uid)
+      );
+      const userSnapshot = await getDocs(userQuery);
+      if (!userSnapshot.empty) {
+        const userDoc = userSnapshot.docs[0];
+        await updateDoc(userDoc.ref, {
+          photosAdded: increment(1),
+        });
+      }
+
+      alert("Photo added successfully!");
+      onClose();
+    } catch (error) {
+      console.error("Error adding photo:", error);
+      alert("Error adding photo. Please try again.");
+    }
+  };
+
+  const handleCreateNewCat = () => {
+    if (!currentUser) {
+      onAuthRequired();
+      return;
+    }
+
+    if (extractedLocation && photoFile && currentUser && userProfile) {
+      const newCat: Partial<Cat> = {
+        name: "",
+        emoji: CAT_EMOJIS[0].emoji,
+        location: {
+          lat: extractedLocation[0],
+          lng: extractedLocation[1],
+          area: "Local Area",
+          city: "London",
+          country: "United Kingdom",
+          continent: "Europe",
+          approximateAddress: fuzzyLocation(
+            extractedLocation[0],
+            extractedLocation[1]
+          ),
+        },
+        photos: [
+          {
+            id: `new_${Date.now()}`,
+            url: photoPreview || "",
+            contributor: userProfile.displayName,
+            contributorId: currentUser.uid,
+            date: new Date().toISOString(),
+            uploadedAt: serverTimestamp(),
+            locationMetadata: {
+              lat: extractedLocation[0],
+              lng: extractedLocation[1],
+            },
+          },
+        ],
+        createdDate: new Date().toISOString(),
+        totalVisits: 0,
+        userVisits: {},
+        visits: [],
+        slowBlinks: [],
+        personality: [],
+        allowsPetting: null,
+        acceptsTreats: null,
+        livingLocation: null,
+        creator: userProfile.displayName,
+        creatorId: currentUser.uid,
+        contributors: [
+          {
+            id: currentUser.uid,
+            name: userProfile.displayName,
+            type: "creator",
+            contributions: 1,
+          },
+        ],
+      };
+      onAddCat(newCat);
+    }
+    onClose();
+  };
+
   return (
-    <div className="user-profile">
-      <div className="profile-header">
+    <div
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: "white",
+        zIndex: 2000,
+        overflowY: "auto",
+      }}
+    >
+      <div
+        style={{
+          position: "sticky",
+          top: 0,
+          background: "white",
+          padding: "16px 20px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          borderBottom: "1px solid #e5e7eb",
+          zIndex: 10,
+        }}
+      >
+        <button
+          onClick={onClose}
+          style={{
+            background: "none",
+            border: "none",
+            padding: "8px",
+            cursor: "pointer",
+            color: "#6b7280",
+          }}
+        >
+          <XIcon />
+        </button>
+        <h2 style={{ fontSize: "18px", fontWeight: "600", margin: 0 }}>
+          📸 Catspotting
+        </h2>
+        <div style={{ width: "40px" }}></div>
+      </div>
+
+      <div style={{ padding: "20px" }}>
+        {!currentUser ? (
+          <div
+            style={{
+              border: "2px dashed #d1d5db",
+              borderRadius: "12px",
+              padding: "60px 20px",
+              textAlign: "center",
+              background: "#f9fafb",
+            }}
+          >
+            <LockIcon />
+            <p
+              style={{ marginTop: "16px", fontSize: "18px", fontWeight: "500" }}
+            >
+              Sign in to use Catspotting
+            </p>
+            <p style={{ marginTop: "8px", color: "#6b7280", fontSize: "14px" }}>
+              Upload photos of cats you've spotted and help build our community
+              database
+            </p>
+            <button
+              onClick={onAuthRequired}
+              style={{
+                marginTop: "16px",
+                padding: "12px 24px",
+                background: "#8b5cf6",
+                color: "white",
+                border: "none",
+                borderRadius: "8px",
+                cursor: "pointer",
+                fontSize: "16px",
+              }}
+            >
+              Sign In
+            </button>
+          </div>
+        ) : !photoFile ? (
+          <div
+            style={{
+              border: "2px dashed #d1d5db",
+              borderRadius: "12px",
+              padding: "60px 20px",
+              textAlign: "center",
+              cursor: "pointer",
+              background: "#f9fafb",
+            }}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <CameraIcon />
+            <p
+              style={{ marginTop: "16px", fontSize: "18px", fontWeight: "500" }}
+            >
+              Spotted a cat?
+            </p>
+            <p style={{ marginTop: "8px", color: "#6b7280", fontSize: "14px" }}>
+              Upload a photo and we'll help you identify if it's already in our
+              database
+            </p>
+          </div>
+        ) : (
+          <div>
+            <div style={{ marginBottom: "20px" }}>
+              <img
+                src={photoPreview!}
+                alt="Cat photo"
+                style={{
+                  width: "100%",
+                  height: "300px",
+                  objectFit: "cover",
+                  borderRadius: "12px",
+                }}
+              />
+            </div>
+
+            {loading && (
+              <div style={{ textAlign: "center", padding: "20px" }}>
+                <p>Analyzing photo location...</p>
+              </div>
+            )}
+
+            {!loading && extractedLocation && (
+              <div style={{ marginBottom: "20px" }}>
+                <div
+                  style={{
+                    background: "#f0f9ff",
+                    padding: "12px",
+                    borderRadius: "8px",
+                    marginBottom: "16px",
+                  }}
+                >
+                  <p style={{ fontSize: "14px", color: "#0369a1", margin: 0 }}>
+                    📍 Location detected: {extractedLocation[0].toFixed(4)},{" "}
+                    {extractedLocation[1].toFixed(4)}
+                  </p>
+                </div>
+
+                {showCatSelection && nearbyCats.length > 0 ? (
+                  <div>
+                    <h3
+                      style={{
+                        fontSize: "16px",
+                        fontWeight: "500",
+                        marginBottom: "12px",
+                      }}
+                    >
+                      Is this one of these cats?
+                    </h3>
+                    <p
+                      style={{
+                        fontSize: "14px",
+                        color: "#6b7280",
+                        marginBottom: "16px",
+                      }}
+                    >
+                      We found {nearbyCats.length} cat
+                      {nearbyCats.length !== 1 ? "s" : ""} nearby:
+                    </p>
+
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "12px",
+                        marginBottom: "20px",
+                      }}
+                    >
+                      {nearbyCats.map((cat) => (
+                        <div
+                          key={cat.id}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "12px",
+                            padding: "12px",
+                            border:
+                              selectedCat?.id === cat.id
+                                ? "2px solid #8b5cf6"
+                                : "1px solid #e5e7eb",
+                            borderRadius: "12px",
+                            cursor: "pointer",
+                            background:
+                              selectedCat?.id === cat.id ? "#f3f4f6" : "white",
+                          }}
+                          onClick={() => setSelectedCat(cat)}
+                        >
+                          <span style={{ fontSize: "32px" }}>{cat.emoji}</span>
+                          <div style={{ flex: 1 }}>
+                            <p
+                              style={{ fontWeight: "600", marginBottom: "4px" }}
+                            >
+                              {cat.name}
+                            </p>
+                            <p style={{ fontSize: "14px", color: "#6b7280" }}>
+                              {cat.location.approximateAddress}
+                            </p>
+                          </div>
+                          {cat.photos[0] && (
+                            <img
+                              src={cat.photos[0].url}
+                              alt={cat.name}
+                              style={{
+                                width: "48px",
+                                height: "48px",
+                                objectFit: "cover",
+                                borderRadius: "8px",
+                              }}
+                            />
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "12px",
+                      }}
+                    >
+                      <button
+                        onClick={handleAddToExistingCat}
+                        disabled={!selectedCat}
+                        style={{
+                          padding: "12px 20px",
+                          background: selectedCat ? "#10b981" : "#e5e7eb",
+                          color: selectedCat ? "white" : "#9ca3af",
+                          border: "none",
+                          borderRadius: "12px",
+                          fontSize: "16px",
+                          fontWeight: "500",
+                          cursor: selectedCat ? "pointer" : "not-allowed",
+                        }}
+                      >
+                        Yes, add photo to {selectedCat?.name || "selected cat"}
+                      </button>
+
+                      <button
+                        onClick={handleCreateNewCat}
+                        style={{
+                          padding: "12px 20px",
+                          background: "white",
+                          color: "#8b5cf6",
+                          border: "2px solid #8b5cf6",
+                          borderRadius: "12px",
+                          fontSize: "16px",
+                          fontWeight: "500",
+                          cursor: "pointer",
+                        }}
+                      >
+                        No, this is a new cat
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <h3
+                      style={{
+                        fontSize: "16px",
+                        fontWeight: "500",
+                        marginBottom: "12px",
+                      }}
+                    >
+                      No cats found nearby
+                    </h3>
+                    <p
+                      style={{
+                        fontSize: "14px",
+                        color: "#6b7280",
+                        marginBottom: "16px",
+                      }}
+                    >
+                      Looks like this might be a new cat! Let's add them to the
+                      map.
+                    </p>
+
+                    <button
+                      onClick={handleCreateNewCat}
+                      style={{
+                        width: "100%",
+                        padding: "12px 20px",
+                        background: "#8b5cf6",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "12px",
+                        fontSize: "16px",
+                        fontWeight: "500",
+                        cursor: "pointer",
+                      }}
+                    >
+                      Add New Cat
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {!loading && !extractedLocation && (
+              <div>
+                <div
+                  style={{
+                    background: "#fef3c7",
+                    padding: "12px",
+                    borderRadius: "8px",
+                    marginBottom: "16px",
+                  }}
+                >
+                  <p style={{ fontSize: "14px", color: "#92400e", margin: 0 }}>
+                    ⚠️ No location data found in photo. You can still add the
+                    cat manually.
+                  </p>
+                </div>
+
+                <button
+                  onClick={handleCreateNewCat}
+                  style={{
+                    width: "100%",
+                    padding: "12px 20px",
+                    background: "#8b5cf6",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "12px",
+                    fontSize: "16px",
+                    fontWeight: "500",
+                    cursor: "pointer",
+                  }}
+                >
+                  Continue to Add Cat
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handlePhotoChange}
+          style={{ display: "none" }}
+        />
+      </div>
+    </div>
+  );
+}
+
+// Enhanced User Profile Component
+function UserProfile({
+  onClose,
+  userProfile,
+  onShowUserCats,
+  onShowUserPhotos,
+  onShowUserVisits,
+}: {
+  onClose: () => void;
+  userProfile: UserProfile | null;
+  onShowUserCats: () => void;
+  onShowUserPhotos: () => void;
+  onShowUserVisits: () => void;
+}) {
+  if (!userProfile) return null;
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: "white",
+        zIndex: 2000,
+      }}
+    >
+      <div
+        style={{
+          position: "sticky",
+          top: 0,
+          background: "white",
+          padding: "16px 20px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          borderBottom: "1px solid #e5e7eb",
+          zIndex: 10,
+        }}
+      >
         <h2>Your Profile</h2>
-        <button onClick={onClose} className="close-button">
+        <button
+          onClick={onClose}
+          style={{
+            background: "none",
+            border: "none",
+            padding: "8px",
+            cursor: "pointer",
+            color: "#6b7280",
+          }}
+        >
           <XIcon />
         </button>
       </div>
 
-      <div className="profile-content">
-        <div className="user-avatar">
-          <UserIcon />
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          padding: "40px 20px",
+        }}
+      >
+        <div
+          style={{
+            width: "120px",
+            height: "120px",
+            background: "#e5e7eb",
+            borderRadius: "50%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            marginBottom: "24px",
+            overflow: "hidden",
+          }}
+        >
+          {userProfile.profilePicture ? (
+            <img
+              src={userProfile.profilePicture}
+              alt="Profile"
+              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+            />
+          ) : (
+            <UserIcon />
+          )}
         </div>
 
-        <h3 className="user-name">{userName}</h3>
-        <p className="user-location">{location}</p>
+        <h3
+          style={{ fontSize: "28px", fontWeight: "600", marginBottom: "8px" }}
+        >
+          {userProfile.displayName}
+        </h3>
+        <p style={{ fontSize: "16px", color: "#6b7280", marginBottom: "8px" }}>
+          {userProfile.email}
+        </p>
+        <p
+          style={{
+            fontSize: "16px",
+            color: "#8b5cf6",
+            marginBottom: "8px",
+            fontWeight: "500",
+          }}
+        >
+          {userProfile.identity === "human-of-cat"
+            ? "Human of a Cat"
+            : "Unattached Catwalker"}
+        </p>
+        {userProfile.location && (
+          <p
+            style={{ fontSize: "16px", color: "#6b7280", marginBottom: "8px" }}
+          >
+            📍 {userProfile.location}
+          </p>
+        )}
+        <p style={{ fontSize: "14px", color: "#9ca3af", marginBottom: "40px" }}>
+          On the Catwalk since{" "}
+          {userProfile.joinDate &&
+            new Date(userProfile.joinDate).toLocaleDateString()}
+        </p>
 
-        <div className="stats-grid">
-          <div className="stat-item">
-            <div className="stat-number">15</div>
-            <div className="stat-label">Total Contributions</div>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: "24px",
+            width: "100%",
+            maxWidth: "400px",
+          }}
+        >
+          <button
+            onClick={onShowUserCats}
+            style={{
+              textAlign: "center",
+              padding: "20px",
+              background: "#f9fafb",
+              borderRadius: "12px",
+              border: "none",
+              cursor: "pointer",
+              transition: "all 0.2s",
+            }}
+          >
+            <div
+              style={{
+                fontSize: "36px",
+                fontWeight: "700",
+                color: "#8b5cf6",
+                marginBottom: "8px",
+              }}
+            >
+              {userProfile.catsFound}
+            </div>
+            <div style={{ fontSize: "14px", color: "#6b7280" }}>Cats Added</div>
+          </button>
+
+          <button
+            onClick={onShowUserPhotos}
+            style={{
+              textAlign: "center",
+              padding: "20px",
+              background: "#f9fafb",
+              borderRadius: "12px",
+              border: "none",
+              cursor: "pointer",
+              transition: "all 0.2s",
+            }}
+          >
+            <div
+              style={{
+                fontSize: "36px",
+                fontWeight: "700",
+                color: "#8b5cf6",
+                marginBottom: "8px",
+              }}
+            >
+              {userProfile.photosAdded}
+            </div>
+            <div style={{ fontSize: "14px", color: "#6b7280" }}>
+              Photos Added
+            </div>
+          </button>
+
+          <div
+            style={{
+              textAlign: "center",
+              padding: "20px",
+              background: "#f9fafb",
+              borderRadius: "12px",
+            }}
+          >
+            <div
+              style={{
+                fontSize: "36px",
+                fontWeight: "700",
+                color: "#8b5cf6",
+                marginBottom: "8px",
+              }}
+            >
+              {userProfile.totalContributions}
+            </div>
+            <div style={{ fontSize: "14px", color: "#6b7280" }}>
+              Info Contributed
+            </div>
           </div>
-          <div className="stat-item">
-            <div className="stat-number">2</div>
-            <div className="stat-label">Cats Found</div>
-          </div>
-          <div className="stat-item">
-            <div className="stat-number">8</div>
-            <div className="stat-label">Photos Added</div>
-          </div>
+
+          <button
+            onClick={onShowUserVisits}
+            style={{
+              textAlign: "center",
+              padding: "20px",
+              background: "#f9fafb",
+              borderRadius: "12px",
+              border: "none",
+              cursor: "pointer",
+              transition: "all 0.2s",
+            }}
+          >
+            <div
+              style={{
+                fontSize: "36px",
+                fontWeight: "700",
+                color: "#8b5cf6",
+                marginBottom: "8px",
+              }}
+            >
+              {userProfile.catsVisited.length}
+            </div>
+            <div style={{ fontSize: "14px", color: "#6b7280" }}>
+              Cats Visited
+            </div>
+          </button>
         </div>
       </div>
     </div>
   );
 }
 
-function CatList({
+// Duplicate Modal Component
+function DuplicateModal({
   cats,
-  onSelectCat,
+  onSelectExisting,
+  onCreateNew,
+  onClose,
 }: {
   cats: Cat[];
-  onSelectCat: (cat: Cat) => void;
+  onSelectExisting: (cat: Cat) => void;
+  onCreateNew: () => void;
+  onClose: () => void;
 }) {
-  const [activeTab, setActiveTab] = useState("all");
-
   return (
-    <div className="cat-list-view">
-      <div className="search-section">
-        <div className="search-bar">
-          <SearchIcon />
-          <input type="text" placeholder="Search cats..." />
-        </div>
-      </div>
+    <div
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: "rgba(0, 0, 0, 0.5)",
+        zIndex: 2000,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "20px",
+      }}
+      onClick={onClose}
+    >
+      <div
+        style={{
+          background: "white",
+          borderRadius: "16px",
+          padding: "24px",
+          maxWidth: "400px",
+          width: "100%",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3
+          style={{ fontSize: "18px", fontWeight: "600", marginBottom: "16px" }}
+        >
+          Cats found nearby
+        </h3>
+        <p style={{ color: "#6b7280", marginBottom: "20px" }}>
+          We found {cats.length} cat{cats.length !== 1 ? "s" : ""} near this
+          location. Is this one of them?
+        </p>
 
-      <div className="browse-section">
-        <h2>Browse by Location</h2>
-        <div className="location-tabs">
-          <button
-            className={`location-tab ${activeTab === "all" ? "active" : ""}`}
-            onClick={() => setActiveTab("all")}
-          >
-            All Cats ({cats.length})
-          </button>
-          <button
-            className={`location-tab ${
-              activeTab === "country" ? "active" : ""
-            }`}
-            onClick={() => setActiveTab("country")}
-          >
-            By Country
-          </button>
-          <button
-            className={`location-tab ${activeTab === "city" ? "active" : ""}`}
-            onClick={() => setActiveTab("city")}
-          >
-            By City
-          </button>
-        </div>
-      </div>
-
-      <div className="cats-section">
-        <h3>All Cats ({cats.length})</h3>
-        <div className="cat-cards">
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: "12px",
+            marginBottom: "20px",
+          }}
+        >
           {cats.map((cat) => (
-            <div
+            <button
               key={cat.id}
-              className="cat-card"
-              onClick={() => onSelectCat(cat)}
+              onClick={() => onSelectExisting(cat)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "12px",
+                padding: "12px",
+                border: "1px solid #e5e7eb",
+                borderRadius: "12px",
+                cursor: "pointer",
+                background: "white",
+                textAlign: "left",
+              }}
             >
-              <div className="cat-card-emoji">{cat.emoji}</div>
-              <div className="cat-card-photo">
-                {cat.photos[0] && (
-                  <img src={cat.photos[0].url} alt={cat.name} />
-                )}
-                <div className="photo-label">
-                  <div>{cat.name}</div>
-                  <div>Photo 1</div>
-                </div>
+              <span style={{ fontSize: "24px" }}>{cat.emoji}</span>
+              <div>
+                <p style={{ fontWeight: "600", margin: 0 }}>{cat.name}</p>
+                <p style={{ fontSize: "14px", color: "#6b7280", margin: 0 }}>
+                  {cat.location.approximateAddress}
+                </p>
               </div>
-              <div className="cat-card-info">
-                <h4>{cat.name}</h4>
-                <p>{cat.description}</p>
-                <div className="cat-card-traits">
-                  {cat.personality.slice(0, 2).map((trait) => (
-                    <span key={trait} className="trait-tag">
-                      {trait}
-                    </span>
-                  ))}
-                </div>
-                <div className="cat-card-meta">
-                  <span>
-                    <MapIcon /> {cat.location.area}
-                  </span>
-                  <span>{cat.photos.length} photos</span>
-                  <span>{cat.contributors.length} contributors</span>
-                </div>
-              </div>
-            </div>
+            </button>
           ))}
         </div>
-      </div>
 
-      <button className="floating-add-button">
-        <PlusIcon />
-      </button>
+        <div style={{ display: "flex", gap: "12px" }}>
+          <button
+            onClick={onCreateNew}
+            style={{
+              flex: 1,
+              padding: "12px",
+              background: "#8b5cf6",
+              color: "white",
+              border: "none",
+              borderRadius: "8px",
+              cursor: "pointer",
+            }}
+          >
+            Add New Cat
+          </button>
+          <button
+            onClick={onClose}
+            style={{
+              flex: 1,
+              padding: "12px",
+              background: "#f3f4f6",
+              color: "#374151",
+              border: "none",
+              borderRadius: "8px",
+              cursor: "pointer",
+            }}
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
 
+// Main App Component
 export default function CatwalkApp() {
-  const [leafletMap, setLeafletMap] = useState<any>(null);
-  const [leafletLoaded, setLeafletLoaded] = useState(false);
-  const [mapLoading, setMapLoading] = useState(false);
   const [currentView, setCurrentView] = useState("catmap");
   const [selectedCat, setSelectedCat] = useState<Cat | null>(null);
   const [showProfile, setShowProfile] = useState(false);
+  const [showUserCats, setShowUserCats] = useState(false);
+  const [showUserPhotos, setShowUserPhotos] = useState(false);
+  const [showUserVisits, setShowUserVisits] = useState(false);
+  const [showAddCat, setShowAddCat] = useState(false);
+  const [showContributeForm, setShowContributeForm] = useState(false);
+  const [showDuplicateModal, setShowDuplicateModal] = useState(false);
+  const [showFilterModal, setShowFilterModal] = useState(false);
+  const [showCatspotting, setShowCatspotting] = useState(false);
+  const [showLogin, setShowLogin] = useState(false);
+  const [showAuthRequired, setShowAuthRequired] = useState(false);
+  const [potentialDuplicates, setPotentialDuplicates] = useState<Cat[]>([]);
   const [userLocation, setUserLocation] = useState<[number, number] | null>(
     null
   );
+  const [manualLocation, setManualLocation] = useState<[number, number] | null>(
+    null
+  );
+  const [isPlacingPin, setIsPlacingPin] = useState(false);
+  const [cats, setCats] = useState<Cat[]>([]);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [leafletLoaded, setLeafletLoaded] = useState(false);
+  const [mapLoading, setMapLoading] = useState(false);
+  const [leafletMap, setLeafletMap] = useState<any>(null);
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
+  const manualMarkerRef = useRef<any>(null);
 
-  const [cats] = useState<Cat[]>([
-    {
-      id: 1,
-      createdDate: "2024-12-15T12:00:00Z",
-      name: "Luna",
-      alternativeNames: ["Princess Luna", "Loony"],
-      emoji: "😺",
-      location: {
-        lat: 51.5074,
-        lng: -0.1278,
-        area: "Covent Garden",
-        city: "London",
-        country: "United Kingdom",
-        continent: "Europe",
-        approximateAddress: "Near Russell Street & Bow Street",
+  // Filter state
+  const [filters, setFilters] = useState<FilterState>({
+    emoji: null,
+    personality: [],
+    allowsPetting: null,
+    acceptsTreats: null,
+    livingLocation: null,
+  });
+
+  // Firebase Auth State Listener
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        setCurrentUser({ uid: user.uid, email: user.email });
+        const profile = await getUserProfile(user.uid);
+        setUserProfile(profile);
+      } else {
+        setCurrentUser(null);
+        setUserProfile(null);
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // Load cats from Firebase
+  useEffect(() => {
+    const unsubscribe = onSnapshot(
+      query(collection(db, "cats"), orderBy("createdDate", "desc")),
+      (snapshot) => {
+        const catsData = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        })) as Cat[];
+        setCats(catsData);
       },
-      photos: [
-        {
-          url: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400' viewBox='0 0 400 400'%3E%3Crect width='400' height='400' fill='%23e09f3e'/%3E%3Ctext x='50%25' y='40%25' text-anchor='middle' fill='white' font-size='24' font-family='Arial'%3ELuna%3C/text%3E%3Ctext x='50%25' y='60%25' text-anchor='middle' fill='white' font-size='18' font-family='Arial'%3EPhoto 1%3C/text%3E%3C/svg%3E",
-          contributor: "Sarah Chen",
-          contributorId: "user1",
-          date: "2024-12-15T12:00:00Z",
-        },
-        {
-          url: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400' viewBox='0 0 400 400'%3E%3Crect width='400' height='400' fill='%23ff6b6b'/%3E%3Ctext x='50%25' y='40%25' text-anchor='middle' fill='white' font-size='24' font-family='Arial'%3ELuna%3C/text%3E%3Ctext x='50%25' y='60%25' text-anchor='middle' fill='white' font-size='18' font-family='Arial'%3EPhoto 2%3C/text%3E%3C/svg%3E",
-          contributor: "Mike Wilson",
-          contributorId: "user2",
-          date: "2024-12-16T10:00:00Z",
-        },
-        {
-          url: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400' viewBox='0 0 400 400'%3E%3Crect width='400' height='400' fill='%23ee5a24'/%3E%3Ctext x='50%25' y='40%25' text-anchor='middle' fill='white' font-size='24' font-family='Arial'%3ELuna%3C/text%3E%3Ctext x='50%25' y='60%25' text-anchor='middle' fill='white' font-size='18' font-family='Arial'%3EPhoto 3%3C/text%3E%3C/svg%3E",
-          contributor: "Emma Jones",
-          contributorId: "user3",
-          date: "2024-12-17T15:00:00Z",
-        },
-      ],
-      description:
-        "A friendly tabby who loves chin scratches and afternoon naps in the sun.",
-      personality: ["Friendly", "Loves sunbathing", "Very vocal"],
-      allowsPetting: true,
-      acceptsTreats: true,
-      favoriteTreats: ["Tuna", "Chicken"],
-      visits: [],
-      slowBlinks: [],
-      contributors: [
-        { id: "user1", name: "Sarah Chen", type: "creator", contributions: 1 },
-        { id: "user2", name: "Mike Wilson", type: "photo", contributions: 3 },
-        { id: "user3", name: "Alex Brown", type: "info", contributions: 2 },
-      ],
-      creator: "Sarah Chen",
-      creatorId: "user1",
-    },
-    {
-      id: 2,
-      createdDate: "2024-12-10T09:00:00Z",
-      name: "Oreo",
-      emoji: "🐈‍⬛",
-      location: {
-        lat: 51.5094,
-        lng: -0.1303,
-        area: "Shoreditch",
-        city: "London",
-        country: "United Kingdom",
-        continent: "Europe",
-        approximateAddress: "Near High Street",
-      },
-      photos: [
-        {
-          url: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400' viewBox='0 0 400 400'%3E%3Crect width='400' height='400' fill='%23333333'/%3E%3Ctext x='50%25' y='40%25' text-anchor='middle' fill='white' font-size='24' font-family='Arial'%3EOreo%3C/text%3E%3Ctext x='50%25' y='60%25' text-anchor='middle' fill='white' font-size='18' font-family='Arial'%3EPhoto 1%3C/text%3E%3C/svg%3E",
-          contributor: "Tom Davis",
-          contributorId: "user5",
-          date: "2024-12-10T09:00:00Z",
-        },
-      ],
-      description: "Black and white tuxedo cat with a playful personality.",
-      personality: ["Playful", "Curious"],
-      allowsPetting: false,
-      acceptsTreats: null,
-      visits: [],
-      slowBlinks: [],
-      contributors: [
-        { id: "user5", name: "Tom Davis", type: "creator", contributions: 1 },
-      ],
-      creator: "Tom Davis",
-      creatorId: "user5",
-    },
-  ]);
+      (error) => {
+        console.error("Error fetching cats:", error);
+      }
+    );
+
+    return () => unsubscribe();
+  }, []);
+
+  const requireAuth = (action: () => void) => {
+    if (!currentUser) {
+      setShowAuthRequired(true);
+      return;
+    }
+    action();
+  };
+
+  // Get user location
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition((position) => {
+        setUserLocation([position.coords.latitude, position.coords.longitude]);
+      });
+    }
+  }, []);
 
   // Load Leaflet
   useEffect(() => {
@@ -628,18 +3864,7 @@ export default function CatwalkApp() {
     }
   }, [leafletLoaded, mapLoading]);
 
-  // Get user location
-  useEffect(() => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition((position) => {
-        const lat = position.coords.latitude;
-        const lng = position.coords.longitude;
-        setUserLocation([lat, lng]);
-      });
-    }
-  }, []);
-
-  // Initialize or refresh map
+  // Initialize map
   useEffect(() => {
     if (
       currentView === "catmap" &&
@@ -660,7 +3885,7 @@ export default function CatwalkApp() {
           window.L.tileLayer(
             "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
             {
-              attribution: "© Catwalk Demo Map",
+              attribution: "© Catwalk Map",
             }
           ).addTo(map);
 
@@ -675,7 +3900,36 @@ export default function CatwalkApp() {
     }
   }, [currentView, leafletLoaded, userLocation]);
 
-  // Clean up map when switching away
+  // Update map click handler
+  useEffect(() => {
+    if (mapInstanceRef.current && window.L) {
+      mapInstanceRef.current.off("click");
+      mapInstanceRef.current.on("click", (e: any) => {
+        if (isPlacingPin) {
+          const { lat, lng } = e.latlng;
+          setManualLocation([lat, lng]);
+
+          if (manualMarkerRef.current) {
+            mapInstanceRef.current.removeLayer(manualMarkerRef.current);
+          }
+
+          const manualIcon = window.L.divIcon({
+            html: '<div style="width: 30px; height: 30px; background: #ef4444; border: 3px solid white; border-radius: 50%; box-shadow: 0 2px 8px rgba(239, 68, 68, 0.5);"></div>',
+            iconSize: [30, 30],
+            iconAnchor: [15, 15],
+          });
+
+          manualMarkerRef.current = window.L.marker([lat, lng], {
+            icon: manualIcon,
+            draggable: true,
+          }).addTo(mapInstanceRef.current);
+          setIsPlacingPin(false);
+        }
+      });
+    }
+  }, [isPlacingPin]);
+
+  // Clean up map
   useEffect(() => {
     if (currentView !== "catmap" && mapInstanceRef.current) {
       mapInstanceRef.current.remove();
@@ -688,889 +3942,1049 @@ export default function CatwalkApp() {
   useEffect(() => {
     if (leafletMap && window.L) {
       leafletMap.eachLayer((layer: any) => {
-        if (layer._latlng && !layer._isUserLocation)
+        if (
+          layer._latlng &&
+          !layer._isUserLocation &&
+          layer !== manualMarkerRef.current
+        ) {
           leafletMap.removeLayer(layer);
+        }
       });
 
       cats.forEach((cat) => {
         const catIcon = window.L.divIcon({
-          html: `<div class="cat-marker">${cat.emoji}</div>`,
+          html: `<div style="width: 40px; height: 40px; background: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2); cursor: pointer;">${cat.emoji}</div>`,
           iconSize: [40, 40],
           iconAnchor: [20, 20],
-          className: "cat-marker-container",
         });
 
         const marker = window.L.marker([cat.location.lat, cat.location.lng], {
           icon: catIcon,
         }).addTo(leafletMap);
-
-        marker.on("click", () => {
-          setSelectedCat(cat);
-        });
+        marker.on("click", () => setSelectedCat(cat));
       });
 
       if (userLocation) {
         const userIcon = window.L.divIcon({
-          html: '<div class="user-location-marker"></div>',
+          html: '<div style="width: 20px; height: 20px; background: #3b82f6; border: 3px solid white; border-radius: 50%; box-shadow: 0 2px 8px rgba(59, 130, 246, 0.5);"></div>',
           iconSize: [20, 20],
           iconAnchor: [10, 10],
-          className: "user-marker-container",
         });
         const userMarker = window.L.marker(userLocation, {
           icon: userIcon,
         }).addTo(leafletMap);
         userMarker._isUserLocation = true;
-
-        // Add "You are here" label
-        const labelIcon = window.L.divIcon({
-          html: '<div class="user-location-label">You are here</div>',
-          iconSize: [120, 30],
-          iconAnchor: [60, -10],
-          className: "user-label-container",
-        });
-        window.L.marker(userLocation, { icon: labelIcon }).addTo(leafletMap);
       }
     }
   }, [leafletMap, cats, userLocation]);
 
+  const handleCheckForDuplicates = () => {
+    requireAuth(() => {
+      const location = manualLocation || userLocation;
+      if (!location) {
+        alert(
+          "Please set a location by dropping a pin or allowing location access"
+        );
+        return;
+      }
+
+      const [lat, lng] = location;
+      const duplicates = cats.filter((cat) => {
+        const dist = getDistanceFromLatLonInMeters(
+          lat,
+          lng,
+          cat.location.lat,
+          cat.location.lng
+        );
+        return dist < 200;
+      });
+
+      if (duplicates.length > 0) {
+        setPotentialDuplicates(duplicates);
+        setShowDuplicateModal(true);
+      } else {
+        setShowAddCat(true);
+      }
+    });
+  };
+
+  const handleAddCat = async (newCatData: Partial<Cat>) => {
+    if (!currentUser || !userProfile) return;
+
+    try {
+      setShowAddCat(false);
+      setManualLocation(null);
+
+      if (manualMarkerRef.current && mapInstanceRef.current) {
+        mapInstanceRef.current.removeLayer(manualMarkerRef.current);
+        manualMarkerRef.current = null;
+      }
+    } catch (error) {
+      console.error("Error adding cat:", error);
+    }
+  };
+
+  const handleVisit = async () => {
+    if (!selectedCat || !currentUser || !userProfile) return;
+
+    try {
+      const catDoc = doc(db, "cats", selectedCat.id);
+      const newVisit = {
+        userId: currentUser.uid,
+        date: new Date().toISOString(),
+        userName: userProfile.displayName,
+      };
+
+      await updateDoc(catDoc, {
+        totalVisits: increment(1),
+        [`userVisits.${currentUser.uid}`]: increment(1),
+        visits: arrayUnion(newVisit),
+      });
+
+      // Update user's visited cats list
+      const userQuery = query(
+        collection(db, "users"),
+        where("uid", "==", currentUser.uid)
+      );
+      const userSnapshot = await getDocs(userQuery);
+      if (!userSnapshot.empty) {
+        const userDoc = userSnapshot.docs[0];
+        const currentVisited = userProfile.catsVisited || [];
+        if (!currentVisited.includes(selectedCat.id)) {
+          await updateDoc(userDoc.ref, {
+            catsVisited: arrayUnion(selectedCat.id),
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Error recording visit:", error);
+    }
+  };
+
+  const handleSlowBlink = async () => {
+    if (!selectedCat || !currentUser || !userProfile) return;
+
+    try {
+      const catDoc = doc(db, "cats", selectedCat.id);
+      const newSlowBlink = {
+        userId: currentUser.uid,
+        userName: userProfile.displayName,
+        date: new Date().toISOString(),
+      };
+
+      await updateDoc(catDoc, {
+        slowBlinks: arrayUnion(newSlowBlink),
+      });
+    } catch (error) {
+      console.error("Error recording slow blink:", error);
+    }
+  };
+
+  const handleAddPhoto = async (file: File) => {
+    if (!selectedCat || !currentUser || !userProfile) return;
+
+    try {
+      const photoURL = await uploadPhotoToStorage(
+        file,
+        selectedCat.id,
+        currentUser.uid
+      );
+      const photoData = {
+        id: `${selectedCat.id}_${Date.now()}`,
+        url: photoURL,
+        contributor: userProfile.displayName,
+        contributorId: currentUser.uid,
+        date: new Date().toISOString(),
+        uploadedAt: serverTimestamp(),
+      };
+
+      const catDoc = doc(db, "cats", selectedCat.id);
+      await updateDoc(catDoc, {
+        photos: arrayUnion(photoData),
+      });
+
+      // Update user profile
+      const userQuery = query(
+        collection(db, "users"),
+        where("uid", "==", currentUser.uid)
+      );
+      const userSnapshot = await getDocs(userQuery);
+      if (!userSnapshot.empty) {
+        const userDoc = userSnapshot.docs[0];
+        await updateDoc(userDoc.ref, {
+          photosAdded: increment(1),
+        });
+      }
+    } catch (error) {
+      console.error("Error adding photo:", error);
+    }
+  };
+
+  const handleContribute = async (updates: Partial<Cat>) => {
+    if (!selectedCat || !currentUser || !userProfile) return;
+
+    try {
+      const catDoc = doc(db, "cats", selectedCat.id);
+      await updateDoc(catDoc, updates);
+
+      // Update user contribution count
+      const userQuery = query(
+        collection(db, "users"),
+        where("uid", "==", currentUser.uid)
+      );
+      const userSnapshot = await getDocs(userQuery);
+      if (!userSnapshot.empty) {
+        const userDoc = userSnapshot.docs[0];
+        await updateDoc(userDoc.ref, {
+          totalContributions: increment(1),
+        });
+      }
+
+      setShowContributeForm(false);
+    } catch (error) {
+      console.error("Error saving contribution:", error);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await firebaseSignOut(auth);
+    } catch (error) {
+      console.error("Error signing out:", error);
+    }
+  };
+
+  // Header Component - Updated with guest mode support
+  function HeaderBar({
+    onProfileClick,
+    userProfile,
+    onLogout,
+    currentUser,
+    onLogin,
+  }: {
+    onProfileClick: () => void;
+    userProfile: UserProfile | null;
+    onLogout: () => void;
+    currentUser: User | null;
+    onLogin: () => void;
+  }) {
+    return (
+      <div
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          zIndex: 1000,
+          background: "white",
+          padding: "16px 20px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+          height: "72px",
+        }}
+      >
+        <h1
+          style={{
+            fontSize: "24px",
+            fontWeight: "bold",
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            margin: 0,
+          }}
+        >
+          🐱 Catwalk
+        </h1>
+        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+          {currentUser ? (
+            <>
+              <button
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "12px",
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  padding: "4px",
+                }}
+                onClick={onProfileClick}
+              >
+                <UserIcon />
+                <div style={{ textAlign: "right" }}>
+                  <div
+                    style={{
+                      fontSize: "16px",
+                      fontWeight: "600",
+                      color: "#111",
+                    }}
+                  >
+                    {userProfile?.displayName || "Guest"}
+                  </div>
+                  <div style={{ fontSize: "14px", color: "#6b7280" }}>
+                    {userProfile?.totalContributions || 0} contributions
+                  </div>
+                </div>
+              </button>
+              <button
+                style={{
+                  background: "none",
+                  border: "none",
+                  padding: "8px",
+                  cursor: "pointer",
+                  color: "#6b7280",
+                  display: "flex",
+                  alignItems: "center",
+                }}
+                onClick={onLogout}
+              >
+                <LogoutIcon />
+              </button>
+            </>
+          ) : (
+            <button
+              style={{
+                padding: "8px 16px",
+                background: "#8b5cf6",
+                color: "white",
+                border: "none",
+                borderRadius: "8px",
+                cursor: "pointer",
+                fontSize: "14px",
+              }}
+              onClick={onLogin}
+            >
+              Sign In
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Cat List Component - Updated for public browsing
+  function CatList({
+    cats,
+    onSelectCat,
+    onAddCat,
+  }: {
+    cats: Cat[];
+    onSelectCat: (cat: Cat) => void;
+    onAddCat: () => void;
+  }) {
+    const [searchTerm, setSearchTerm] = useState("");
+
+    const filteredCats = cats.filter((cat) => {
+      const matchesSearch = cat.name
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase());
+      const matchesEmoji = !filters.emoji || cat.emoji === filters.emoji;
+      const matchesPersonality =
+        filters.personality.length === 0 ||
+        filters.personality.some((trait) => cat.personality.includes(trait));
+      const matchesPetting =
+        filters.allowsPetting === null ||
+        cat.allowsPetting === filters.allowsPetting;
+      const matchesTreats =
+        filters.acceptsTreats === null ||
+        cat.acceptsTreats === filters.acceptsTreats;
+      const matchesLiving =
+        filters.livingLocation === null ||
+        cat.livingLocation === filters.livingLocation;
+
+      return (
+        matchesSearch &&
+        matchesEmoji &&
+        matchesPersonality &&
+        matchesPetting &&
+        matchesTreats &&
+        matchesLiving
+      );
+    });
+
+    const hasActiveFilters =
+      filters.emoji ||
+      filters.personality.length > 0 ||
+      filters.allowsPetting !== null ||
+      filters.acceptsTreats !== null ||
+      filters.livingLocation !== null;
+
+    return (
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: "60px",
+          background: "#f9fafb",
+          overflowY: "auto",
+        }}
+      >
+        <div
+          style={{
+            padding: "16px 20px",
+            background: "white",
+            borderBottom: "1px solid #e5e7eb",
+          }}
+        >
+          <div
+            style={{
+              position: "relative",
+              display: "flex",
+              alignItems: "center",
+              gap: "12px",
+            }}
+          >
+            <div
+              style={{
+                position: "relative",
+                flex: 1,
+                display: "flex",
+                alignItems: "center",
+              }}
+            >
+              <div
+                style={{ position: "absolute", left: "16px", color: "#9ca3af" }}
+              >
+                <SearchIcon />
+              </div>
+              <input
+                type="text"
+                placeholder="Search cats..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: "12px 16px 12px 48px",
+                  border: "1px solid #e5e7eb",
+                  borderRadius: "12px",
+                  fontSize: "16px",
+                  background: "#f9fafb",
+                }}
+              />
+            </div>
+            <button
+              onClick={() => setShowFilterModal(true)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                padding: "12px 16px",
+                background: hasActiveFilters ? "#8b5cf6" : "white",
+                color: hasActiveFilters ? "white" : "#374151",
+                border: hasActiveFilters ? "none" : "1px solid #e5e7eb",
+                borderRadius: "12px",
+                cursor: "pointer",
+              }}
+            >
+              <FilterIcon />
+              {hasActiveFilters && (
+                <span style={{ fontSize: "12px" }}>Active</span>
+              )}
+            </button>
+          </div>
+        </div>
+
+        <div style={{ padding: "20px", background: "white" }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: "16px",
+            }}
+          >
+            <h2 style={{ fontSize: "20px", fontWeight: "600", margin: 0 }}>
+              Browse Cats
+            </h2>
+            <button
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                padding: "10px 20px",
+                background: "#8b5cf6",
+                border: "none",
+                borderRadius: "12px",
+                color: "white",
+                fontSize: "16px",
+                fontWeight: "500",
+                cursor: "pointer",
+              }}
+              onClick={() => requireAuth(onAddCat)}
+            >
+              <PlusIcon size={20} />{" "}
+              {currentUser ? "Add Cat" : "Sign in to Add Cat"}
+            </button>
+          </div>
+        </div>
+
+        <div style={{ padding: "20px" }}>
+          <h3
+            style={{
+              fontSize: "18px",
+              fontWeight: "600",
+              marginBottom: "16px",
+            }}
+          >
+            All Cats ({filteredCats.length})
+          </h3>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: "16px",
+            }}
+          >
+            {filteredCats.map((cat) => (
+              <div
+                key={cat.id}
+                style={{
+                  background: "white",
+                  borderRadius: "16px",
+                  overflow: "hidden",
+                  cursor: "pointer",
+                  boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+                }}
+                onClick={() => onSelectCat(cat)}
+              >
+                <div
+                  style={{
+                    position: "relative",
+                    width: "100%",
+                    height: "120px",
+                    background: "#f3f4f6",
+                  }}
+                >
+                  {cat.photos[0] ? (
+                    <img
+                      src={cat.photos[0].url}
+                      alt={cat.name}
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover",
+                      }}
+                      onError={(e) => {
+                        e.currentTarget.style.display = "none";
+                      }}
+                    />
+                  ) : (
+                    <div
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        color: "#9ca3af",
+                        fontSize: "14px",
+                      }}
+                    >
+                      No photo
+                    </div>
+                  )}
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: "8px",
+                      right: "8px",
+                      background: "rgba(0, 0, 0, 0.7)",
+                      color: "white",
+                      padding: "4px 8px",
+                      borderRadius: "12px",
+                      fontSize: "12px",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "4px",
+                    }}
+                  >
+                    📸 {cat.photos.length}
+                  </div>
+                </div>
+                <div style={{ padding: "12px" }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      marginBottom: "8px",
+                    }}
+                  >
+                    <span style={{ fontSize: "20px" }}>{cat.emoji}</span>
+                    <h4
+                      style={{
+                        fontSize: "16px",
+                        fontWeight: "600",
+                        margin: 0,
+                        color: "#111",
+                      }}
+                    >
+                      {cat.name}
+                    </h4>
+                  </div>
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: "12px",
+                      fontSize: "12px",
+                      color: "#6b7280",
+                    }}
+                  >
+                    <span
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "4px",
+                      }}
+                    >
+                      📍 {cat.location.area}
+                    </span>
+                    <span>{cat.totalVisits} visits</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Bottom Bar - Updated for public browsing
   const BottomBar = () => (
-    <div className="bottom-bar">
+    <div
+      style={{
+        position: "fixed",
+        bottom: 0,
+        left: 0,
+        right: 0,
+        background: "white",
+        borderTop: "1px solid #e5e7eb",
+        display: "flex",
+        justifyContent: "space-around",
+        padding: "8px 0",
+        zIndex: 1000,
+      }}
+    >
       <button
         onClick={() => setCurrentView("catmap")}
-        className={`bottom-bar-button ${
-          currentView === "catmap" ? "active" : ""
-        }`}
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: "4px",
+          background: "none",
+          border: "none",
+          padding: "8px 20px",
+          cursor: "pointer",
+          color: currentView === "catmap" ? "#8b5cf6" : "#6b7280",
+          fontSize: "14px",
+        }}
       >
         <MapIcon />
         <span>Map</span>
       </button>
       <button
         onClick={() => setCurrentView("list")}
-        className={`bottom-bar-button ${
-          currentView === "list" ? "active" : ""
-        }`}
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: "4px",
+          background: "none",
+          border: "none",
+          padding: "8px 20px",
+          cursor: "pointer",
+          color: currentView === "list" ? "#8b5cf6" : "#6b7280",
+          fontSize: "14px",
+        }}
       >
         <SearchIcon />
         <span>Browse</span>
+      </button>
+      <button
+        onClick={() => requireAuth(() => setShowCatspotting(true))}
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: "4px",
+          background: "none",
+          border: "none",
+          padding: "8px 20px",
+          cursor: "pointer",
+          color: showCatspotting ? "#8b5cf6" : "#6b7280",
+          fontSize: "14px",
+        }}
+      >
+        <CameraIcon />
+        <span>Catspotting</span>
       </button>
     </div>
   );
 
   return (
-    <div className="app-container">
-      <HeaderBar onProfileClick={() => setShowProfile(true)} />
+    <div
+      style={{
+        position: "relative",
+        width: "100%",
+        height: "100vh",
+        overflow: "hidden",
+        paddingTop: "72px",
+        fontFamily:
+          "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+        background: "#f5f5f5",
+      }}
+    >
+      <HeaderBar
+        onProfileClick={() => requireAuth(() => setShowProfile(true))}
+        userProfile={userProfile}
+        onLogout={handleLogout}
+        currentUser={currentUser}
+        onLogin={() => setShowLogin(true)}
+      />
 
       {currentView === "catmap" && (
         <>
-          <div className="map-overlay-controls">
-            <div className="map-label">
-              <span className="map-icon">🎮</span> Demo Map
+          <div
+            style={{
+              position: "absolute",
+              top: "90px",
+              left: "10px",
+              zIndex: 1000,
+              display: "flex",
+              flexDirection: "column",
+              gap: "12px",
+            }}
+          >
+            <div
+              style={{
+                background: "white",
+                padding: "12px 20px",
+                borderRadius: "12px",
+                boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
+                fontSize: "14px",
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+              }}
+            >
+              <span style={{ color: "#ef4444" }}>📍</span>
+              <span>
+                {manualLocation
+                  ? `Custom location selected (${manualLocation[0].toFixed(
+                      4
+                    )}, ${manualLocation[1].toFixed(4)})`
+                  : userLocation
+                  ? "Using your current location"
+                  : "Location not available"}
+              </span>
+              {(manualLocation || userLocation) && (
+                <button
+                  style={{
+                    color: "#ef4444",
+                    textDecoration: "underline",
+                    marginLeft: "8px",
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    fontSize: "14px",
+                  }}
+                  onClick={() => {
+                    setManualLocation(null);
+                    if (manualMarkerRef.current && mapInstanceRef.current) {
+                      mapInstanceRef.current.removeLayer(
+                        manualMarkerRef.current
+                      );
+                      manualMarkerRef.current = null;
+                    }
+                  }}
+                >
+                  Reset location
+                </button>
+              )}
             </div>
-            <div className="location-info">
-              <span className="location-icon">📍</span>
-              <span>London, United Kingdom</span>
-              <a href="#" className="retry-location">
-                Retry location?
-              </a>
-            </div>
+            <button
+              style={{
+                background: isPlacingPin ? "#8b5cf6" : "white",
+                color: isPlacingPin ? "white" : "black",
+                padding: "12px 20px",
+                border: "none",
+                borderRadius: "12px",
+                boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
+                fontSize: "14px",
+                cursor: "pointer",
+              }}
+              onClick={() => setIsPlacingPin(!isPlacingPin)}
+            >
+              📌 {isPlacingPin ? "Click map to place pin" : "Drop custom pin"}
+            </button>
+            {isPlacingPin && (
+              <div
+                style={{
+                  background: "#fef3c7",
+                  color: "#92400e",
+                  padding: "8px 12px",
+                  borderRadius: "8px",
+                  fontSize: "12px",
+                  boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
+                }}
+              >
+                Click anywhere on the map to place a pin
+              </div>
+            )}
           </div>
-          <div ref={mapRef} className="map-container" />
-          <div className="map-attribution">United Kingdom</div>
-          <button className="floating-add-button">
-            <PlusIcon />
-          </button>
+          <div
+            ref={mapRef}
+            style={{
+              cursor: isPlacingPin ? "crosshair" : "grab",
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: "60px",
+              background: "#e8f5e9",
+            }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              top: "90px",
+              right: "10px",
+              background: "rgba(255, 255, 255, 0.8)",
+              padding: "4px 8px",
+              fontSize: "12px",
+              borderRadius: "4px",
+              zIndex: 1001,
+            }}
+          >
+            {
+              cats.filter((cat) => {
+                if (!userLocation && !manualLocation) return true;
+                const location = manualLocation || userLocation;
+                if (!location) return true;
+                const distance = getDistanceFromLatLonInMeters(
+                  location[0],
+                  location[1],
+                  cat.location.lat,
+                  cat.location.lng
+                );
+                return distance < 2000;
+              }).length
+            }{" "}
+            cats in this area
+          </div>
+
+          {/* Floating Action Buttons - Show for authenticated users only */}
+          {currentUser && (
+            <div
+              style={{
+                position: "absolute",
+                bottom: "100px",
+                right: "20px",
+                display: "flex",
+                flexDirection: "column",
+                gap: "12px",
+                zIndex: 999,
+              }}
+            >
+              {/* Catspotting Button */}
+              <button
+                style={{
+                  width: "64px",
+                  height: "64px",
+                  background: "#10b981",
+                  border: "none",
+                  borderRadius: "50%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "white",
+                  boxShadow: "0 4px 12px rgba(16, 185, 129, 0.4)",
+                  cursor: "pointer",
+                }}
+                onClick={() => setShowCatspotting(true)}
+              >
+                <CameraIcon />
+              </button>
+
+              {/* Add Cat Button */}
+              <button
+                style={{
+                  width: "64px",
+                  height: "64px",
+                  background: "#8b5cf6",
+                  border: "none",
+                  borderRadius: "50%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "white",
+                  boxShadow: "0 4px 12px rgba(139, 92, 246, 0.4)",
+                  cursor: "pointer",
+                }}
+                onClick={handleCheckForDuplicates}
+              >
+                <PlusIcon />
+              </button>
+            </div>
+          )}
         </>
       )}
 
       {currentView === "list" && (
-        <CatList cats={cats} onSelectCat={setSelectedCat} />
+        <CatList
+          cats={cats}
+          onSelectCat={setSelectedCat}
+          onAddCat={handleCheckForDuplicates}
+        />
       )}
 
+      {/* Auth Required Modal */}
+      {showAuthRequired && (
+        <AuthRequiredModal
+          onClose={() => setShowAuthRequired(false)}
+          onLogin={() => {
+            setShowAuthRequired(false);
+            setShowLogin(true);
+          }}
+        />
+      )}
+
+      {/* Login Modal */}
+      {showLogin && (
+        <LoginScreen
+          onLogin={() => setShowLogin(false)}
+          onClose={() => setShowLogin(false)}
+        />
+      )}
+
+      {/* User's Cats Screen */}
+      {showUserCats && currentUser && (
+        <UserCatsScreen
+          onBack={() => setShowUserCats(false)}
+          currentUser={currentUser}
+        />
+      )}
+
+      {/* User's Photos Screen */}
+      {showUserPhotos && currentUser && (
+        <UserPhotosScreen
+          onBack={() => setShowUserPhotos(false)}
+          currentUser={currentUser}
+        />
+      )}
+
+      {/* User's Visited Cats Screen */}
+      {showUserVisits && currentUser && (
+        <UserVisitsScreen
+          onBack={() => setShowUserVisits(false)}
+          currentUser={currentUser}
+        />
+      )}
+
+      {/* Cat Profile Modal */}
       {selectedCat && (
-        <CatProfile cat={selectedCat} onClose={() => setSelectedCat(null)} />
+        <CatProfile
+          cat={selectedCat}
+          onClose={() => setSelectedCat(null)}
+          currentUser={currentUser}
+          onVisit={handleVisit}
+          onSlowBlink={handleSlowBlink}
+          onAddPhoto={handleAddPhoto}
+          onContribute={() => setShowContributeForm(true)}
+          onAuthRequired={() => setShowAuthRequired(true)}
+        />
       )}
 
-      {showProfile && <UserProfile onClose={() => setShowProfile(false)} />}
+      {/* User Profile Modal */}
+      {showProfile && (
+        <UserProfile
+          onClose={() => setShowProfile(false)}
+          userProfile={userProfile}
+          onShowUserCats={() => {
+            setShowProfile(false);
+            setShowUserCats(true);
+          }}
+          onShowUserPhotos={() => {
+            setShowProfile(false);
+            setShowUserPhotos(true);
+          }}
+          onShowUserVisits={() => {
+            setShowProfile(false);
+            setShowUserVisits(true);
+          }}
+        />
+      )}
+
+      {/* Add Cat Form */}
+      {showAddCat && (
+        <AddCatForm
+          userLocation={userLocation}
+          manualLocation={manualLocation}
+          onSubmit={handleAddCat}
+          onCancel={() => setShowAddCat(false)}
+          currentUser={currentUser}
+          userProfile={userProfile}
+        />
+      )}
+
+      {/* Contribute Form */}
+      {showContributeForm && selectedCat && (
+        <ContributeForm
+          cat={selectedCat}
+          onSubmit={handleContribute}
+          onCancel={() => setShowContributeForm(false)}
+          currentUser={currentUser}
+          userProfile={userProfile}
+        />
+      )}
+
+      {/* Filter Modal */}
+      {showFilterModal && (
+        <FilterModal
+          filters={filters}
+          onUpdateFilters={setFilters}
+          onClose={() => setShowFilterModal(false)}
+        />
+      )}
+
+      {/* Duplicate Modal */}
+      {showDuplicateModal && (
+        <DuplicateModal
+          cats={potentialDuplicates}
+          onSelectExisting={(cat) => {
+            setSelectedCat(cat);
+            setShowDuplicateModal(false);
+          }}
+          onCreateNew={() => {
+            setShowDuplicateModal(false);
+            setShowAddCat(true);
+          }}
+          onClose={() => setShowDuplicateModal(false)}
+        />
+      )}
+
+      {/* Catspotting Screen */}
+      {showCatspotting && (
+        <CatspottingScreen
+          onClose={() => setShowCatspotting(false)}
+          currentUser={currentUser}
+          userProfile={userProfile}
+          cats={cats}
+          onAddCat={handleAddCat}
+          onAuthRequired={() => {
+            setShowCatspotting(false);
+            setShowAuthRequired(true);
+          }}
+        />
+      )}
 
       <BottomBar />
-
-      <style>{`
-        * {
-          margin: 0;
-          padding: 0;
-          box-sizing: border-box;
-        }
-
-        body {
-          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-            sans-serif;
-          background: #f5f5f5;
-        }
-
-        .app-container {
-          position: relative;
-          width: 100%;
-          height: 100vh;
-          overflow: hidden;
-        }
-
-        /* Header */
-        .header-bar {
-          position: absolute;
-          top: 0;
-          left: 0;
-          right: 0;
-          z-index: 1000;
-          background: white;
-          padding: 16px 20px;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        }
-
-        .header-title {
-          font-size: 24px;
-          font-weight: bold;
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        }
-
-        .cat-logo {
-          font-size: 28px;
-        }
-
-        .profile-button {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          background: none;
-          border: none;
-          cursor: pointer;
-          padding: 4px;
-        }
-
-        .profile-button svg {
-          color: #6b7280;
-        }
-
-        .profile-info {
-          text-align: right;
-        }
-
-        .profile-name {
-          font-size: 16px;
-          font-weight: 600;
-          color: #111;
-        }
-
-        .profile-contributions {
-          font-size: 14px;
-          color: #6b7280;
-        }
-
-        /* Map */
-        .map-container {
-          position: absolute;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 60px;
-          background: #e8f5e9;
-        }
-
-        .map-overlay-controls {
-          position: absolute;
-          top: 80px;
-          left: 20px;
-          z-index: 1000;
-          display: flex;
-          flex-direction: column;
-          gap: 12px;
-        }
-
-        .map-label {
-          background: white;
-          padding: 12px 20px;
-          border-radius: 12px;
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-          font-size: 16px;
-          font-weight: 500;
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        }
-
-        .location-info {
-          background: white;
-          padding: 12px 20px;
-          border-radius: 12px;
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-          font-size: 14px;
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        }
-
-        .location-icon {
-          color: #ef4444;
-        }
-
-        .retry-location {
-          color: #ef4444;
-          text-decoration: underline;
-          margin-left: 8px;
-        }
-
-        .map-attribution {
-          position: absolute;
-          bottom: 70px;
-          left: 10px;
-          background: rgba(255, 255, 255, 0.8);
-          padding: 4px 8px;
-          font-size: 12px;
-          border-radius: 4px;
-        }
-
-        .cat-marker-container {
-          background: none !important;
-          border: none !important;
-        }
-
-        .cat-marker {
-          width: 40px;
-          height: 40px;
-          background: white;
-          border-radius: 50%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 24px;
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-          cursor: pointer;
-          transition: transform 0.2s;
-        }
-
-        .cat-marker:hover {
-          transform: scale(1.1);
-        }
-
-        .user-marker-container {
-          background: none !important;
-          border: none !important;
-        }
-
-        .user-location-marker {
-          width: 20px;
-          height: 20px;
-          background: #3b82f6;
-          border: 3px solid white;
-          border-radius: 50%;
-          box-shadow: 0 2px 8px rgba(59, 130, 246, 0.5);
-        }
-
-        .user-label-container {
-          background: none !important;
-          border: none !important;
-        }
-
-        .user-location-label {
-          background: #3b82f6;
-          color: white;
-          padding: 6px 16px;
-          border-radius: 20px;
-          font-size: 14px;
-          font-weight: 500;
-          white-space: nowrap;
-          box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
-        }
-
-        /* Bottom Bar */
-        .bottom-bar {
-          position: absolute;
-          bottom: 0;
-          left: 0;
-          right: 0;
-          background: white;
-          border-top: 1px solid #e5e7eb;
-          display: flex;
-          justify-content: space-around;
-          padding: 8px 0;
-          z-index: 1000;
-        }
-
-        .bottom-bar-button {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 4px;
-          background: none;
-          border: none;
-          padding: 8px 24px;
-          cursor: pointer;
-          color: #6b7280;
-          font-size: 14px;
-          transition: color 0.2s;
-        }
-
-        .bottom-bar-button.active {
-          color: #8b5cf6;
-        }
-
-        .bottom-bar-button:hover {
-          color: #8b5cf6;
-        }
-
-        .floating-add-button {
-          position: absolute;
-          bottom: 80px;
-          right: 20px;
-          width: 64px;
-          height: 64px;
-          background: #8b5cf6;
-          border: none;
-          border-radius: 50%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: white;
-          box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4);
-          cursor: pointer;
-          transition: transform 0.2s, box-shadow 0.2s;
-          z-index: 999;
-        }
-
-        .floating-add-button:hover {
-          transform: scale(1.1);
-          box-shadow: 0 6px 16px rgba(139, 92, 246, 0.5);
-        }
-
-        /* Cat List View */
-        .cat-list-view {
-          position: absolute;
-          top: 72px;
-          left: 0;
-          right: 0;
-          bottom: 60px;
-          background: #f9fafb;
-          overflow-y: auto;
-        }
-
-        .search-section {
-          padding: 16px 20px;
-          background: white;
-          border-bottom: 1px solid #e5e7eb;
-        }
-
-        .search-bar {
-          position: relative;
-          display: flex;
-          align-items: center;
-        }
-
-        .search-bar svg {
-          position: absolute;
-          left: 16px;
-          color: #9ca3af;
-        }
-
-        .search-bar input {
-          width: 100%;
-          padding: 12px 16px 12px 48px;
-          border: 1px solid #e5e7eb;
-          border-radius: 12px;
-          font-size: 16px;
-          background: #f9fafb;
-        }
-
-        .search-bar input:focus {
-          outline: none;
-          border-color: #8b5cf6;
-          background: white;
-        }
-
-        .browse-section {
-          padding: 20px;
-          background: white;
-        }
-
-        .browse-section h2 {
-          font-size: 20px;
-          font-weight: 600;
-          margin-bottom: 16px;
-        }
-
-        .location-tabs {
-          display: flex;
-          gap: 12px;
-        }
-
-        .location-tab {
-          padding: 8px 20px;
-          border: none;
-          border-radius: 20px;
-          background: #e5e7eb;
-          font-size: 16px;
-          cursor: pointer;
-          transition: all 0.2s;
-        }
-
-        .location-tab.active {
-          background: #8b5cf6;
-          color: white;
-        }
-
-        .cats-section {
-          padding: 20px;
-        }
-
-        .cats-section h3 {
-          font-size: 18px;
-          font-weight: 600;
-          margin-bottom: 16px;
-        }
-
-        .cat-cards {
-          display: flex;
-          flex-direction: column;
-          gap: 24px;
-        }
-
-        .cat-card {
-          background: white;
-          border-radius: 16px;
-          padding: 16px;
-          cursor: pointer;
-          transition: box-shadow 0.2s;
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        }
-
-        .cat-card:hover {
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-        }
-
-        .cat-card-emoji {
-          font-size: 32px;
-          margin-bottom: 12px;
-        }
-
-        .cat-card-photo {
-          position: relative;
-          width: 100%;
-          height: 120px;
-          background: #f3f4f6;
-          border-radius: 12px;
-          overflow: hidden;
-          margin-bottom: 12px;
-        }
-
-        .cat-card-photo img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-        }
-
-        .cat-card-photo .photo-label {
-          position: absolute;
-          bottom: 0;
-          left: 0;
-          right: 0;
-          background: rgba(0, 0, 0, 0.5);
-          color: white;
-          padding: 8px;
-          text-align: center;
-          font-size: 14px;
-        }
-
-        .cat-card-info h4 {
-          font-size: 18px;
-          font-weight: 600;
-          margin-bottom: 8px;
-        }
-
-        .cat-card-info p {
-          color: #6b7280;
-          font-size: 14px;
-          margin-bottom: 12px;
-          line-height: 1.5;
-        }
-
-        .cat-card-traits {
-          display: flex;
-          gap: 8px;
-          flex-wrap: wrap;
-          margin-bottom: 12px;
-        }
-
-        .trait-tag {
-          padding: 4px 12px;
-          background: #e9d5ff;
-          color: #7c3aed;
-          border-radius: 16px;
-          font-size: 14px;
-        }
-
-        .cat-card-meta {
-          display: flex;
-          gap: 16px;
-          font-size: 14px;
-          color: #6b7280;
-        }
-
-        .cat-card-meta span {
-          display: flex;
-          align-items: center;
-          gap: 4px;
-        }
-
-        /* Cat Profile */
-        .cat-profile {
-          position: absolute;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          background: white;
-          z-index: 2000;
-          overflow-y: auto;
-        }
-
-        .profile-header {
-          position: sticky;
-          top: 0;
-          background: white;
-          padding: 16px 20px;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          border-bottom: 1px solid #e5e7eb;
-          z-index: 10;
-        }
-
-        .close-button {
-          background: none;
-          border: none;
-          padding: 8px;
-          cursor: pointer;
-          color: #6b7280;
-        }
-
-        .profile-actions {
-          display: flex;
-          gap: 12px;
-        }
-
-        .action-button {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          padding: 8px 16px;
-          border: none;
-          border-radius: 20px;
-          font-size: 16px;
-          font-weight: 500;
-          cursor: pointer;
-          transition: all 0.2s;
-        }
-
-        .action-button.contribute {
-          background: #10b981;
-          color: white;
-        }
-
-        .action-button.add-photo {
-          background: #3b82f6;
-          color: white;
-        }
-
-        .profile-content {
-          padding: 20px;
-        }
-
-        .cat-header {
-          display: flex;
-          align-items: center;
-          gap: 16px;
-          margin-bottom: 24px;
-        }
-
-        .cat-emoji {
-          font-size: 48px;
-        }
-
-        .cat-name {
-          font-size: 32px;
-          font-weight: 700;
-        }
-
-        .cat-description {
-          font-size: 16px;
-          color: #4b5563;
-          line-height: 1.6;
-          margin-bottom: 24px;
-        }
-
-        .photos-section {
-          margin-bottom: 32px;
-        }
-
-        .photos-section h3 {
-          font-size: 18px;
-          font-weight: 600;
-          margin-bottom: 16px;
-        }
-
-        .photos-preview {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 12px;
-          margin-bottom: 16px;
-        }
-
-        .photo-item {
-          position: relative;
-          aspect-ratio: 1;
-          border-radius: 12px;
-          overflow: hidden;
-        }
-
-        .photo-item img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-        }
-
-        .photo-label {
-          position: absolute;
-          bottom: 0;
-          left: 0;
-          right: 0;
-          background: rgba(0, 0, 0, 0.5);
-          color: white;
-          padding: 8px;
-          text-align: center;
-          font-size: 14px;
-        }
-
-        .view-all-photos {
-          background: none;
-          border: none;
-          color: #8b5cf6;
-          font-size: 16px;
-          font-weight: 500;
-          cursor: pointer;
-          text-decoration: none;
-        }
-
-        .view-all-photos:hover {
-          text-decoration: underline;
-        }
-
-        .info-section {
-          margin-bottom: 32px;
-        }
-
-        .info-section h3 {
-          font-size: 18px;
-          font-weight: 600;
-          margin-bottom: 16px;
-        }
-
-        .info-list {
-          display: flex;
-          flex-direction: column;
-          gap: 12px;
-        }
-
-        .info-item {
-          display: flex;
-          align-items: flex-start;
-          gap: 12px;
-        }
-
-        .info-icon {
-          font-size: 20px;
-          flex-shrink: 0;
-        }
-
-        .info-detail {
-          color: #6b7280;
-          font-size: 14px;
-        }
-
-        .characteristics-section {
-          margin-bottom: 32px;
-        }
-
-        .characteristics-section h3 {
-          font-size: 18px;
-          font-weight: 600;
-          margin-bottom: 16px;
-        }
-
-        .traits-list {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 8px;
-        }
-
-        .contributors-info {
-          font-size: 16px;
-          color: #6b7280;
-          margin-bottom: 32px;
-        }
-
-        .location-section h3 {
-          font-size: 18px;
-          font-weight: 600;
-          margin-bottom: 16px;
-        }
-
-        .mini-map {
-          background: #e8f5e9;
-          border-radius: 12px;
-          padding: 16px;
-          position: relative;
-          height: 200px;
-        }
-
-        .map-placeholder {
-          position: relative;
-          height: 100%;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-        }
-
-        .map-info {
-          position: absolute;
-          top: 8px;
-          right: 8px;
-          background: white;
-          padding: 4px 12px;
-          border-radius: 16px;
-          font-size: 14px;
-          color: #6b7280;
-        }
-
-        .map-marker {
-          font-size: 32px;
-          margin-bottom: 8px;
-        }
-
-        .map-location {
-          text-align: center;
-          font-size: 14px;
-          color: #4b5563;
-        }
-
-        .photos-grid.full-gallery {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 16px;
-          padding: 20px;
-        }
-
-        .photos-grid .photo-item {
-          position: relative;
-        }
-
-        .photo-caption {
-          text-align: center;
-          font-size: 14px;
-          color: #6b7280;
-          margin-top: 8px;
-        }
-
-        /* User Profile */
-        .user-profile {
-          position: absolute;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          background: white;
-          z-index: 2000;
-        }
-
-        .user-profile .profile-content {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          padding: 40px 20px;
-        }
-
-        .user-avatar {
-          width: 120px;
-          height: 120px;
-          background: #e5e7eb;
-          border-radius: 50%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          margin-bottom: 24px;
-        }
-
-        .user-avatar svg {
-          width: 60px;
-          height: 60px;
-          color: #6b7280;
-        }
-
-        .user-name {
-          font-size: 28px;
-          font-weight: 600;
-          margin-bottom: 8px;
-        }
-
-        .user-location {
-          font-size: 16px;
-          color: #6b7280;
-          margin-bottom: 40px;
-        }
-
-        .stats-grid {
-          display: grid;
-          grid-template-columns: 1fr;
-          gap: 32px;
-          width: 100%;
-          max-width: 300px;
-        }
-
-        .stat-item {
-          text-align: center;
-        }
-
-        .stat-number {
-          font-size: 48px;
-          font-weight: 700;
-          color: #8b5cf6;
-          margin-bottom: 8px;
-        }
-
-        .stat-label {
-          font-size: 16px;
-          color: #6b7280;
-        }
-
-        /* Make leaflet controls respect header */
-        .leaflet-top {
-          top: 160px !important;
-        }
-
-        .leaflet-control-zoom {
-          border: none !important;
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
-        }
-
-        .leaflet-control-zoom a {
-          width: 36px !important;
-          height: 36px !important;
-          line-height: 36px !important;
-        }
-      `}</style>
     </div>
   );
 }
