@@ -666,11 +666,9 @@ function AuthRequiredModal({
 function LoginScreen({
   onLogin,
   onClose,
-  embedded = false,
 }: {
   onLogin: () => void;
   onClose: () => void;
-  embedded?: boolean;
 }) {
   const [isRegistering, setIsRegistering] = useState(false);
   const [email, setEmail] = useState("");
@@ -719,33 +717,29 @@ function LoginScreen({
 
   return (
     <div
-      style={
-        embedded
-          ? { width: "100%" }
-          : {
-              position: "fixed",
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              background: "rgba(0, 0, 0, 0.5)",
-              zIndex: 2000,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              padding: "20px",
-            }
-      }
-      onClick={embedded ? undefined : onClose}
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: "rgba(0, 0, 0, 0.5)",
+        zIndex: 2000,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "20px",
+      }}
+      onClick={onClose}
     >
       <div
         style={{
           background: "white",
-          padding: embedded ? 0 : "40px",
-          borderRadius: embedded ? 0 : "20px",
-          boxShadow: embedded ? "none" : "0 2px 8px rgba(0, 0, 0, 0.1)",
+          padding: "40px",
+          borderRadius: "20px",
+          boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
           width: "100%",
-          maxWidth: embedded ? "none" : "400px",
+          maxWidth: "400px",
         }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -758,20 +752,18 @@ function LoginScreen({
           }}
         >
           <h1 style={{ fontSize: "28px", margin: 0, fontStyle: "italic", fontWeight: "normal" }}>Catwalk</h1>
-          {!embedded && (
-            <button
-              onClick={onClose}
-              style={{
-                background: "none",
-                border: "none",
-                cursor: "pointer",
-                color: "#6b7280",
-                padding: "4px",
-              }}
-            >
-              <XIcon />
-            </button>
-          )}
+          <button
+            onClick={onClose}
+            style={{
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              color: "#6b7280",
+              padding: "4px",
+            }}
+          >
+            <XIcon />
+          </button>
         </div>
 
         <h2
@@ -1006,9 +998,9 @@ function UserCatsScreen({
         top: 0,
         left: 0,
         right: 0,
-        bottom: "72px",
+        bottom: 0,
         background: "white",
-        zIndex: 900,
+        zIndex: 2000,
         overflowY: "auto",
       }}
     >
@@ -1195,9 +1187,9 @@ function UserPhotosScreen({
         top: 0,
         left: 0,
         right: 0,
-        bottom: "72px",
+        bottom: 0,
         background: "white",
-        zIndex: 900,
+        zIndex: 2000,
         overflowY: "auto",
       }}
     >
@@ -1337,9 +1329,9 @@ function UserVisitsScreen({
         top: 0,
         left: 0,
         right: 0,
-        bottom: "72px",
+        bottom: 0,
         background: "white",
-        zIndex: 900,
+        zIndex: 2000,
         overflowY: "auto",
       }}
     >
@@ -1890,9 +1882,9 @@ function AddCatForm({
         top: 0,
         left: 0,
         right: 0,
-        bottom: "72px",
+        bottom: 0,
         background: "white",
-        zIndex: 900,
+        zIndex: 2000,
         overflowY: "auto",
       }}
     >
@@ -2300,9 +2292,9 @@ function CatProfile({
         top: 0,
         left: 0,
         right: 0,
-        bottom: "72px",
+        bottom: 0,
         background: "white",
-        zIndex: 900,
+        zIndex: 2000,
         overflowY: "auto",
       }}
     >
@@ -2805,9 +2797,9 @@ function ContributeForm({
         top: 0,
         left: 0,
         right: 0,
-        bottom: "72px",
+        bottom: 0,
         background: "white",
-        zIndex: 900,
+        zIndex: 2000,
         overflowY: "auto",
       }}
     >
@@ -3221,9 +3213,9 @@ function CatspottingScreen({
         top: 0,
         left: 0,
         right: 0,
-        bottom: "72px",
+        bottom: 0,
         background: "white",
-        zIndex: 900,
+        zIndex: 2000,
         overflowY: "auto",
       }}
     >
@@ -4426,20 +4418,12 @@ export default function CatwalkApp() {
           height: "72px",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
-          <button
-            onClick={onHomeClick}
-            style={{ fontSize: "24px", fontWeight: "bold", margin: 0, background: "none", border: "none", cursor: "pointer", padding: 0, color: "#111827" }}
-          >
-            Catwalk
-          </button>
-          <button
-            style={{ background: "#f3f4f6", border: "1px solid #e5e7eb", borderRadius: "999px", padding: "7px 12px", cursor: "pointer", color: "#4b5563", fontSize: "13px", fontWeight: "500" }}
-            onClick={onGuide}
-          >
-            How to use
-          </button>
-        </div>
+        <button
+          onClick={onHomeClick}
+          style={{ fontSize: "24px", fontWeight: "bold", margin: 0, background: "none", border: "none", cursor: "pointer", padding: 0, color: "#111827" }}
+        >
+          Catwalk
+        </button>
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
           {currentUser ? (
             <>
@@ -4456,6 +4440,9 @@ export default function CatwalkApp() {
                     {userProfile?.totalContributions || 0} contributions
                   </div>
                 </div>
+              </button>
+              <button style={{ background: "none", border: "none", padding: "8px", cursor: "pointer", color: "#6b7280", fontSize: "18px", fontWeight: "500" }} onClick={onGuide}>
+                ?
               </button>
               <button style={{ background: "none", border: "none", padding: "8px", cursor: "pointer", color: "#6b7280", display: "flex", alignItems: "center" }} onClick={onLogout}>
                 <LogoutIcon />
@@ -4820,11 +4807,11 @@ export default function CatwalkApp() {
           <div style={{ background: "white", border: "1px solid #e5e7eb", borderRadius: "12px", padding: "16px 20px", marginBottom: "28px", display: "flex", gap: "12px", alignItems: "flex-start" }}>
             <span style={{ fontSize: "20px", flexShrink: 0 }}>🤝</span>
             <p style={{ fontSize: "13px", color: "#6b7280", lineHeight: "1.6", margin: 0 }}>
-              Locations are approximate and intended for visiting cats you already know, not to facilitate theft, disturbance, or harm. Please treat every cat and neighbourhood with respect.
+              Catwalk celebrates cats in your community — it is not a tool for harm. Location information is approximate and intended to help people visit cats they already know, not to facilitate theft, disturbance, or any harm to animals. Please treat every cat and their neighbourhood with respect.
             </p>
           </div>
           <div style={{ background: "white", borderRadius: "16px", padding: "32px", boxShadow: "0 2px 8px rgba(0,0,0,0.08)" }}>
-            <LoginScreen onLogin={() => {}} onClose={() => {}} embedded />
+            <LoginScreen onLogin={() => {}} onClose={() => {}} />
           </div>
         </div>
       </div>
