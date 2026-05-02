@@ -3053,8 +3053,11 @@ function CatProfile({
           <PublicUserProfileModal
             profile={selectedVisitorProfile}
             onClose={() => setSelectedVisitorProfile(null)}
-            onSelectCat={(clickedCat) => {
-              onSelectCatFromProfile?.(clickedCat);
+            onSelectCat={(selectedCat) => {
+              setSelectedVisitorProfile(null);
+              setShowVisitList(false);
+              onClose();
+              onSelectCatFromProfile?.(selectedCat);
             }}
           />
         )}
@@ -7134,7 +7137,6 @@ Tap the map to place a custom map pin. To create a cat, use the blue + Add cat b
       {/* Cat Profile Modal */}
       {selectedCat && (
         <CatProfile
-          key={selectedCat.id}
           cat={selectedCat}
           onClose={() => setSelectedCat(null)}
           currentUser={currentUser}
