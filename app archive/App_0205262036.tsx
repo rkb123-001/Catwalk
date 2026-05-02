@@ -1008,7 +1008,7 @@ function UserCatsScreen({
         right: 0,
         bottom: "60px",
         background: "white",
-        zIndex: 1500,
+        zIndex: 950,
         overflowY: "auto",
       }}
     >
@@ -1197,7 +1197,7 @@ function UserPhotosScreen({
         right: 0,
         bottom: "60px",
         background: "white",
-        zIndex: 1500,
+        zIndex: 950,
         overflowY: "auto",
       }}
     >
@@ -1339,7 +1339,7 @@ function UserVisitsScreen({
         right: 0,
         bottom: "60px",
         background: "white",
-        zIndex: 1500,
+        zIndex: 950,
         overflowY: "auto",
       }}
     >
@@ -1892,7 +1892,7 @@ function AddCatForm({
         right: 0,
         bottom: "60px",
         background: "white",
-        zIndex: 1500,
+        zIndex: 950,
         overflowY: "auto",
       }}
     >
@@ -2302,7 +2302,7 @@ function CatProfile({
         right: 0,
         bottom: "60px",
         background: "white",
-        zIndex: 1500,
+        zIndex: 950,
         overflowY: "auto",
       }}
     >
@@ -2807,7 +2807,7 @@ function ContributeForm({
         right: 0,
         bottom: "60px",
         background: "white",
-        zIndex: 1500,
+        zIndex: 950,
         overflowY: "auto",
       }}
     >
@@ -3223,7 +3223,7 @@ function CatspottingScreen({
         right: 0,
         bottom: "60px",
         background: "white",
-        zIndex: 1500,
+        zIndex: 950,
         overflowY: "auto",
       }}
     >
@@ -4099,7 +4099,7 @@ export default function CatwalkApp() {
       if (!document.querySelector('style[data-catwalk-leaflet-controls="true"]')) {
         const zoomStyle = document.createElement("style");
         zoomStyle.setAttribute("data-catwalk-leaflet-controls", "true");
-        zoomStyle.textContent = `.leaflet-top.leaflet-left { top: 310px !important; } .leaflet-control-zoom { z-index: 900 !important; border: none !important; box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important; } .leaflet-control-zoom a { width: 36px !important; height: 36px !important; line-height: 36px !important; }`;
+        zoomStyle.textContent = `.leaflet-top.leaflet-left { top: 310px !important; } .leaflet-control-zoom { border: none !important; box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important; } .leaflet-control-zoom a { width: 36px !important; height: 36px !important; line-height: 36px !important; }`;
         document.head.appendChild(zoomStyle);
       }
 
@@ -4469,25 +4469,6 @@ export default function CatwalkApp() {
       mapInstanceRef.current.flyTo([lat, lng], 15);
     }
   };
-
-  const screenOverlayOpen = Boolean(
-    selectedCat ||
-      showProfile ||
-      showUserCats ||
-      showUserPhotos ||
-      showUserVisits ||
-      showAddCat ||
-      showContributeForm ||
-      showDuplicateModal ||
-      showFilterModal ||
-      showCatspotting ||
-      showLogin ||
-      showAuthRequired ||
-      showGuide ||
-      showLocationConsent
-  );
-
-  const showMapChrome = currentView === "catmap" && !screenOverlayOpen;
 
   // Header Component - Updated with guest mode support
   function HeaderBar({
@@ -4899,88 +4880,6 @@ export default function CatwalkApp() {
     </div>
   );
 
-
-  const GuideModal = () => (
-    showGuide ? (
-        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "white", zIndex: 3000, overflowY: "auto" }}>
-          <div style={{ maxWidth: "640px", margin: "0 auto", padding: "40px 28px 100px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "40px" }}>
-              <div>
-                <p style={{ fontSize: "11px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#9ca3af", marginBottom: "12px", fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>Guide</p>
-                <h1 style={{ fontSize: "28px", fontWeight: "normal", fontStyle: "italic", fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', color: "#111827" }}>How to use Catwalk</h1>
-              </div>
-              <button onClick={() => setShowGuide(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "#6b7280", padding: "4px", fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', fontSize: "20px" }}>×</button>
-            </div>
-
-            <div style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: "12px", padding: "16px 18px", marginBottom: "28px", display: "flex", gap: "12px", alignItems: "flex-start" }}>
-              <span style={{ fontSize: "20px", flexShrink: 0 }}>🤝</span>
-              <div>
-                <h3 style={{ fontSize: "15px", fontWeight: "600", margin: "0 0 6px", fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', color: "#111827" }}>Approximate locations protect cats</h3>
-                <p style={{ fontSize: "13px", color: "#4b5563", lineHeight: "1.65", margin: 0, fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
-                  Catwalk keeps map pins intentionally vague. Please use the map to share cats you already know or naturally come across, not to seek them out. Always respect each cat’s space, their humans, and the neighbourhood they live in.
-                </p>
-              </div>
-            </div>
-
-            {[
-              {
-                q: "What is Catwalk?",
-                a: "Catwalk is a community-built map of neighbourhood cats. Anyone can add a cat they've spotted, contribute information about it, upload photos, and log visits. The more people contribute, the richer each cat's profile becomes."
-              },
-              {
-                q: "How do I navigate the map?",
-                a: "The map opens centred on your location. Pinch to zoom, drag to pan. Cat markers appear as emoji — tap one to open that cat's profile. Use the search box in the top-left to fly the map to any location in the world. The + / − controls adjust zoom."
-              },
-              {
-                q: "How do I add a cat?",
-                a: "You need to be signed in. On the map, tap 'Add cat' or use the drop pin to mark the location first, then tap 'Add cat'. Fill in the name, colour, personality traits, and an optional photo. The cat will appear on the map immediately."
-              },
-              {
-                q: "What is Catspotting?",
-                a: "Catspotting (the camera tab) lets you snap a photo of a cat you've just seen. It tries to detect nearby cats and lets you attach the photo to an existing profile, or create a new one. Useful when you're out and spot a cat quickly."
-              },
-              {
-                q: "How do I contribute to an existing cat's profile?",
-                a: "Open a cat's profile and tap 'Contribute'. You can update the description, add personality traits, or submit a community description — a short note about the cat's behaviour, appearance, or an anecdote. Choose the type (description, anecdote, or behaviour) before submitting."
-              },
-              {
-                q: "What does 'Visited' do?",
-                a: "Tapping 'Visited' on a cat's profile logs a visit for your account. Your visit count is visible on the profile. It's a way to track cats you've actually met in person. The profile shows total community visits and your personal count separately."
-              },
-              {
-                q: "What is a slow blink?",
-                a: "A slow blink is a cat's way of showing trust and affection — sometimes called a 'cat kiss'. Tapping 'Slow Blink' on a profile records that you've exchanged a slow blink with that cat. The total count is a loose measure of how friendly or well-known the cat is."
-              },
-              {
-                q: "Why is the map location blurred on cat profiles?",
-                a: "Cat profile maps show an approximate location, not an exact one, to protect the cat's safety. The pin is slightly randomised and the zoom is pulled back. The neighbourhood and street name are shown in text, but the precise coordinates are never displayed."
-              },
-              {
-                q: "Do I need an account to use Catwalk?",
-                a: "Yes. You need an account to use Catwalk, including viewing the map, adding cats, uploading photos, logging visits, or contributing information. Creating an account is free and just requires an email and password."
-              },
-              {
-                q: "How do I change what location the map shows?",
-                a: "Type any place — a street name, neighbourhood, city, or country — into the search box in the top-left of the map. Results from OpenStreetMap will appear below; tap one to fly there. You can also drop a custom pin anywhere on the map using the 'Drop custom pin' button."
-              },
-            ].map((item, i) => (
-              <div key={i} style={{ borderTop: "1px solid #e5e5e5", paddingTop: "24px", paddingBottom: "24px" }}>
-                <h3 style={{ fontSize: "16px", fontWeight: "normal", fontStyle: "italic", marginBottom: "10px", fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', color: "#111827" }}>{item.q}</h3>
-                <p style={{ fontSize: "14px", lineHeight: "1.75", color: "#4b5563", fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>{item.a}</p>
-              </div>
-            ))}
-
-            <div style={{ borderTop: "1px solid #1a1a1a", paddingTop: "24px", marginTop: "8px" }}>
-              <button onClick={() => setShowGuide(false)}
-                style={{ padding: "10px 24px", background: "white", border: "1px solid #1a1a1a", cursor: "pointer", fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', fontSize: "13px", color: "#111827", letterSpacing: "0.04em" }}>
-                Close guide
-              </button>
-            </div>
-          </div>
-        </div>
-    ) : null
-  );
-
   // Loading state while Firebase resolves auth
   if (authLoading) {
     return (
@@ -5002,25 +4901,16 @@ export default function CatwalkApp() {
             <h1 style={{ fontSize: "32px", fontWeight: "700", color: "#111827", marginBottom: "8px" }}>Catwalk</h1>
             <p style={{ fontSize: "16px", color: "#6b7280", lineHeight: "1.6" }}>A community-built map of neighbourhood cats.</p>
           </div>
-          <div style={{ background: "white", border: "1px solid #e5e7eb", borderRadius: "12px", padding: "16px 20px", marginBottom: "20px", display: "flex", gap: "12px", alignItems: "flex-start" }}>
+          <div style={{ background: "white", border: "1px solid #e5e7eb", borderRadius: "12px", padding: "16px 20px", marginBottom: "28px", display: "flex", gap: "12px", alignItems: "flex-start" }}>
             <span style={{ fontSize: "20px", flexShrink: 0 }}>🤝</span>
             <p style={{ fontSize: "13px", color: "#6b7280", lineHeight: "1.6", margin: 0 }}>
               Catwalk keeps map pins intentionally vague. Please use the map to share cats you already know or naturally come across, not to seek them out. Always respect each cat’s space, their humans, and the neighbourhood they live in.
             </p>
           </div>
-          <div style={{ textAlign: "center", marginBottom: "20px" }}>
-            <button
-              onClick={() => setShowGuide(true)}
-              style={{ background: "#f3f4f6", border: "1px solid #e5e7eb", borderRadius: "999px", padding: "8px 14px", cursor: "pointer", color: "#4b5563", fontSize: "13px", fontWeight: "500" }}
-            >
-              How to use Catwalk
-            </button>
-          </div>
           <div style={{ background: "white", borderRadius: "16px", padding: "32px", boxShadow: "0 2px 8px rgba(0,0,0,0.08)" }}>
             <LoginScreen onLogin={() => {}} onClose={() => {}} embedded />
           </div>
         </div>
-        <GuideModal />
       </div>
     );
   }
@@ -5049,7 +4939,6 @@ export default function CatwalkApp() {
 
       {currentView === "catmap" && !showCatspotting && (
         <>
-          {showMapChrome && (
           <div
             style={{
               position: "absolute",
@@ -5166,7 +5055,6 @@ export default function CatwalkApp() {
               </div>
             )}
           </div>
-          )}
           <div
             ref={mapRef}
             style={{
@@ -5177,10 +5065,8 @@ export default function CatwalkApp() {
               right: 0,
               bottom: "60px",
               background: "#e8f5e9",
-              pointerEvents: screenOverlayOpen ? "none" : "auto",
             }}
           />
-          {showMapChrome && (
           <div
             style={{
               position: "absolute",
@@ -5209,10 +5095,9 @@ export default function CatwalkApp() {
             }{" "}
             cats in this area
           </div>
-          )}
 
           {/* Floating Action Buttons - Show for authenticated users only */}
-          {currentUser && showMapChrome && (
+          {currentUser && (
             <div
               style={{
                 position: "absolute",
@@ -5460,7 +5345,85 @@ export default function CatwalkApp() {
         </div>
       )}
 
-      <GuideModal />
+      {/* Guide / FAQ Modal */}
+      {showGuide && (
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "white", zIndex: 3000, overflowY: "auto" }}>
+          <div style={{ maxWidth: "640px", margin: "0 auto", padding: "40px 28px 100px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "40px" }}>
+              <div>
+                <p style={{ fontSize: "11px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#9ca3af", marginBottom: "12px", fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>Guide</p>
+                <h1 style={{ fontSize: "28px", fontWeight: "normal", fontStyle: "italic", fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', color: "#111827" }}>How to use Catwalk</h1>
+              </div>
+              <button onClick={() => setShowGuide(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "#6b7280", padding: "4px", fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', fontSize: "20px" }}>×</button>
+            </div>
+
+            <div style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: "12px", padding: "16px 18px", marginBottom: "28px", display: "flex", gap: "12px", alignItems: "flex-start" }}>
+              <span style={{ fontSize: "20px", flexShrink: 0 }}>🤝</span>
+              <div>
+                <h3 style={{ fontSize: "15px", fontWeight: "600", margin: "0 0 6px", fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', color: "#111827" }}>Approximate locations protect cats</h3>
+                <p style={{ fontSize: "13px", color: "#4b5563", lineHeight: "1.65", margin: 0, fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
+                  Catwalk keeps map pins intentionally vague. Please use the map to share cats you already know or naturally come across, not to seek them out. Always respect each cat’s space, their humans, and the neighbourhood they live in.
+                </p>
+              </div>
+            </div>
+
+            {[
+              {
+                q: "What is Catwalk?",
+                a: "Catwalk is a community-built map of neighbourhood cats. Anyone can add a cat they've spotted, contribute information about it, upload photos, and log visits. The more people contribute, the richer each cat's profile becomes."
+              },
+              {
+                q: "How do I navigate the map?",
+                a: "The map opens centred on your location. Pinch to zoom, drag to pan. Cat markers appear as emoji — tap one to open that cat's profile. Use the search box in the top-left to fly the map to any location in the world. The + / − controls adjust zoom."
+              },
+              {
+                q: "How do I add a cat?",
+                a: "You need to be signed in. On the map, tap 'Add cat' or use the drop pin to mark the location first, then tap 'Add cat'. Fill in the name, colour, personality traits, and an optional photo. The cat will appear on the map immediately."
+              },
+              {
+                q: "What is Catspotting?",
+                a: "Catspotting (the camera tab) lets you snap a photo of a cat you've just seen. It tries to detect nearby cats and lets you attach the photo to an existing profile, or create a new one. Useful when you're out and spot a cat quickly."
+              },
+              {
+                q: "How do I contribute to an existing cat's profile?",
+                a: "Open a cat's profile and tap 'Contribute'. You can update the description, add personality traits, or submit a community description — a short note about the cat's behaviour, appearance, or an anecdote. Choose the type (description, anecdote, or behaviour) before submitting."
+              },
+              {
+                q: "What does 'Visited' do?",
+                a: "Tapping 'Visited' on a cat's profile logs a visit for your account. Your visit count is visible on the profile. It's a way to track cats you've actually met in person. The profile shows total community visits and your personal count separately."
+              },
+              {
+                q: "What is a slow blink?",
+                a: "A slow blink is a cat's way of showing trust and affection — sometimes called a 'cat kiss'. Tapping 'Slow Blink' on a profile records that you've exchanged a slow blink with that cat. The total count is a loose measure of how friendly or well-known the cat is."
+              },
+              {
+                q: "Why is the map location blurred on cat profiles?",
+                a: "Cat profile maps show an approximate location, not an exact one, to protect the cat's safety. The pin is slightly randomised and the zoom is pulled back. The neighbourhood and street name are shown in text, but the precise coordinates are never displayed."
+              },
+              {
+                q: "Do I need an account to use Catwalk?",
+                a: "Yes. You need an account to use Catwalk, including viewing the map, adding cats, uploading photos, logging visits, or contributing information. Creating an account is free and just requires an email and password."
+              },
+              {
+                q: "How do I change what location the map shows?",
+                a: "Type any place — a street name, neighbourhood, city, or country — into the search box in the top-left of the map. Results from OpenStreetMap will appear below; tap one to fly there. You can also drop a custom pin anywhere on the map using the 'Drop custom pin' button."
+              },
+            ].map((item, i) => (
+              <div key={i} style={{ borderTop: "1px solid #e5e5e5", paddingTop: "24px", paddingBottom: "24px" }}>
+                <h3 style={{ fontSize: "16px", fontWeight: "normal", fontStyle: "italic", marginBottom: "10px", fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', color: "#111827" }}>{item.q}</h3>
+                <p style={{ fontSize: "14px", lineHeight: "1.75", color: "#4b5563", fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>{item.a}</p>
+              </div>
+            ))}
+
+            <div style={{ borderTop: "1px solid #1a1a1a", paddingTop: "24px", marginTop: "8px" }}>
+              <button onClick={() => setShowGuide(false)}
+                style={{ padding: "10px 24px", background: "white", border: "1px solid #1a1a1a", cursor: "pointer", fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', fontSize: "13px", color: "#111827", letterSpacing: "0.04em" }}>
+                Close guide
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <BottomBar />
     </div>
