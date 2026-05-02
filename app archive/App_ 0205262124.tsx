@@ -159,22 +159,6 @@ interface FilterState {
   livingLocation: "indoor" | "outdoor" | "both" | null;
 }
 
-const DEFAULT_CAT_PHOTO_POSITION = "center center";
-
-const getCatPhotoPosition = (photo?: Partial<CatPhoto> | null) => {
-  if (!photo?.objectPosition) return DEFAULT_CAT_PHOTO_POSITION;
-
-  const allowedPositions = new Set([
-    "center top",
-    "center center",
-    "center bottom",
-  ]);
-
-  return allowedPositions.has(photo.objectPosition)
-    ? photo.objectPosition
-    : DEFAULT_CAT_PHOTO_POSITION;
-};
-
 // Icons as React components
 const MapIcon = () => (
   <svg
