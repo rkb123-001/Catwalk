@@ -3065,8 +3065,6 @@ function CatProfile({
             profile={selectedVisitorProfile}
             onClose={() => setSelectedVisitorProfile(null)}
             onSelectCat={(clickedCat) => {
-              setShowVisitList(false);
-              setSelectedVisitorProfile(null);
               onSelectCatFromProfile?.(clickedCat);
             }}
           />
