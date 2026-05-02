@@ -159,43 +159,20 @@ interface FilterState {
   livingLocation: "indoor" | "outdoor" | "both" | null;
 }
 
-const DEFAULT_CAT_PHOTO_POSITION = "50% 50%";
+const DEFAULT_CAT_PHOTO_POSITION = "center center";
 
-const normalisePhotoObjectPosition = (position?: string | null) => {
-  if (!position) return DEFAULT_CAT_PHOTO_POSITION;
+const getCatPhotoPosition = (photo?: Partial<CatPhoto> | null) => {
+  if (!photo?.objectPosition) return DEFAULT_CAT_PHOTO_POSITION;
 
-  const legacyPositions: Record<string, string> = {
-    "center top": "50% 15%",
-    "center center": "50% 50%",
-    "center bottom": "50% 85%",
-  };
+  const allowedPositions = new Set([
+    "center top",
+    "center center",
+    "center bottom",
+  ]);
 
-  if (legacyPositions[position]) return legacyPositions[position];
-
-  const percentPattern = /^\s*(\d{1,3}(?:\.\d+)?)%\s+(\d{1,3}(?:\.\d+)?)%\s*$/;
-  const match = position.match(percentPattern);
-  if (!match) return DEFAULT_CAT_PHOTO_POSITION;
-
-  const x = Math.min(100, Math.max(0, Number(match[1])));
-  const y = Math.min(100, Math.max(0, Number(match[2])));
-  return `${x}% ${y}%`;
-};
-
-const getCatPhotoPosition = (photo?: Partial<CatPhoto> | null) =>
-  normalisePhotoObjectPosition(photo?.objectPosition);
-
-const pointToObjectPosition = (xPercent: number, yPercent: number) => {
-  const x = Math.min(100, Math.max(0, Math.round(xPercent)));
-  const y = Math.min(100, Math.max(0, Math.round(yPercent)));
-  return `${x}% ${y}%`;
-};
-
-const objectPositionToPoint = (position?: string | null) => {
-  const normalised = normalisePhotoObjectPosition(position);
-  const [x, y] = normalised
-    .split(" ")
-    .map((value) => Number(value.replace("%", "")));
-  return { x: Number.isFinite(x) ? x : 50, y: Number.isFinite(y) ? y : 50 };
+  return allowedPositions.has(photo.objectPosition)
+    ? photo.objectPosition
+    : DEFAULT_CAT_PHOTO_POSITION;
 };
 
 // Icons as React components
@@ -465,95 +442,6 @@ function PhotoCaptureButton({
       )}
       <canvas ref={canvasRef} style={{ display: "none" }} />
     </>
-  );
-}
-
-
-function PhotoFocusPicker({
-  imageUrl,
-  objectPosition,
-  onChange,
-  height = 260,
-}: {
-  imageUrl: string;
-  objectPosition: string;
-  onChange: (objectPosition: string) => void;
-  height?: number;
-}) {
-  const point = objectPositionToPoint(objectPosition);
-
-  const handlePickFocus = (event: React.MouseEvent<HTMLDivElement>) => {
-    const rect = event.currentTarget.getBoundingClientRect();
-    const x = ((event.clientX - rect.left) / rect.width) * 100;
-    const y = ((event.clientY - rect.top) / rect.height) * 100;
-    onChange(pointToObjectPosition(x, y));
-  };
-
-  return (
-    <div>
-      <div
-        role="button"
-        tabIndex={0}
-        onClick={handlePickFocus}
-        onKeyDown={(event) => {
-          if (event.key === "Enter" || event.key === " ") event.preventDefault();
-        }}
-        style={{
-          position: "relative",
-          width: "100%",
-          height,
-          borderRadius: "12px",
-          overflow: "hidden",
-          background: "#f3f4f6",
-          cursor: "crosshair",
-          border: "1px solid #e5e7eb",
-        }}
-        aria-label="Choose the focal point for this photo"
-      >
-        <img
-          src={imageUrl}
-          alt="Photo focus preview"
-          style={{
-            width: "100%",
-            height: "100%",
-            objectFit: "cover",
-            objectPosition: normalisePhotoObjectPosition(objectPosition),
-            display: "block",
-          }}
-        />
-        <div
-          style={{
-            position: "absolute",
-            left: `${point.x}%`,
-            top: `${point.y}%`,
-            width: "28px",
-            height: "28px",
-            borderRadius: "999px",
-            border: "2px solid white",
-            background: "rgba(26,13,171,0.85)",
-            boxShadow: "0 2px 10px rgba(0,0,0,0.25)",
-            transform: "translate(-50%, -50%)",
-            pointerEvents: "none",
-          }}
-        >
-          <span
-            style={{
-              position: "absolute",
-              left: "50%",
-              top: "50%",
-              width: "8px",
-              height: "8px",
-              borderRadius: "999px",
-              background: "white",
-              transform: "translate(-50%, -50%)",
-            }}
-          />
-        </div>
-      </div>
-      <p style={{ margin: "8px 0 0", fontSize: "13px", color: "#6b7280", lineHeight: 1.4 }}>
-        Tap the most important part of the photo. Catwalk will keep that point centred when it crops the image into cards.
-      </p>
-    </div>
   );
 }
 
@@ -1925,7 +1813,6 @@ function AddCatForm({
   >(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
-  const [photoObjectPosition, setPhotoObjectPosition] = useState(DEFAULT_CAT_PHOTO_POSITION);
   const [approximateAddress, setApproximateAddress] = useState("");
   const [uploading, setUploading] = useState(false);
 
@@ -1994,7 +1881,6 @@ function AddCatForm({
           contributorId: currentUser.uid,
           date: new Date().toISOString(),
           uploadedAt: new Date().toISOString(),
-          objectPosition: photoObjectPosition,
         };
 
         await updateDoc(docRef, {
@@ -2289,30 +2175,21 @@ function AddCatForm({
           <PhotoCaptureButton
             onPhotoSelected={(file) => {
               setPhotoFile(file);
-              setPhotoObjectPosition(DEFAULT_CAT_PHOTO_POSITION);
               const reader = new FileReader();
               reader.onloadend = () => setPhotoPreview(reader.result as string);
               reader.readAsDataURL(file);
             }}
             style={{ border: "2px dashed #d1d5db", borderRadius: "12px", padding: "32px", textAlign: "center", cursor: "pointer" }}
           >
-            <>
-              <CameraIcon />
-              <p style={{ marginTop: "8px", color: "#6b7280", fontSize: "14px" }}>
-                {photoPreview ? "Tap to change photo" : "Tap to add photo"}
-              </p>
-            </>
+            {photoPreview ? (
+              <img src={photoPreview} alt="Preview" style={{ width: "100%", height: "200px", objectFit: "cover", borderRadius: "12px" }} />
+            ) : (
+              <>
+                <CameraIcon />
+                <p style={{ marginTop: "8px", color: "#6b7280", fontSize: "14px" }}>Tap to add photo</p>
+              </>
+            )}
           </PhotoCaptureButton>
-          {photoPreview && (
-            <div style={{ marginTop: "12px" }}>
-              <PhotoFocusPicker
-                imageUrl={photoPreview}
-                objectPosition={photoObjectPosition}
-                onChange={setPhotoObjectPosition}
-                height={220}
-              />
-            </div>
-          )}
         </div>
       </div>
     </div>
@@ -2336,15 +2213,12 @@ function CatProfile({
   currentUser: User | null;
   onVisit: () => void;
   onSlowBlink: () => void;
-  onAddPhoto: (file: File, objectPosition?: string) => void | Promise<void>;
+  onAddPhoto: (file: File) => void | Promise<void>;
   onUpdatePhotoPosition: (photoId: string, objectPosition: string) => void | Promise<void>;
   onContribute: () => void;
   onAuthRequired: () => void;
 }) {
   const [showAllPhotos, setShowAllPhotos] = useState(false);
-  const [pendingPhotoFile, setPendingPhotoFile] = useState<File | null>(null);
-  const [pendingPhotoPreview, setPendingPhotoPreview] = useState<string | null>(null);
-  const [pendingPhotoObjectPosition, setPendingPhotoObjectPosition] = useState(DEFAULT_CAT_PHOTO_POSITION);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const userVisitCount =
@@ -2361,24 +2235,12 @@ function CatProfile({
     fileInputRef.current?.click();
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
-
-    setPendingPhotoFile(file);
-    setPendingPhotoObjectPosition(DEFAULT_CAT_PHOTO_POSITION);
-    const reader = new FileReader();
-    reader.onloadend = () => setPendingPhotoPreview(reader.result as string);
-    reader.readAsDataURL(file);
-  };
-
-  const handleConfirmPhotoUpload = async () => {
-    if (!pendingPhotoFile) return;
-    await onAddPhoto(pendingPhotoFile, pendingPhotoObjectPosition);
-    setPendingPhotoFile(null);
-    setPendingPhotoPreview(null);
-    setPendingPhotoObjectPosition(DEFAULT_CAT_PHOTO_POSITION);
+    if (file) {
+      await onAddPhoto(file);
+      e.target.value = "";
+    }
   };
 
   const handleActionClick = (action: () => void) => {
@@ -2452,13 +2314,37 @@ function CatProfile({
                 }}
               />
               {canEditPhotoPosition(photo) && (
-                <div style={{ marginTop: "8px" }}>
-                  <PhotoFocusPicker
-                    imageUrl={photo.url}
-                    objectPosition={getCatPhotoPosition(photo)}
-                    onChange={(position) => onUpdatePhotoPosition(photo.id, position)}
-                    height={180}
-                  />
+                <div
+                  style={{
+                    display: "flex",
+                    gap: "6px",
+                    justifyContent: "center",
+                    flexWrap: "wrap",
+                    marginTop: "8px",
+                  }}
+                >
+                  {[
+                    ["Top", "center top"],
+                    ["Centre", "center center"],
+                    ["Bottom", "center bottom"],
+                  ].map(([label, position]) => (
+                    <button
+                      key={position}
+                      type="button"
+                      onClick={() => onUpdatePhotoPosition(photo.id, position)}
+                      style={{
+                        border: "1px solid #e5e7eb",
+                        borderRadius: "999px",
+                        padding: "6px 10px",
+                        background: getCatPhotoPosition(photo) === position ? "#eef2ff" : "white",
+                        color: "#111827",
+                        cursor: "pointer",
+                        fontSize: "12px",
+                      }}
+                    >
+                      {label}
+                    </button>
+                  ))}
                 </div>
               )}
               <div
@@ -2491,58 +2377,6 @@ function CatProfile({
         overflowY: "auto",
       }}
     >
-      {pendingPhotoPreview && pendingPhotoFile && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.45)",
-            zIndex: 3000,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "20px",
-          }}
-        >
-          <div
-            style={{
-              background: "white",
-              borderRadius: "16px",
-              padding: "20px",
-              width: "min(520px, 100%)",
-              boxShadow: "0 20px 50px rgba(0,0,0,0.25)",
-            }}
-          >
-            <h3 style={{ margin: "0 0 12px", fontSize: "18px", fontWeight: 700 }}>Choose photo focus</h3>
-            <PhotoFocusPicker
-              imageUrl={pendingPhotoPreview}
-              objectPosition={pendingPhotoObjectPosition}
-              onChange={setPendingPhotoObjectPosition}
-              height={300}
-            />
-            <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end", marginTop: "16px" }}>
-              <button
-                type="button"
-                onClick={() => {
-                  setPendingPhotoFile(null);
-                  setPendingPhotoPreview(null);
-                  setPendingPhotoObjectPosition(DEFAULT_CAT_PHOTO_POSITION);
-                }}
-                style={{ padding: "10px 14px", borderRadius: "999px", border: "1px solid #e5e7eb", background: "white", cursor: "pointer" }}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleConfirmPhotoUpload}
-                style={{ padding: "10px 16px", borderRadius: "999px", border: "none", background: "#1a0dab", color: "white", cursor: "pointer", fontWeight: 600 }}
-              >
-                Add photo
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
       <div
         style={{
           position: "sticky",
@@ -2741,7 +2575,7 @@ function CatProfile({
                 </div>
               ))}
             </div>
-            {(cat.photos.length > 2 || cat.photos.some(canEditPhotoPosition)) && (
+            {cat.photos.length > 2 && (
               <button
                 style={{
                   background: "none",
@@ -2754,7 +2588,7 @@ function CatProfile({
                 }}
                 onClick={() => setShowAllPhotos(true)}
               >
-                {cat.photos.length > 2 ? `View all ${cat.photos.length} photos` : "Edit photo focus"}
+                View all {cat.photos.length} photos
               </button>
             )}
           </div>
@@ -3293,7 +3127,6 @@ function CatspottingScreen({
 }) {
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
-  const [photoObjectPosition, setPhotoObjectPosition] = useState(DEFAULT_CAT_PHOTO_POSITION);
   const [extractedLocation, setExtractedLocation] = useState<
     [number, number] | null
   >(null);
@@ -3312,7 +3145,6 @@ function CatspottingScreen({
     const file = e.target.files?.[0];
     if (file) {
       setPhotoFile(file);
-      setPhotoObjectPosition(DEFAULT_CAT_PHOTO_POSITION);
       setLoading(true);
 
       const reader = new FileReader();
@@ -3359,7 +3191,6 @@ function CatspottingScreen({
         contributorId: currentUser.uid,
         date: new Date().toISOString(),
         uploadedAt: new Date().toISOString(),
-        objectPosition: photoObjectPosition,
         locationMetadata: extractedLocation
           ? {
               lat: extractedLocation[0],
@@ -3424,7 +3255,6 @@ function CatspottingScreen({
             contributorId: currentUser.uid,
             date: new Date().toISOString(),
             uploadedAt: new Date().toISOString(),
-            objectPosition: photoObjectPosition,
             locationMetadata: {
               lat: extractedLocation[0],
               lng: extractedLocation[1],
@@ -3563,11 +3393,15 @@ function CatspottingScreen({
         ) : (
           <div>
             <div style={{ marginBottom: "20px" }}>
-              <PhotoFocusPicker
-                imageUrl={photoPreview!}
-                objectPosition={photoObjectPosition}
-                onChange={setPhotoObjectPosition}
-                height={300}
+              <img
+                src={photoPreview!}
+                alt="Cat photo"
+                style={{
+                  width: "100%",
+                  height: "300px",
+                  objectFit: "cover",
+                  borderRadius: "12px",
+                }}
               />
             </div>
 
@@ -4754,7 +4588,7 @@ export default function CatwalkApp() {
     }
   };
 
-  const handleAddPhoto = async (file: File, objectPosition = DEFAULT_CAT_PHOTO_POSITION) => {
+  const handleAddPhoto = async (file: File) => {
     if (!selectedCat || !currentUser || !userProfile) return;
 
     try {
@@ -4770,7 +4604,7 @@ export default function CatwalkApp() {
         contributorId: currentUser.uid,
         date: new Date().toISOString(),
         uploadedAt: new Date().toISOString(),
-        objectPosition,
+        objectPosition: DEFAULT_CAT_PHOTO_POSITION,
       };
 
       const catDoc = doc(db, "cats", selectedCat.id);
@@ -5234,7 +5068,7 @@ export default function CatwalkApp() {
                       No photo
                     </div>
                   )}
-                  {false && canEditBrowsePhotoPosition(cat, cat.photos[0]) && (
+                  {canEditBrowsePhotoPosition(cat, cat.photos[0]) && (
                     <div
                       style={{
                         position: "absolute",
