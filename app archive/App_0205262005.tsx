@@ -5273,16 +5273,6 @@ export default function CatwalkApp() {
               <button onClick={() => setShowGuide(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "#6b7280", padding: "4px", fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', fontSize: "20px" }}>×</button>
             </div>
 
-            <div style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: "12px", padding: "16px 18px", marginBottom: "28px", display: "flex", gap: "12px", alignItems: "flex-start" }}>
-              <span style={{ fontSize: "20px", flexShrink: 0 }}>🤝</span>
-              <div>
-                <h3 style={{ fontSize: "15px", fontWeight: "600", margin: "0 0 6px", fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', color: "#111827" }}>Anti-theft acknowledgement</h3>
-                <p style={{ fontSize: "13px", color: "#4b5563", lineHeight: "1.65", margin: 0, fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
-                  Locations are approximate and intended for visiting cats you already know, not to facilitate theft, disturbance, or harm. Please treat every cat and neighbourhood with respect.
-                </p>
-              </div>
-            </div>
-
             {[
               {
                 q: "What is Catwalk?",
