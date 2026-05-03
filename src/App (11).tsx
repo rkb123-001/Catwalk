@@ -5556,6 +5556,7 @@ export default function CatwalkApp() {
   const [locationResults, setLocationResults] = useState<any[]>([]);
   const [searchingLocation, setSearchingLocation] = useState(false);
   const [cats, setCats] = useState<Cat[]>([]);
+  const [storageOnlyPhotosByCatId, setStorageOnlyPhotosByCatId] = useState<Record<string, CatPhoto[]>>({});
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -5687,6 +5688,40 @@ export default function CatwalkApp() {
 
     return () => unsubscribe();
   }, []);
+
+  const catsPhotoStorageSignature = cats
+    .map((cat) => `${cat.id}:${(cat.photos || []).map((photo) => photo.url || photo.id).join(",")}`)
+    .join("|");
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (cats.length === 0) {
+      setStorageOnlyPhotosByCatId({});
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    const loadStorageOnlyPhotos = async () => {
+      const entries = await Promise.all(
+        cats.map(async (cat) => {
+          const storageOnlyPhotos = await getStorageOnlyCatPhotos(cat.id, cat.photos || []);
+          return [cat.id, storageOnlyPhotos] as const;
+        })
+      );
+
+      if (!cancelled) {
+        setStorageOnlyPhotosByCatId(Object.fromEntries(entries));
+      }
+    };
+
+    loadStorageOnlyPhotos();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [catsPhotoStorageSignature]);
 
   // Backfill creator visits for cats added before the creator-visit behaviour existed.
   // This repairs existing profiles like Puss without needing a manual Firebase edit.
@@ -6942,6 +6977,11 @@ export default function CatwalkApp() {
       ["Bottom", "center bottom"],
     ];
 
+    const getBrowsePhotosForCat = (cat: Cat) => [
+      ...(cat.photos || []),
+      ...(storageOnlyPhotosByCatId[cat.id] || []),
+    ];
+
     return (
       <div
         style={{
@@ -7102,7 +7142,11 @@ export default function CatwalkApp() {
               gap: "16px",
             }}
           >
-            {filteredCats.map((cat) => (
+            {filteredCats.map((cat) => {
+              const browsePhotos = getBrowsePhotosForCat(cat);
+              const coverPhoto = browsePhotos[0];
+
+              return (
               <button
                 key={cat.id}
                 type="button"
@@ -7128,15 +7172,15 @@ export default function CatwalkApp() {
                     background: "#f3f4f6",
                   }}
                 >
-                  {cat.photos[0] ? (
+                  {coverPhoto ? (
                     <img
-                      src={cat.photos[0].url}
+                      src={coverPhoto.url}
                       alt={cat.name}
                       style={{
                         width: "100%",
                         height: "100%",
                         objectFit: "cover",
-                        objectPosition: getCatPhotoPosition(cat.photos[0]),
+                        objectPosition: getCatPhotoPosition(coverPhoto),
                       }}
                       onError={(e) => {
                         e.currentTarget.style.display = "none";
@@ -7164,7 +7208,7 @@ export default function CatwalkApp() {
                       {cat.emoji}
                     </div>
                   )}
-                  {false && canEditBrowsePhotoPosition(cat, cat.photos[0]) && (
+                  {false && canEditBrowsePhotoPosition(cat, coverPhoto) && (
                     <div
                       style={{
                         position: "absolute",
@@ -7186,18 +7230,19 @@ export default function CatwalkApp() {
                           title={`Reposition photo: ${label}`}
                           onClick={(event) => {
                             event.stopPropagation();
-                            handleUpdatePhotoPosition(cat.photos[0].id, position);
+                            if (!coverPhoto) return;
+                            handleUpdatePhotoPosition(coverPhoto.id, position);
                           }}
                           style={{
                             border: "none",
                             borderRadius: "999px",
                             padding: "5px 8px",
                             background:
-                              getCatPhotoPosition(cat.photos[0]) === position
+                              getCatPhotoPosition(coverPhoto) === position
                                 ? "#1a0dab"
                                 : "transparent",
                             color:
-                              getCatPhotoPosition(cat.photos[0]) === position
+                              getCatPhotoPosition(coverPhoto) === position
                                 ? "white"
                                 : "#111827",
                             cursor: "pointer",
@@ -7225,7 +7270,7 @@ export default function CatwalkApp() {
                       gap: "4px",
                     }}
                   >
-                    📸 {cat.photos.length}
+                    📸 {browsePhotos.length}
                   </div>
                 </div>
                 <div style={{ padding: "12px" }}>
@@ -7270,7 +7315,8 @@ export default function CatwalkApp() {
                   </div>
                 </div>
               </button>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>
