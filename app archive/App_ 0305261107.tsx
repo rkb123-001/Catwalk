@@ -155,7 +155,7 @@ interface ContributionDeleteOptions {
   slowBlinks: boolean;
   writtenInfo: boolean;
   catsCreated: boolean;
-  deleteCatsCreated?: boolean;
+  deleteCatsCreated: boolean;
   specificPhotoIds?: string[];
   specificVisitDates?: string[]; // format: "catId::date"
   specificDescriptionIds?: string[];
@@ -6249,7 +6249,6 @@ export default function CatwalkApp() {
         slowBlinks: true,
         writtenInfo: true,
         catsCreated: true,
-        deleteCatsCreated: false,
       });
 
       const userQuery = query(collection(db, "users"), where("uid", "==", currentUser.uid));
