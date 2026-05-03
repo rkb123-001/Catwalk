@@ -3406,31 +3406,40 @@ function CatProfile({
           style={{
             position: "fixed",
             inset: 0,
-            background: "rgba(0,0,0,0.45)",
+            background: "rgba(0,0,0,0.6)",
             zIndex: 3000,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            padding: "20px",
+            padding: "16px",
           }}
         >
           <div
             style={{
               background: "white",
               borderRadius: "16px",
-              padding: "20px",
-              width: "min(520px, 100%)",
-              boxShadow: "0 20px 50px rgba(0,0,0,0.25)",
+              padding: "16px",
+              width: "100%",
+              maxWidth: "480px",
+              maxHeight: "calc(100vh - 32px)",
+              display: "flex",
+              flexDirection: "column",
+              gap: "12px",
+              boxShadow: "0 20px 50px rgba(0,0,0,0.3)",
+              overflow: "hidden",
             }}
           >
-            <h3 style={{ margin: "0 0 12px", fontSize: "18px", fontWeight: 700 }}>Choose photo focus</h3>
-            <PhotoFocusPicker
-              imageUrl={pendingPhotoPreview}
-              objectPosition={pendingPhotoObjectPosition}
-              onChange={setPendingPhotoObjectPosition}
-              height={300}
-            />
-            <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end", marginTop: "16px" }}>
+            <h3 style={{ margin: 0, fontSize: "17px", fontWeight: 700, flexShrink: 0 }}>Position the photo</h3>
+            <p style={{ margin: 0, fontSize: "13px", color: "#6b7280", flexShrink: 0 }}>Drag the dot onto the cat's face or body. This keeps them centred when the image gets cropped into cards.</p>
+            <div style={{ flex: 1, minHeight: 0 }}>
+              <PhotoFocusPicker
+                imageUrl={pendingPhotoPreview}
+                objectPosition={pendingPhotoObjectPosition}
+                onChange={setPendingPhotoObjectPosition}
+                height={260}
+              />
+            </div>
+            <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end", flexShrink: 0 }}>
               <button
                 type="button"
                 onClick={() => {
@@ -3438,14 +3447,14 @@ function CatProfile({
                   setPendingPhotoPreview(null);
                   setPendingPhotoObjectPosition(DEFAULT_CAT_PHOTO_POSITION);
                 }}
-                style={{ padding: "10px 14px", borderRadius: "999px", border: "1px solid #e5e7eb", background: "white", cursor: "pointer" }}
+                style={{ padding: "12px 18px", borderRadius: "999px", border: "1px solid #e5e7eb", background: "white", cursor: "pointer", fontSize: "15px" }}
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={handleConfirmPhotoUpload}
-                style={{ padding: "10px 16px", borderRadius: "999px", border: "none", background: "#1a0dab", color: "white", cursor: "pointer", fontWeight: 600 }}
+                style={{ padding: "12px 20px", borderRadius: "999px", border: "none", background: "#1a0dab", color: "white", cursor: "pointer", fontWeight: 600, fontSize: "15px" }}
               >
                 Add photo
               </button>
@@ -4505,12 +4514,12 @@ function CatspottingScreen({
           </div>
         ) : (
           <div>
-            <div style={{ marginBottom: "20px" }}>
+            <div style={{ marginBottom: "16px" }}>
               <PhotoFocusPicker
                 imageUrl={photoPreview!}
                 objectPosition={photoObjectPosition}
                 onChange={setPhotoObjectPosition}
-                height={300}
+                height={240}
               />
             </div>
 
@@ -5927,12 +5936,7 @@ export default function CatwalkApp() {
       await updateDoc(catDoc, {
         photos: arrayUnion(photoData),
       });
-
-      setSelectedCat((prev) =>
-        prev && prev.id === selectedCat.id
-          ? { ...prev, photos: [...(prev.photos || []), photoData] }
-          : prev
-      );
+      // No optimistic update — onSnapshot handles it
 
       // Update user profile
       const userQuery = query(
@@ -5941,11 +5945,12 @@ export default function CatwalkApp() {
       );
       const userSnapshot = await getDocs(userQuery);
       if (!userSnapshot.empty) {
-        const userDoc = userSnapshot.docs[0];
-        await updateDoc(userDoc.ref, {
+        await updateDoc(userSnapshot.docs[0].ref, {
           photosAdded: increment(1),
         });
       }
+
+      alert("Photo added! ✓");
     } catch (error) {
       console.error("Error adding photo:", error);
       const message = error instanceof Error ? error.message : "Please try again.";
@@ -5996,9 +6001,7 @@ export default function CatwalkApp() {
     try {
       const catDoc = doc(db, "cats", selectedCat.id);
       await updateDoc(catDoc, { photos: updatedPhotos });
-      setSelectedCat((prev) =>
-        prev && prev.id === selectedCat.id ? { ...prev, photos: updatedPhotos } : prev
-      );
+      // No optimistic update — onSnapshot handles it
 
       try {
         await deleteObject(storageRef(storage, photo.url));
