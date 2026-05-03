@@ -5864,12 +5864,7 @@ export default function CatwalkApp() {
       await updateDoc(catDoc, {
         slowBlinks: arrayUnion(newSlowBlink),
       });
-
-      setSelectedCat((prev) =>
-        prev && prev.id === selectedCat.id
-          ? { ...prev, slowBlinks: [...(prev.slowBlinks || []), newSlowBlink] }
-          : prev
-      );
+      // No optimistic update — onSnapshot listener updates selectedCat automatically
     } catch (error) {
       console.error("Error recording slow blink:", error);
     }
