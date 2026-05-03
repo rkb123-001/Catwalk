@@ -5720,7 +5720,7 @@ export default function CatwalkApp() {
           } as Cat;
         });
         // Sort client-side, newest first; cats without dates land at the end
-        catsData.sort((a, b) => {
+        catsData.sort((a: Cat, b: Cat) => {
           const da = a.createdDate || "";
           const dbb = b.createdDate || "";
           return dbb.localeCompare(da);
