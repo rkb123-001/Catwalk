@@ -5680,6 +5680,56 @@ export default function CatwalkApp() {
     return () => unsubscribe();
   }, []);
 
+  // PWA version check — periodically check if a new build has been deployed
+  // and force a reload so the home screen icon doesn't get stuck on stale code.
+  useEffect(() => {
+    let currentBuildId: string | null = null;
+    let intervalId: number | undefined;
+
+    const checkForNewBuild = async () => {
+      try {
+        // Fetch index.html with cache busting; the script tag's filename
+        // contains the build hash (e.g. /assets/index-BcHNYWQq.js)
+        const res = await fetch(`/?_=${Date.now()}`, { cache: "no-store" });
+        if (!res.ok) return;
+        const html = await res.text();
+        const match = html.match(/\/assets\/index-[A-Za-z0-9_-]+\.js/);
+        if (!match) return;
+        const newBuildId = match[0];
+        if (currentBuildId === null) {
+          currentBuildId = newBuildId;
+          console.log("[Catwalk] Current build:", currentBuildId);
+        } else if (currentBuildId !== newBuildId) {
+          console.log("[Catwalk] New build detected, reloading:", newBuildId);
+          // Clear caches if available, then reload
+          if ("caches" in window) {
+            try {
+              const keys = await caches.keys();
+              await Promise.all(keys.map(k => caches.delete(k)));
+            } catch {}
+          }
+          window.location.reload();
+        }
+      } catch (e) {
+        // Network errors are fine — just try again next interval
+      }
+    };
+
+    // Initial check after 5 seconds, then every 60 seconds
+    const timeoutId = window.setTimeout(checkForNewBuild, 5000);
+    intervalId = window.setInterval(checkForNewBuild, 60000);
+
+    // Also check whenever the app comes back into focus (returning to home screen icon)
+    const onVisibility = () => { if (!document.hidden) checkForNewBuild(); };
+    document.addEventListener("visibilitychange", onVisibility);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+      if (intervalId !== undefined) window.clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, []);
+
   // Load cats from Firebase
   useEffect(() => {
     console.log("[Catwalk] Subscribing to cats collection.");
