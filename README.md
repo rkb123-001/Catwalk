@@ -1,107 +1,76 @@
-# 🐾 Catwalk
+# Catwalk
 
-**Catwalk** is a community archive and fuzzy mapping app for neighbourhood cats — indoor, outdoor, or both. It offers a privacy-conscious space for people to gently document their feline encounters, share photos, and track visits in a way that’s emotionally expressive and socially meaningful.
+A community-built map of neighbourhood cats.
 
-Whether it’s a known porch-sleeper or a mystery window-watcher, Catwalk invites slow observation and communal memory, helping connect people through the presence of cats.
+Catwalk is a place to document the cats that share your streets — the porch sleeper on Brownlow Road, the corner shop cat, the one that appears every Tuesday outside the bakery. It's a slow, communal archive: somewhere between a field guide and a mutual appreciation society.
+
+The app is built around the idea that neighbourhood cats are part of local memory. People move away. Cats stay. Catwalk keeps the record.
 
 ---
 
-## ✨ Features
+## What it does
 
-### 🌍 Fuzzy Map & Location Tracking
+**Map** — an interactive Leaflet/OpenStreetMap map centred on your location. Cat emoji markers appear as pins. Tap one to open its profile. Location data is approximate by design — cat positions are fuzzed to a ~500m radius on profile views to protect the animal's safety.
 
-- Interactive map built with Leaflet.js
-- All cat locations are fuzzed to protect privacy (no exact lat/lng stored or shown)
-- Duplicate-checking for nearby cats within a 200m radius
-- Manually drop a pin or let the app detect your approximate location
+**Cat profiles** — each cat has a profile with photos, a description, personality traits, location context, visit history, and community descriptions (short notes about behaviour, anecdotes, or appearances contributed by anyone who has met the cat). Profiles show the first name of contributors only.
 
-### 🐱 Cat Profiles
+**Contributions** — any registered user can add a cat, upload photos, or contribute written descriptions to an existing profile. Contributions are attributed. You can also mark a cat as visited (once per 24 hours, to prevent data harvesting) or send a slow blink.
 
-- Each cat has a unique profile page
-- Customisable emoji tag (🖤 🧡 🤍 etc.) used on map markers
-- Personality traits (Shy, Friendly, Vocal, etc.)
-- Petting and treat preferences
-- Multiple user-contributed names and profile data
-- Gallery showing photos from various contributors (2-column grid layout)
+**Browse** — a searchable, filterable directory of all cats. Search by name, area, city, or country. Filter by colour, personality, or behaviour. Country and city filter chips appear automatically as the map grows internationally.
 
-### 📷 Community Contributions
+**Catspotting** — a quick-capture flow for when you're out and spot a cat on the fly. Upload or take a photo, the app attempts to match it to a nearby cat, and you can attach it or create a new profile from scratch.
 
-- Upload photos via device camera, manual file upload, or camera roll
-- Add info to existing cats or create a new cat profile
-- Contributions are attributed with emoji badges:  
-  🏠 creator, 📸 photo contributor, 💡 info contributor
+**User profiles** — each user has a profile showing their contributions, cats visited, and photos added. Public profiles show first names only. You can view another user's profile and see which cats they've added.
 
-### 👁️ Visit Tracking
+---
 
-- “Visited” button shows when you’ve seen a cat
-- Tracks visit count by user and globally
-- Shows “Visited 🐾 x3” on profile pages
-- Adds “Cats Visited” stat to your user profile
+## Safety
 
-### 😻 Slow Blink Interaction
+Catwalk stores location data about living animals, which carries real risk. Several layers of protection are built into the product:
 
-- Send affection to your favourite cats with a “Slow Blink”
-- Stats show total blinks and recent blinkers
-- Gentle, emotionally expressive alternative to "liking"
+- Login required before any data is accessible — no public cat map, Firestore reads require authentication
+- Cat profile maps blur the pin ±500m and pull zoom back three levels
+- Street-level address hidden from accounts under 30 days old with fewer than 3 contributions
+- Visits limited to once per 24 hours per cat
+- First names only — applied at write time, not just display time
+- Anti-theft statement visible before first login
 
-### 👤 User Accounts (Firebase)
+---
 
-- Sign up with email or username/password
-- Log in to track contributions and visits
-- Profile includes:
-  - Username + join date
-  - Cats contributed
-  - Photos added
-  - Visits logged
-  - Slow blinks given
+## Stack
 
-### 🔍 Browse & Filter
+- React 19 + TypeScript — single `App.tsx`, no external UI library
+- Vite 6 for build
+- Firebase Auth, Firestore, Storage
+- Leaflet + OpenStreetMap for mapping
+- Nominatim for reverse geocoding and location search
+- Deployed on Vercel via GitHub
 
-- View cats in list or map mode
-- Filter by:
-  - Continent, country, city, neighbourhood
-  - Emoji colour, personality, treat/petting preferences
-  - Name or description
-- Each list card shows emoji, name, and one photo
-- Clicking expands to full cat profile
+---
 
-## 🛡️ Privacy by Design
-
-- No street numbers or precise location data is ever displayed
-- All cat locations are approximated to fuzzy areas (e.g. “Near Hackney Central”)
-- Location precision is never shared with other users unless explicitly chosen
-- Profiles can be anonymous or pseudonymous
-
-## 🧱 Tech Stack
-
-- **Frontend**: React + TypeScript
-- **Map**: Leaflet.js
-- **State**: React hooks
-- **Backend**: Firebase (auth + database + file storage)
-- **Icons**: Lucide-react
-- **Styling**: TailwindCSS
-
-## 📜 License
-
-This project is **not open source**. It is shared source-visible for transparency and community contribution only.
-
-Use of this app is permitted via the official hosted version.  
-The codebase may **not** be reused, copied, modified, or redistributed in any form without written permission.
-
-All rights reserved © 2025 Rebekah Kosonen Bide.  
-See [LICENSE](./LICENSE) for full terms.
-
-## 🛠️ Contributing
-
-While the code is source-visible, it is not open for fork-based redistribution.
-
-If you're interested in helping shape Catwalk — especially in areas like accessibility, emotion-driven design, or geolocation UI — please [open an issue](../../issues) or reach out directly.
-
-## 🚀 Getting Started (Dev)
+## Running locally
 
 ```bash
 git clone https://github.com/rkb123-001/Catwalk.git
-cd Catwalk1
-pnpm install
-pnpm dev
+cd Catwalk
+npm install
+npm run dev
+```
 
+You will need a Firebase project with Auth, Firestore, and Storage enabled. Add your config to the relevant constants in `App.tsx`.
+
+---
+
+## License
+
+Source-visible, not open source. See [LICENSE](./LICENSE) for full terms.
+
+The codebase, product concept, safety architecture, and data model are the original work of Rebekah Kosonen Bide © 2026. All rights reserved. The codebase may not be reused, forked, redistributed, or used as the basis for a derivative product without written permission.
+
+---
+
+## Contributing
+
+The code is source-visible for transparency. It is not open for fork-based redistribution.
+
+If you want to contribute to the direction of the product — accessibility, safety design, community features — open an issue or get in touch directly.
