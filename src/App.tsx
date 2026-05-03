@@ -524,6 +524,8 @@ function PhotoFocusPicker({
 }) {
   const point = objectPositionToPoint(objectPosition);
   const pickerRef = useRef<HTMLDivElement>(null);
+  // Responsive height: use the specified height but never more than 50vh
+  const responsiveHeight = `min(${height}px, 50vh)`;
 
   const updateFocusFromClientPoint = (clientX: number, clientY: number) => {
     const rect = pickerRef.current?.getBoundingClientRect();
@@ -564,7 +566,7 @@ function PhotoFocusPicker({
         style={{
           position: "relative",
           width: "100%",
-          height,
+          height: responsiveHeight,
           borderRadius: "12px",
           overflow: "hidden",
           background: "#f3f4f6",
@@ -2122,6 +2124,7 @@ function AddCatForm({
   const [catLocationSearch, setCatLocationSearch] = useState("");
   const [catLocationResults, setCatLocationResults] = useState<any[]>([]);
   const [searchingCatLocation, setSearchingCatLocation] = useState(false);
+  const searchDebounceRef = useRef<number | null>(null);
   const pickerMapRef = useRef<HTMLDivElement>(null);
   const pickerMapInstanceRef = useRef<any>(null);
   const pickerMarkerRef = useRef<any>(null);
@@ -2223,31 +2226,63 @@ function AddCatForm({
     };
   }, []);
 
-  const handleCatLocationSearch = async (queryText: string) => {
+  const handleCatLocationSearch = (queryText: string) => {
     setCatLocationSearch(queryText);
-    if (queryText.trim().length < 3) {
-      setCatLocationResults([]);
-      return;
-    }
-    setSearchingCatLocation(true);
-    try {
-      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&q=${encodeURIComponent(queryText)}&limit=5`);
-      const data = await res.json();
-      setCatLocationResults(data);
-    } catch {
-      setCatLocationResults([]);
-    } finally {
-      setSearchingCatLocation(false);
-    }
+    setCatLocationResults([]);
+
+    if (queryText.trim().length < 3) return;
+
+    if (searchDebounceRef.current) window.clearTimeout(searchDebounceRef.current);
+    // 1 second debounce — Nominatim rate limit is 1 req/s
+    searchDebounceRef.current = window.setTimeout(async () => {
+      setSearchingCatLocation(true);
+      const url = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&q=${encodeURIComponent(queryText)}&limit=8`;
+      const headers = { "Accept-Language": "en", "User-Agent": "Catwalk/1.1 (catwalk-walk-the-walk.vercel.app)" };
+
+      const tryFetch = async (attempt: number): Promise<any[]> => {
+        const controller = new AbortController();
+        const tid = window.setTimeout(() => controller.abort(), 15000);
+        try {
+          const res = await fetch(url, { signal: controller.signal, headers });
+          window.clearTimeout(tid);
+          if (res.status === 429) {
+            if (attempt <= 3) {
+              // Exponential backoff: 2s, 4s, 8s
+              await new Promise(r => window.setTimeout(r, Math.pow(2, attempt) * 1000));
+              return tryFetch(attempt + 1);
+            }
+            return [{ _rateLimited: true }];
+          }
+          return await res.json();
+        } catch (e: any) {
+          window.clearTimeout(tid);
+          if (e?.name === "AbortError" && attempt < 2) {
+            await new Promise(r => window.setTimeout(r, 1500));
+            return tryFetch(attempt + 1);
+          }
+          return [{ _networkError: true }];
+        }
+      };
+
+      try {
+        const data = await tryFetch(1);
+        setCatLocationResults(data.length === 0 ? [{ _noResults: true }] : data);
+      } finally {
+        setSearchingCatLocation(false);
+      }
+    }, 1000);
   };
 
   const handleCatLocationSelect = (result: any) => {
     const lat = parseFloat(result.lat);
     const lng = parseFloat(result.lon);
-    const label = result.display_name.split(",").slice(0, 3).join(",");
-    setCatLocationSearch(label);
+    // Use full address for the approximateAddress, short label for the search box
+    const fullAddress = result.display_name || "";
+    const shortLabel = result.display_name.split(",").slice(0, 3).join(",");
+    setCatLocationSearch(shortLabel);
     setCatLocationResults([]);
-    placeCatLocationMarker(lat, lng, label, getAreaNameFromNominatimResult(result));
+    setApproximateAddress(fullAddress);
+    placeCatLocationMarker(lat, lng, fullAddress, getAreaNameFromNominatimResult(result));
   };
 
   const handleSubmit = async () => {
@@ -2505,22 +2540,52 @@ function AddCatForm({
                     type="text"
                     value={catLocationSearch}
                     onChange={(e) => handleCatLocationSearch(e.target.value)}
-                    placeholder="e.g. Brownlow Road, Haggerston"
+                    placeholder="Type a full address, street, or area name"
                     style={{ border: "none", outline: "none", width: "100%", fontSize: "16px", background: "transparent" }}
                   />
-                  {searchingCatLocation && <span style={{ fontSize: "12px", color: "#9ca3af" }}>...</span>}
-                  {catLocationSearch && (
+                  {searchingCatLocation && <span style={{ fontSize: "12px", color: "#9ca3af" }}>Searching...</span>}
+                  {catLocationSearch && !searchingCatLocation && (
                     <button onClick={() => { setCatLocationSearch(""); setCatLocationResults([]); }} style={{ background: "none", border: "none", cursor: "pointer", color: "#9ca3af", fontSize: "18px", padding: 0, lineHeight: 1 }}>×</button>
                   )}
                 </div>
+                <p style={{ fontSize: "12px", color: "#9ca3af", marginTop: "6px" }}>
+                  e.g. "32 Brownlow Road, London" or just "Haggerston" — the more you type the more accurate the result
+                </p>
                 {catLocationResults.length > 0 && (
-                  <div style={{ position: "fixed", left: "20px", right: "20px", zIndex: 3500, background: "white", borderRadius: "12px", boxShadow: "0 6px 24px rgba(0,0,0,0.18)", marginTop: "4px", overflow: "hidden" }}>
-                    {catLocationResults.map((result: any, i: number) => (
-                      <button key={i} type="button" onClick={() => { handleCatLocationSelect(result); setCatLocationResults([]); }}
-                        style={{ display: "block", width: "100%", padding: "14px 16px", background: "white", border: "none", borderBottom: i < catLocationResults.length - 1 ? "1px solid #f3f4f6" : "none", textAlign: "left", cursor: "pointer", fontSize: "15px", color: "#111827" }}>
-                        {result.display_name.split(",").slice(0, 3).join(",")}
-                      </button>
-                    ))}
+                  <div style={{ position: "fixed", left: "20px", right: "20px", zIndex: 3500, background: "white", borderRadius: "12px", boxShadow: "0 6px 24px rgba(0,0,0,0.18)", marginTop: "4px", overflow: "hidden", maxHeight: "300px", overflowY: "auto" }}>
+                    {catLocationResults[0]?._rateLimited ? (
+                      <div style={{ padding: "16px", fontSize: "14px" }}>
+                        <div style={{ fontWeight: 600, color: "#92400e", marginBottom: "6px" }}>Search is temporarily busy</div>
+                        <div style={{ color: "#6b7280", marginBottom: "12px", lineHeight: 1.5 }}>The location search service needs a moment. You can type your full address and tap "Use this address" to save it manually instead.</div>
+                        <button type="button" onClick={() => { setCatLocationResults([]); setApproximateAddress(catLocationSearch); }} style={{ padding: "10px 14px", background: "#1a0dab", color: "white", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "13px", fontWeight: 600 }}>
+                          Use "{catLocationSearch.length > 40 ? catLocationSearch.slice(0, 40) + "…" : catLocationSearch}" as the address
+                        </button>
+                      </div>
+                    ) : catLocationResults[0]?._networkError ? (
+                      <div style={{ padding: "16px", fontSize: "14px", color: "#991b1b" }}>
+                        <div style={{ fontWeight: 600, marginBottom: "4px" }}>Connection error</div>
+                        <div style={{ color: "#6b7280" }}>Check your connection and try again, or tap the map instead.</div>
+                      </div>
+                    ) : catLocationResults[0]?._noResults ? (
+                      <div style={{ padding: "16px", fontSize: "14px" }}>
+                        <div style={{ color: "#6b7280", marginBottom: "10px" }}>No results found for "{catLocationSearch}".</div>
+                        <button type="button" onClick={() => { setCatLocationResults([]); setApproximateAddress(catLocationSearch); }} style={{ padding: "10px 14px", background: "#1a0dab", color: "white", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "13px", fontWeight: 600 }}>
+                          Use "{catLocationSearch.length > 40 ? catLocationSearch.slice(0, 40) + "…" : catLocationSearch}" as the address anyway
+                        </button>
+                      </div>
+                    ) : (
+                      catLocationResults.map((result: any, i: number) => (
+                        <button key={i} type="button" onClick={() => { handleCatLocationSelect(result); setCatLocationResults([]); }}
+                          style={{ display: "block", width: "100%", padding: "14px 16px", background: "white", border: "none", borderBottom: i < catLocationResults.length - 1 ? "1px solid #f3f4f6" : "none", textAlign: "left", cursor: "pointer" }}>
+                          <div style={{ fontSize: "15px", fontWeight: "500", color: "#111827", marginBottom: "2px" }}>
+                            {result.display_name.split(",")[0]}
+                          </div>
+                          <div style={{ fontSize: "12px", color: "#9ca3af" }}>
+                            {result.display_name.split(",").slice(1, 5).join(",").trim()}
+                          </div>
+                        </button>
+                      ))
+                    )}
                   </div>
                 )}
               </div>
@@ -2542,6 +2607,38 @@ function AddCatForm({
               >
                 Use the centre of what I see on the map
               </button>
+            </div>
+
+            {/* Manual address fallback */}
+            <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: "16px" }}>
+              <p style={{ fontSize: "14px", fontWeight: "600", color: "#111827", marginBottom: "6px" }}>Or type the full address directly:</p>
+              <p style={{ fontSize: "13px", color: "#6b7280", marginBottom: "10px" }}>If search isn't working, type the address here and tap the button to save it.</p>
+              <textarea
+                value={approximateAddress}
+                onChange={(e) => setApproximateAddress(e.target.value)}
+                rows={2}
+                placeholder="e.g. 32 Brownlow Road, Haggerston, London, E8"
+                style={{ width: "100%", padding: "12px 14px", border: "2px solid #d1d5db", borderRadius: "12px", fontSize: "15px", resize: "none" }}
+              />
+              {approximateAddress.trim().length > 5 && !location && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    // Use map centre as the pin, but store the typed address
+                    const centre = pickerMapInstanceRef.current?.getCenter?.();
+                    if (centre) {
+                      placeCatLocationMarker(centre.lat, centre.lng, approximateAddress.trim());
+                    } else if (manualLocation) {
+                      placeCatLocationMarker(manualLocation[0], manualLocation[1], approximateAddress.trim());
+                    } else if (userLocation) {
+                      placeCatLocationMarker(userLocation[0], userLocation[1], approximateAddress.trim());
+                    }
+                  }}
+                  style={{ marginTop: "8px", width: "100%", padding: "12px", background: "#1a0dab", color: "white", border: "none", borderRadius: "12px", cursor: "pointer", fontSize: "14px", fontWeight: "600" }}
+                >
+                  Use this address as the location
+                </button>
+              )}
             </div>
 
             {/* Status + next */}
@@ -6340,12 +6437,12 @@ export default function CatwalkApp() {
           </button>
 
           {/* Right: actions */}
-          <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "4px", flexShrink: 0 }}>
             <button
-              style={{ background: "none", border: "none", padding: "10px", cursor: "pointer", color: "#6b7280", fontSize: "13px", fontWeight: "500", whiteSpace: "nowrap" }}
+              style={{ background: "none", border: "none", padding: "6px 8px", cursor: "pointer", color: "#6b7280", fontSize: "12px", fontWeight: "500", whiteSpace: "nowrap", maxWidth: "calc(100vw - 180px)", overflow: "hidden", textOverflow: "ellipsis" }}
               onClick={onGuide}
             >
-              How to use (walk the walk)
+              How to use
             </button>
             {currentUser ? (
               <button
