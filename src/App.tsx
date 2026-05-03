@@ -1338,7 +1338,7 @@ function UserCatsScreen({
         top: "56px",
         left: 0,
         right: 0,
-        bottom: "80px",
+        bottom: "calc(80px + env(safe-area-inset-bottom, 0px))",
         background: "white",
         zIndex: 1500,
         overflowY: "auto",
@@ -1527,7 +1527,7 @@ function UserPhotosScreen({
         top: "56px",
         left: 0,
         right: 0,
-        bottom: "80px",
+        bottom: "calc(80px + env(safe-area-inset-bottom, 0px))",
         background: "white",
         zIndex: 1500,
         overflowY: "auto",
@@ -1669,7 +1669,7 @@ function UserVisitsScreen({
         top: "56px",
         left: 0,
         right: 0,
-        bottom: "80px",
+        bottom: "calc(80px + env(safe-area-inset-bottom, 0px))",
         background: "white",
         zIndex: 1500,
         overflowY: "auto",
@@ -2455,7 +2455,7 @@ function AddCatForm({
         top: "56px",
         left: 0,
         right: 0,
-        bottom: "80px",
+        bottom: "calc(80px + env(safe-area-inset-bottom, 0px))",
         background: "white",
         zIndex: 1500,
         overflowY: "auto",
@@ -3119,8 +3119,10 @@ function CatProfile({
   };
 
   const [confirmingUpload, setConfirmingUpload] = useState(false);
+  const confirmingUploadRef = useRef(false);
   const handleConfirmPhotoUpload = async () => {
-    if (!pendingPhotoFile || confirmingUpload) return;
+    if (!pendingPhotoFile || confirmingUploadRef.current) return;
+    confirmingUploadRef.current = true;
     setConfirmingUpload(true);
     try {
       await onAddPhoto(pendingPhotoFile, pendingPhotoObjectPosition);
@@ -3128,6 +3130,7 @@ function CatProfile({
       setPendingPhotoPreview(null);
       setPendingPhotoObjectPosition(DEFAULT_CAT_PHOTO_POSITION);
     } finally {
+      confirmingUploadRef.current = false;
       setConfirmingUpload(false);
     }
   };
@@ -3416,7 +3419,7 @@ function CatProfile({
         top: "56px",
         left: 0,
         right: 0,
-        bottom: "80px",
+        bottom: "calc(80px + env(safe-area-inset-bottom, 0px))",
         background: "white",
         zIndex: 1500,
         overflowY: "auto",
@@ -3447,7 +3450,8 @@ function CatProfile({
               flexDirection: "column",
               gap: "12px",
               boxShadow: "0 20px 50px rgba(0,0,0,0.3)",
-              overflow: "hidden",
+              overflowY: "auto",
+              boxSizing: "border-box",
             }}
           >
             <h3 style={{ margin: 0, fontSize: "17px", fontWeight: 700, flexShrink: 0 }}>Position the photo</h3>
@@ -4009,7 +4013,7 @@ function ContributeForm({
         top: "56px",
         left: 0,
         right: 0,
-        bottom: "80px",
+        bottom: "calc(80px + env(safe-area-inset-bottom, 0px))",
         background: "white",
         zIndex: 1500,
         overflowY: "auto",
@@ -4429,7 +4433,7 @@ function CatspottingScreen({
         top: "56px",
         left: 0,
         right: 0,
-        bottom: "80px",
+        bottom: "calc(80px + env(safe-area-inset-bottom, 0px))",
         background: "white",
         zIndex: 1500,
         overflowY: "auto",
@@ -5510,7 +5514,6 @@ export default function CatwalkApp() {
               setUserLocation(loc);
               localStorage.setItem("catwalk-last-location", JSON.stringify(loc));
               localStorage.setItem("catwalk-location-asked", "true");
-              if (mapInstanceRef.current) mapInstanceRef.current.flyTo(loc, 15);
             },
             () => {},
             { timeout: 8000, maximumAge: 300000, enableHighAccuracy: false }
@@ -5530,6 +5533,12 @@ export default function CatwalkApp() {
       }
     }
   }, []);
+
+  // Fly map to user location whenever it's set (handles delayed geolocation)
+  useEffect(() => {
+    if (!userLocation || !mapInstanceRef.current) return;
+    mapInstanceRef.current.flyTo(userLocation, 15, { duration: 0.8 });
+  }, [userLocation]);
 
   // Load Leaflet
   useEffect(() => {
@@ -6613,7 +6622,7 @@ export default function CatwalkApp() {
           top: "56px",
           left: 0,
           right: 0,
-          bottom: "80px",
+          bottom: "calc(80px + env(safe-area-inset-bottom, 0px))",
           background: "#f9fafb",
           overflowY: "auto",
         }}
@@ -7237,7 +7246,7 @@ Tap the map to place a custom map pin. To create a cat, use the blue + Add cat b
               top: 0,
               left: 0,
               right: 0,
-              bottom: "80px",
+              bottom: "calc(80px + env(safe-area-inset-bottom, 0px))",
               minHeight: "320px",
               background: "#e8f5e9",
               zIndex: 1,
@@ -7502,7 +7511,7 @@ Tap the map to place a custom map pin. To create a cat, use the blue + Add cat b
       {/* Location Consent Modal */}
       {showLocationConsent && (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.5)", zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}>
-          <div style={{ background: "white", padding: "40px 36px", maxWidth: "400px", width: "100%", borderTop: "2px solid #1a1a1a" }}>
+          <div style={{ background: "white", padding: "32px 24px", maxWidth: "400px", width: "100%", borderTop: "2px solid #1a1a1a", boxSizing: "border-box" }}>
             <p style={{ fontSize: "11px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#9ca3af", marginBottom: "20px", fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>Location</p>
             <h2 style={{ fontSize: "22px", fontWeight: "normal", fontStyle: "italic", marginBottom: "16px", fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', color: "#111827" }}>Allow location access?</h2>
             <p style={{ fontSize: "14px", lineHeight: "1.7", color: "#4b5563", marginBottom: "32px", fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
