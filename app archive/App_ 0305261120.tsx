@@ -2088,7 +2088,6 @@ function AddCatForm({
   const [photoObjectPosition, setPhotoObjectPosition] = useState(DEFAULT_CAT_PHOTO_POSITION);
   const [approximateAddress, setApproximateAddress] = useState("");
   const [uploading, setUploading] = useState(false);
-  const submittingRef = useRef(false);
   const [catLocation, setCatLocation] = useState<[number, number] | null>(null);
   const [catAreaName, setCatAreaName] = useState("");
   const [catLocationSearch, setCatLocationSearch] = useState("");
@@ -2223,7 +2222,6 @@ function AddCatForm({
   };
 
   const handleSubmit = async () => {
-    if (submittingRef.current) return; // block double-submit
     if (!currentUser) {
       alert("Please sign in before saving a cat.");
       return;
@@ -2240,7 +2238,6 @@ function AddCatForm({
     }
 
     setUploading(true);
-    submittingRef.current = true;
 
     try {
       let activeUserProfile = userProfile;
@@ -2372,7 +2369,6 @@ function AddCatForm({
       alert(`Could not save this cat. ${message}`);
     } finally {
       setUploading(false);
-      submittingRef.current = false;
     }
   };
 
@@ -6523,7 +6519,7 @@ export default function CatwalkApp() {
       <div
         style={{
           position: "absolute",
-          top: "56px",
+          top: 0,
           left: 0,
           right: 0,
           bottom: "80px",
@@ -6651,22 +6647,20 @@ export default function CatwalkApp() {
               style={{
                 display: "flex",
                 alignItems: "center",
-                gap: "6px",
-                padding: "10px 18px",
+                gap: "8px",
+                padding: "10px 20px",
                 background: "#1a0dab",
                 border: "none",
-                borderRadius: "24px",
+                borderRadius: "12px",
                 color: "white",
-                fontSize: "15px",
-                fontWeight: "600",
+                fontSize: "16px",
+                fontWeight: "500",
                 cursor: "pointer",
-                boxShadow: "0 2px 8px rgba(26,13,171,0.3)",
-                whiteSpace: "nowrap",
               }}
               onClick={() => requireAuth(onAddCat)}
             >
-              <PlusIcon size={18} />{" "}
-              {currentUser ? "Add Cat" : "Sign in"}
+              <PlusIcon size={20} />{" "}
+              {currentUser ? "Add Cat" : "Sign in to Add Cat"}
             </button>
           </div>
         </div>
@@ -7169,17 +7163,13 @@ Tap the map to place a custom map pin. To create a cat, use the blue + Add cat b
           <div
             style={{
               position: "absolute",
-              bottom: "100px",
-              left: "12px",
-              background: "rgba(255,255,255,0.92)",
-              padding: "5px 10px",
+              top: "90px",
+              right: "10px",
+              background: "rgba(255, 255, 255, 0.8)",
+              padding: "4px 8px",
               fontSize: "12px",
-              borderRadius: "20px",
+              borderRadius: "4px",
               zIndex: 1001,
-              boxShadow: "0 1px 4px rgba(0,0,0,0.12)",
-              color: "#374151",
-              fontWeight: "500",
-              backdropFilter: "blur(4px)",
             }}
           >
             {
