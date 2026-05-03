@@ -8,11 +8,31 @@
   <meta name="description" content="Walk the walk" />
   <link rel="apple-touch-icon" href="/cat-placeholder.png" />
   <link rel="manifest" href="/manifest.json" />
+
+  <!-- Stop iOS Safari from caching the HTML shell aggressively -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+
+  <!-- iOS PWA configuration -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Catwalk" />
+
   <title>Catwalk</title>
 </head>
-  <body>
-    <noscript>You need to enable JavaScript to run this app.</noscript>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+<body>
+  <noscript>You need to enable JavaScript to run this app.</noscript>
+  <div id="root"></div>
+  <script type="module" src="/src/main.tsx"></script>
+
+  <!-- Unregister any stale service workers (safe in production until you ship your own SW) -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function(regs) {
+        regs.forEach(function(reg) { reg.unregister(); });
+      });
+    }
+  </script>
+</body>
 </html>

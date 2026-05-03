@@ -26,6 +26,8 @@ import {
   serverTimestamp,
   arrayUnion,
   increment,
+  enableNetwork,
+  disableNetwork,
 } from "firebase/firestore";
 import {
   getStorage,
@@ -5671,23 +5673,71 @@ export default function CatwalkApp() {
   }, []);
 
   // Load cats from Firebase
+  // Critical: do NOT use orderBy("createdDate") in the query because Firestore
+  // silently excludes documents missing that field. Sort client-side instead.
+  // Also: PWA standalone mode caches aggressively — explicitly accept both
+  // cached and fresh snapshots and log everything for debugging.
   useEffect(() => {
+    // Detect PWA standalone (iOS adds-to-homescreen, Android installed)
+    const isStandalone = typeof window !== "undefined" && (
+      window.matchMedia?.("(display-mode: standalone)")?.matches ||
+      (window.navigator as any).standalone === true
+    );
+    console.log("[Catwalk] App start — standalone PWA:", isStandalone, "user:", currentUser?.uid || "(none)");
+
+    // Bounce the Firestore network connection in PWA mode to ensure fresh data
+    if (isStandalone) {
+      disableNetwork(db).then(() => enableNetwork(db)).catch((e) => console.warn("[Catwalk] Network bounce failed", e));
+    }
+
+    console.log("[Catwalk] Subscribing to cats collection. Current user:", currentUser?.uid || "(no user)");
     const unsubscribe = onSnapshot(
-      query(collection(db, "cats"), orderBy("createdDate", "desc")),
+      collection(db, "cats"),
+      { includeMetadataChanges: true },
       (snapshot: any) => {
-        const catsData = snapshot.docs.map((doc: any) => ({
-          id: doc.id,
-          ...doc.data(),
-        })) as Cat[];
+        const catsData = snapshot.docs.map((docSnap: any) => {
+          const data = docSnap.data() || {};
+          return {
+            id: docSnap.id,
+            // Defensive defaults for every optional field used in filtering/UI
+            name: data.name || "Unnamed",
+            emoji: data.emoji || "🐱",
+            description: data.description || "",
+            personality: Array.isArray(data.personality) ? data.personality : [],
+            allowsPetting: data.allowsPetting ?? null,
+            acceptsTreats: data.acceptsTreats ?? null,
+            favoriteTreats: Array.isArray(data.favoriteTreats) ? data.favoriteTreats : [],
+            livingLocation: data.livingLocation ?? null,
+            location: data.location || { lat: 0, lng: 0, area: "", city: "", country: "", continent: "", approximateAddress: "" },
+            photos: Array.isArray(data.photos) ? data.photos : [],
+            visits: Array.isArray(data.visits) ? data.visits : [],
+            slowBlinks: Array.isArray(data.slowBlinks) ? data.slowBlinks : [],
+            descriptions: Array.isArray(data.descriptions) ? data.descriptions : [],
+            alternativeNames: Array.isArray(data.alternativeNames) ? data.alternativeNames : [],
+            createdDate: data.createdDate || data.createdAt || new Date(0).toISOString(),
+            creatorId: data.creatorId || "",
+            creator: data.creator || "Catwalker",
+            ...data,
+            id: docSnap.id, // Always last so it can't be overwritten by stray field
+          };
+        }) as Cat[];
+        // Sort client-side, newest first; cats without dates land at the end
+        catsData.sort((a, b) => {
+          const da = a.createdDate || "";
+          const dbb = b.createdDate || "";
+          return dbb.localeCompare(da);
+        });
+        const source = snapshot.metadata.fromCache ? "cache" : "server";
+        console.log(`[Catwalk] Loaded ${catsData.length} cats from ${source}`, catsData);
         setCats(catsData);
       },
       (error: any) => {
-        console.error("Error fetching cats:", error);
+        console.error("[Catwalk] Error fetching cats:", error?.code, error?.message, error);
       }
     );
 
     return () => unsubscribe();
-  }, []);
+  }, [currentUser?.uid]);
 
   const catsPhotoStorageSignature = cats
     .map((cat) => `${cat.id}:${(cat.photos || []).map((photo) => photo.url || photo.id).join(",")}`)
@@ -6884,6 +6934,24 @@ export default function CatwalkApp() {
                 <UserIcon /> My profile
               </button>
               <button
+                onClick={async () => {
+                  setShowUserMenu(false);
+                  // Hard refresh: bounce Firestore network and reload caches
+                  try {
+                    await disableNetwork(db);
+                    await enableNetwork(db);
+                    if ("caches" in window) {
+                      const keys = await caches.keys();
+                      await Promise.all(keys.map(k => caches.delete(k)));
+                    }
+                  } catch (e) { console.warn("[Catwalk] Refresh failed", e); }
+                  window.location.reload();
+                }}
+                style={{ display: "flex", alignItems: "center", gap: "10px", width: "100%", padding: "14px 18px", background: "none", border: "none", cursor: "pointer", fontSize: "15px", color: "#111827", textAlign: "left", borderTop: "1px solid #f3f4f6" }}
+              >
+                <span style={{ fontSize: "18px" }}>↻</span> Refresh app
+              </button>
+              <button
                 onClick={() => { setShowUserMenu(false); onLogout(); }}
                 style={{ display: "flex", alignItems: "center", gap: "10px", width: "100%", padding: "14px 18px", background: "none", border: "none", cursor: "pointer", fontSize: "15px", color: "#ef4444", textAlign: "left", borderTop: "1px solid #f3f4f6" }}
               >
@@ -6917,42 +6985,68 @@ export default function CatwalkApp() {
     )).sort();
 
     const filteredCats = cats.filter((cat) => {
-      const term = searchTerm.toLowerCase();
-      const matchesSearch = !term ||
-        cat.name.toLowerCase().includes(term) ||
-        cat.location?.area?.toLowerCase().includes(term) ||
-        cat.location?.city?.toLowerCase().includes(term) ||
-        cat.location?.country?.toLowerCase().includes(term) ||
-        cat.location?.approximateAddress?.toLowerCase().includes(term) ||
-        cat.alternativeNames?.some(n => n.toLowerCase().includes(term));
-      const matchesEmoji = !filters.emoji || cat.emoji === filters.emoji;
-      const matchesPersonality =
-        filters.personality.length === 0 ||
-        filters.personality.some((trait) => cat.personality.includes(trait));
-      const matchesPetting =
-        filters.allowsPetting === null ||
-        cat.allowsPetting === filters.allowsPetting;
-      const matchesTreats =
-        filters.acceptsTreats === null ||
-        cat.acceptsTreats === filters.acceptsTreats;
-      const matchesLiving =
-        filters.livingLocation === null ||
-        cat.livingLocation === filters.livingLocation;
-      const matchesCity =
-        !filters.city || cat.location?.city === filters.city;
-      const matchesCountry =
-        !filters.country || cat.location?.country === filters.country;
+      try {
+        const term = searchTerm.toLowerCase();
+        const name = (cat.name || "").toLowerCase();
+        const area = (cat.location?.area || "").toLowerCase();
+        const city = (cat.location?.city || "").toLowerCase();
+        const country = (cat.location?.country || "").toLowerCase();
+        const addr = (cat.location?.approximateAddress || "").toLowerCase();
+        const altNames = Array.isArray(cat.alternativeNames) ? cat.alternativeNames : [];
+        const personality = Array.isArray(cat.personality) ? cat.personality : [];
 
-      return (
-        matchesSearch &&
-        matchesEmoji &&
-        matchesPersonality &&
-        matchesPetting &&
-        matchesTreats &&
-        matchesLiving &&
-        matchesCity &&
-        matchesCountry
-      );
+        const matchesSearch = !term ||
+          name.includes(term) ||
+          area.includes(term) ||
+          city.includes(term) ||
+          country.includes(term) ||
+          addr.includes(term) ||
+          altNames.some(n => (n || "").toLowerCase().includes(term));
+        const matchesEmoji = !filters.emoji || cat.emoji === filters.emoji;
+        const matchesPersonality =
+          filters.personality.length === 0 ||
+          filters.personality.some((trait) => personality.includes(trait));
+        const matchesPetting =
+          filters.allowsPetting === null ||
+          cat.allowsPetting === filters.allowsPetting;
+        const matchesTreats =
+          filters.acceptsTreats === null ||
+          cat.acceptsTreats === filters.acceptsTreats;
+        const matchesLiving =
+          filters.livingLocation === null ||
+          cat.livingLocation === filters.livingLocation;
+        const matchesCity =
+          !filters.city || cat.location?.city === filters.city;
+        const matchesCountry =
+          !filters.country || cat.location?.country === filters.country;
+
+        return (
+          matchesSearch &&
+          matchesEmoji &&
+          matchesPersonality &&
+          matchesPetting &&
+          matchesTreats &&
+          matchesLiving &&
+          matchesCity &&
+          matchesCountry
+        );
+      } catch (err) {
+        // Never let one malformed cat hide the whole list
+        console.warn("[Catwalk] Filter error for cat", cat?.id, err);
+        return true;
+      }
+    });
+
+    // Debug: separate raw vs filtered counts
+    console.log(`[Catwalk] Browse — raw cats: ${cats.length}, filtered: ${filteredCats.length}, active filters:`, {
+      searchTerm,
+      emoji: filters.emoji,
+      personality: filters.personality,
+      allowsPetting: filters.allowsPetting,
+      acceptsTreats: filters.acceptsTreats,
+      livingLocation: filters.livingLocation,
+      city: filters.city,
+      country: filters.country,
     });
 
     const hasActiveFilters =
@@ -7133,8 +7227,19 @@ export default function CatwalkApp() {
               marginBottom: "16px",
             }}
           >
-            All Cats ({filteredCats.length})
+            All Cats ({filteredCats.length}{filteredCats.length !== cats.length ? ` of ${cats.length}` : ""})
           </h3>
+          {cats.length > 0 && filteredCats.length === 0 && (
+            <div style={{ background: "#fffbeb", border: "1px solid #fde68a", borderRadius: "12px", padding: "14px 16px", marginBottom: "16px", fontSize: "14px", color: "#78350f" }}>
+              No cats match the current filters. {hasActiveFilters && (
+                <button
+                  type="button"
+                  onClick={() => { setFilters({ emoji: null, personality: [], allowsPetting: null, acceptsTreats: null, livingLocation: null, city: null, country: null }); setSearchTerm(""); }}
+                  style={{ background: "none", border: "none", padding: 0, color: "#1a0dab", textDecoration: "underline", cursor: "pointer", fontSize: "14px" }}
+                >Clear filters</button>
+              )}
+            </div>
+          )}
           <div
             style={{
               display: "grid",
