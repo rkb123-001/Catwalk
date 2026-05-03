@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 
 // Firebase imports - Real Firebase integration
 import { initializeApp } from "firebase/app";
@@ -5326,6 +5326,10 @@ export default function CatwalkApp() {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
   const manualMarkerRef = useRef<any>(null);
+  const userMarkerRef = useRef<any>(null);
+  const userLocationRef = useRef<[number, number] | null>(null);
+  const locationWatchRef = useRef<number | null>(null);
+  const hasCentredOnUserLocationRef = useRef(false);
   const repairedCreatorVisitsRef = useRef<Set<string>>(new Set());
 
   const invalidateMapSize = (map = mapInstanceRef.current) => {
@@ -5343,6 +5347,60 @@ export default function CatwalkApp() {
       window.setTimeout(invalidate, delay);
     });
   };
+
+  useEffect(() => {
+    userLocationRef.current = userLocation;
+  }, [userLocation]);
+
+  const startUserLocationWatch = useCallback((centreOnNextUpdate = false) => {
+    if (!navigator.geolocation) return false;
+
+    if (locationWatchRef.current !== null) {
+      const latestUserLocation = userLocationRef.current;
+      if (centreOnNextUpdate && latestUserLocation && mapInstanceRef.current) {
+        mapInstanceRef.current.flyTo(latestUserLocation, 15, { duration: 0.8 });
+        hasCentredOnUserLocationRef.current = true;
+      }
+      return true;
+    }
+
+    let shouldCentreOnNextUpdate = centreOnNextUpdate;
+
+    locationWatchRef.current = navigator.geolocation.watchPosition(
+      (pos) => {
+        const loc: [number, number] = [pos.coords.latitude, pos.coords.longitude];
+        userLocationRef.current = loc;
+        setUserLocation(loc);
+        localStorage.setItem("catwalk-last-location", JSON.stringify(loc));
+        localStorage.setItem("catwalk-location-asked", "true");
+
+        if (shouldCentreOnNextUpdate && mapInstanceRef.current) {
+          mapInstanceRef.current.flyTo(loc, 15, { duration: 0.8 });
+          hasCentredOnUserLocationRef.current = true;
+          shouldCentreOnNextUpdate = false;
+        }
+      },
+      (error) => {
+        console.warn("Location watch failed:", error);
+        if (error.code === error.PERMISSION_DENIED) {
+          localStorage.removeItem("catwalk-last-location");
+        }
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 10000,
+      }
+    );
+
+    return true;
+  }, []);
+
+  const stopUserLocationWatch = useCallback(() => {
+    if (locationWatchRef.current === null) return;
+    navigator.geolocation.clearWatch(locationWatchRef.current);
+    locationWatchRef.current = null;
+  }, []);
 
   // Filter state
   const [filters, setFilters] = useState<FilterState>({
@@ -5501,43 +5559,66 @@ export default function CatwalkApp() {
     if (!asked || (!saved && asked)) setShowLocationConsent(true);
   }, []);
 
-  // Silently use location if permission is already granted (no prompt needed)
+  // Load any saved location immediately, then start live tracking if permission is already granted.
   useEffect(() => {
     if (!navigator.geolocation) return;
-    // Use Permissions API if available to check without prompting
-    if (navigator.permissions) {
-      navigator.permissions.query({ name: "geolocation" }).then((result) => {
-        if (result.state === "granted") {
-          navigator.geolocation.getCurrentPosition(
-            (pos) => {
-              const loc: [number, number] = [pos.coords.latitude, pos.coords.longitude];
-              setUserLocation(loc);
-              localStorage.setItem("catwalk-last-location", JSON.stringify(loc));
-              localStorage.setItem("catwalk-location-asked", "true");
-            },
-            () => {},
-            { timeout: 8000, maximumAge: 300000, enableHighAccuracy: false }
-          );
+
+    const saved = localStorage.getItem("catwalk-last-location");
+    if (saved) {
+      try {
+        const loc = JSON.parse(saved) as [number, number];
+        if (Array.isArray(loc) && loc.length === 2) {
+          const savedLoc: [number, number] = [Number(loc[0]), Number(loc[1])];
+          userLocationRef.current = savedLoc;
+          setUserLocation(savedLoc);
         }
-      }).catch(() => {
-        // Permissions API not supported — fall back to saved location only
-      });
-    } else {
-      // No Permissions API — try saved location
-      const saved = localStorage.getItem("catwalk-last-location");
-      if (saved) {
-        try {
-          const loc = JSON.parse(saved) as [number, number];
-          setUserLocation(loc);
-        } catch {}
+      } catch {
+        localStorage.removeItem("catwalk-last-location");
       }
     }
-  }, []);
 
-  // Fly map to user location whenever it's set (handles delayed geolocation)
+    if (navigator.permissions) {
+      let permissionStatus: PermissionStatus | null = null;
+
+      navigator.permissions
+        .query({ name: "geolocation" as PermissionName })
+        .then((result) => {
+          permissionStatus = result;
+
+          if (result.state === "granted") {
+            startUserLocationWatch();
+          }
+
+          result.onchange = () => {
+            if (result.state === "granted") {
+              startUserLocationWatch();
+            }
+
+            if (result.state === "denied") {
+              stopUserLocationWatch();
+              localStorage.removeItem("catwalk-last-location");
+            }
+          };
+        })
+        .catch(() => {
+          // Permissions API not supported or blocked. Keep the saved location fallback.
+        });
+
+      return () => {
+        if (permissionStatus) permissionStatus.onchange = null;
+        stopUserLocationWatch();
+      };
+    }
+
+    return () => stopUserLocationWatch();
+  }, [startUserLocationWatch, stopUserLocationWatch]);
+
+  // Centre the map the first time a user location becomes available. After that,
+  // keep the blue dot live without constantly dragging the map as the user moves.
   useEffect(() => {
-    if (!userLocation || !mapInstanceRef.current) return;
+    if (!userLocation || !mapInstanceRef.current || hasCentredOnUserLocationRef.current) return;
     mapInstanceRef.current.flyTo(userLocation, 15, { duration: 0.8 });
+    hasCentredOnUserLocationRef.current = true;
   }, [userLocation]);
 
   // Load Leaflet
@@ -5659,6 +5740,8 @@ export default function CatwalkApp() {
         if (mapInstanceRef.current) {
           mapInstanceRef.current.remove();
           mapInstanceRef.current = null;
+          manualMarkerRef.current = null;
+          userMarkerRef.current = null;
           setLeafletMap(null);
         }
 
@@ -5745,13 +5828,6 @@ export default function CatwalkApp() {
     };
   }, [currentView, showCatspotting, leafletLoaded, leafletMap]);
 
-  // Recentre once the user's location arrives, without rebuilding the map.
-  useEffect(() => {
-    if (userLocation && mapInstanceRef.current) {
-      mapInstanceRef.current.flyTo(userLocation, 15, { duration: 0.6 });
-    }
-  }, [userLocation]);
-
   // Update map click handler
   useEffect(() => {
     if (mapInstanceRef.current && window.L) {
@@ -5796,49 +5872,61 @@ export default function CatwalkApp() {
       mapInstanceRef.current.remove();
       mapInstanceRef.current = null;
       manualMarkerRef.current = null;
+      userMarkerRef.current = null;
       setLeafletMap(null);
     }
   }, [currentView, showCatspotting]);
 
-  // Add markers to map
+  // Add cat markers to map and keep the live user marker updated.
   useEffect(() => {
-    if (leafletMap && window.L) {
-      leafletMap.eachLayer((layer: any) => {
-        if (
-          layer._latlng &&
-          !layer._isUserLocation &&
-          layer !== manualMarkerRef.current
-        ) {
-          leafletMap.removeLayer(layer);
-        }
-      });
+    if (!leafletMap || !window.L) return;
 
-      cats.forEach((cat) => {
-        const catIcon = window.L.divIcon({
-          html: `<div style="font-size: 28px; line-height: 1; cursor: pointer; filter: drop-shadow(0 1px 3px rgba(0,0,0,0.3));">${cat.emoji}</div>`,
-          iconSize: [36, 36],
-          iconAnchor: [18, 18],
-          className: '',
-        });
-
-        const marker = window.L.marker([cat.location.lat, cat.location.lng], {
-          icon: catIcon,
-        }).addTo(leafletMap);
-        marker.on("click", () => setSelectedCat(cat));
-      });
-
-      if (userLocation) {
-        const userIcon = window.L.divIcon({
-          html: '<div style="width: 16px; height: 16px; background: #3b82f6; border: 3px solid white; border-radius: 50%; box-shadow: 0 2px 8px rgba(59, 130, 246, 0.5);"></div>',
-          iconSize: [16, 16],
-          iconAnchor: [8, 8],
-          className: '',
-        });
-        const userMarker = window.L.marker(userLocation, {
-          icon: userIcon,
-        }).addTo(leafletMap);
-        userMarker._isUserLocation = true;
+    leafletMap.eachLayer((layer: any) => {
+      if (
+        layer._latlng &&
+        layer !== manualMarkerRef.current &&
+        layer !== userMarkerRef.current
+      ) {
+        leafletMap.removeLayer(layer);
       }
+    });
+
+    cats.forEach((cat) => {
+      const catIcon = window.L.divIcon({
+        html: `<div style="font-size: 28px; line-height: 1; cursor: pointer; filter: drop-shadow(0 1px 3px rgba(0,0,0,0.3));">${cat.emoji}</div>`,
+        iconSize: [36, 36],
+        iconAnchor: [18, 18],
+        className: '',
+      });
+
+      const marker = window.L.marker([cat.location.lat, cat.location.lng], {
+        icon: catIcon,
+      }).addTo(leafletMap);
+      marker.on("click", () => setSelectedCat(cat));
+    });
+
+    if (!userLocation) {
+      if (userMarkerRef.current) {
+        leafletMap.removeLayer(userMarkerRef.current);
+        userMarkerRef.current = null;
+      }
+      return;
+    }
+
+    const userIcon = window.L.divIcon({
+      html: '<div style="width: 16px; height: 16px; background: #3b82f6; border: 3px solid white; border-radius: 50%; box-shadow: 0 2px 8px rgba(59, 130, 246, 0.5);"></div>',
+      iconSize: [16, 16],
+      iconAnchor: [8, 8],
+      className: '',
+    });
+
+    if (userMarkerRef.current) {
+      userMarkerRef.current.setLatLng(userLocation);
+      userMarkerRef.current.setIcon(userIcon);
+    } else {
+      userMarkerRef.current = window.L.marker(userLocation, {
+        icon: userIcon,
+      }).addTo(leafletMap);
     }
   }, [leafletMap, cats, userLocation]);
 
@@ -7192,16 +7280,8 @@ export default function CatwalkApp() {
                       }
                       if (userLocation && mapInstanceRef.current) {
                         mapInstanceRef.current.flyTo(userLocation, 15);
-                      } else if (navigator.geolocation) {
-                        navigator.geolocation.getCurrentPosition(
-                          (position) => {
-                            const nextLocation: [number, number] = [position.coords.latitude, position.coords.longitude];
-                            setUserLocation(nextLocation);
-                            mapInstanceRef.current?.flyTo(nextLocation, 15);
-                          },
-                          () => { alert("Could not get your current location."); },
-                          { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
-                        );
+                      } else if (!startUserLocationWatch(true)) {
+                        alert("Location is not available on this browser.");
                       }
                     }}
                   >
@@ -7522,20 +7602,9 @@ Tap the map to place a custom map pin. To create a cat, use the blue + Add cat b
                 onClick={() => {
                   localStorage.setItem("catwalk-location-asked", "true");
                   setShowLocationConsent(false);
-                  if (navigator.geolocation) {
-                    navigator.geolocation.getCurrentPosition(
-                      (pos) => {
-                        const loc: [number, number] = [pos.coords.latitude, pos.coords.longitude];
-                        setUserLocation(loc);
-                        localStorage.setItem("catwalk-last-location", JSON.stringify(loc));
-                        if (mapInstanceRef.current) mapInstanceRef.current.flyTo(loc, 15);
-                      },
-                      () => {
-                        // Denied — remove the saved flag so they see the prompt again next visit
-                        localStorage.removeItem("catwalk-last-location");
-                      },
-                      { timeout: 15000, maximumAge: 0, enableHighAccuracy: false }
-                    );
+
+                  if (!startUserLocationWatch(true)) {
+                    alert("Location is not available on this browser.");
                   }
                 }}
                 style={{ padding: "14px 20px", background: "#1a0dab", border: "none", cursor: "pointer", fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', fontSize: "15px", fontWeight: "600", color: "white", borderRadius: "12px" }}
