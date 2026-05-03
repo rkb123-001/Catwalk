@@ -5681,30 +5681,24 @@ export default function CatwalkApp() {
   }, []);
 
   // Load cats from Firebase
-  // Subscribes once auth state is resolved. Preserves ALL fields from Firestore
-  // (defensive defaults are applied for filtering only — not as a replacement).
+  // Subscribe once on mount. Firestore handles auth state internally — if rules
+  // reject before auth is ready, the listener will retry once auth resolves.
+  // Defensive defaults applied for any field used in filtering or rendering.
   useEffect(() => {
-    // Wait for auth to finish loading before subscribing — Firestore rules
-    // require auth, so subscribing too early returns nothing.
-    if (authLoading) return;
-
     // Detect PWA standalone (iOS adds-to-homescreen, Android installed)
     const isStandalone = typeof window !== "undefined" && (
       window.matchMedia?.("(display-mode: standalone)")?.matches ||
       (window.navigator as any).standalone === true
     );
-    console.log("[Catwalk] App start — standalone PWA:", isStandalone, "user:", currentUser?.uid || "(none)");
+    console.log("[Catwalk] App start — standalone PWA:", isStandalone);
+    console.log("[Catwalk] Subscribing to cats collection.");
 
-    console.log("[Catwalk] Subscribing to cats collection. Current user:", currentUser?.uid || "(no user)");
     const unsubscribe = onSnapshot(
       collection(db, "cats"),
       { includeMetadataChanges: true },
       (snapshot: any) => {
         const catsData: Cat[] = snapshot.docs.map((docSnap: any) => {
           const data: any = docSnap.data() || {};
-          // Build the cat object explicitly, with defensive defaults for any
-          // field used in filtering or rendering. Keep all original fields
-          // by reading them from data; only override when they'd cause a crash.
           const cat: Cat = {
             id: docSnap.id,
             name: data.name || "Unnamed",
@@ -5730,7 +5724,6 @@ export default function CatwalkApp() {
           };
           return cat;
         });
-        // Sort client-side, newest first; cats without dates land at the end
         catsData.sort((a: Cat, b: Cat) => {
           const da = a.createdDate || "";
           const dbb = b.createdDate || "";
@@ -5746,7 +5739,7 @@ export default function CatwalkApp() {
     );
 
     return () => unsubscribe();
-  }, [authLoading, currentUser?.uid]);
+  }, []);
 
   const catsPhotoStorageSignature = cats
     .map((cat) => `${cat.id}:${(cat.photos || []).map((photo) => photo.url || photo.id).join(",")}`)
