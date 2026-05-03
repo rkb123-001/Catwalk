@@ -2509,12 +2509,15 @@ function AddCatForm({
                     style={{ border: "none", outline: "none", width: "100%", fontSize: "16px", background: "transparent" }}
                   />
                   {searchingCatLocation && <span style={{ fontSize: "12px", color: "#9ca3af" }}>...</span>}
+                  {catLocationSearch && (
+                    <button onClick={() => { setCatLocationSearch(""); setCatLocationResults([]); }} style={{ background: "none", border: "none", cursor: "pointer", color: "#9ca3af", fontSize: "18px", padding: 0, lineHeight: 1 }}>×</button>
+                  )}
                 </div>
                 {catLocationResults.length > 0 && (
-                  <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 30, background: "white", borderRadius: "12px", boxShadow: "0 6px 18px rgba(0,0,0,0.15)", marginTop: "4px", overflow: "hidden" }}>
+                  <div style={{ position: "fixed", left: "20px", right: "20px", zIndex: 3500, background: "white", borderRadius: "12px", boxShadow: "0 6px 24px rgba(0,0,0,0.18)", marginTop: "4px", overflow: "hidden" }}>
                     {catLocationResults.map((result: any, i: number) => (
-                      <button key={i} type="button" onClick={() => handleCatLocationSelect(result)}
-                        style={{ display: "block", width: "100%", padding: "13px 16px", background: "white", border: "none", borderBottom: i < catLocationResults.length - 1 ? "1px solid #f3f4f6" : "none", textAlign: "left", cursor: "pointer", fontSize: "15px", color: "#111827" }}>
+                      <button key={i} type="button" onClick={() => { handleCatLocationSelect(result); setCatLocationResults([]); }}
+                        style={{ display: "block", width: "100%", padding: "14px 16px", background: "white", border: "none", borderBottom: i < catLocationResults.length - 1 ? "1px solid #f3f4f6" : "none", textAlign: "left", cursor: "pointer", fontSize: "15px", color: "#111827" }}>
                         {result.display_name.split(",").slice(0, 3).join(",")}
                       </button>
                     ))}
@@ -5365,6 +5368,40 @@ export default function CatwalkApp() {
     const saved = localStorage.getItem("catwalk-last-location");
     // Show if never asked, OR if asked before but no saved location (i.e. was denied/skipped)
     if (!asked || (!saved && asked)) setShowLocationConsent(true);
+  }, []);
+
+  // Silently use location if permission is already granted (no prompt needed)
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+    // Use Permissions API if available to check without prompting
+    if (navigator.permissions) {
+      navigator.permissions.query({ name: "geolocation" }).then((result) => {
+        if (result.state === "granted") {
+          navigator.geolocation.getCurrentPosition(
+            (pos) => {
+              const loc: [number, number] = [pos.coords.latitude, pos.coords.longitude];
+              setUserLocation(loc);
+              localStorage.setItem("catwalk-last-location", JSON.stringify(loc));
+              localStorage.setItem("catwalk-location-asked", "true");
+              if (mapInstanceRef.current) mapInstanceRef.current.flyTo(loc, 15);
+            },
+            () => {},
+            { timeout: 8000, maximumAge: 300000, enableHighAccuracy: false }
+          );
+        }
+      }).catch(() => {
+        // Permissions API not supported — fall back to saved location only
+      });
+    } else {
+      // No Permissions API — try saved location
+      const saved = localStorage.getItem("catwalk-last-location");
+      if (saved) {
+        try {
+          const loc = JSON.parse(saved) as [number, number];
+          setUserLocation(loc);
+        } catch {}
+      }
+    }
   }, []);
 
   // Load Leaflet
