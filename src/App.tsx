@@ -5717,10 +5717,8 @@ export default function CatwalkApp() {
             createdDate: data.createdDate || data.createdAt || new Date(0).toISOString(),
             creatorId: data.creatorId || "",
             creator: data.creator || "Catwalker",
-            ...data,
-            id: docSnap.id, // Always last so it can't be overwritten by stray field
-          };
-        }) as Cat[];
+          } as Cat;
+        });
         // Sort client-side, newest first; cats without dates land at the end
         catsData.sort((a, b) => {
           const da = a.createdDate || "";
