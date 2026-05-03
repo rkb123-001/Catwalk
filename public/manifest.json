@@ -1,0 +1,25 @@
+{
+  "name": "Catwalk",
+  "short_name": "Catwalk",
+  "description": "A community-built map of neighbourhood cats.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#1a0dab",
+  "orientation": "portrait",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/cat-placeholder.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/cat-placeholder.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

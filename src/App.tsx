@@ -5681,56 +5681,16 @@ export default function CatwalkApp() {
   }, []);
 
   // Load cats from Firebase
-  // Subscribe once on mount. Firestore handles auth state internally — if rules
-  // reject before auth is ready, the listener will retry once auth resolves.
-  // Defensive defaults applied for any field used in filtering or rendering.
   useEffect(() => {
-    // Detect PWA standalone (iOS adds-to-homescreen, Android installed)
-    const isStandalone = typeof window !== "undefined" && (
-      window.matchMedia?.("(display-mode: standalone)")?.matches ||
-      (window.navigator as any).standalone === true
-    );
-    console.log("[Catwalk] App start — standalone PWA:", isStandalone);
     console.log("[Catwalk] Subscribing to cats collection.");
-
     const unsubscribe = onSnapshot(
-      collection(db, "cats"),
-      { includeMetadataChanges: true },
+      query(collection(db, "cats"), orderBy("createdDate", "desc")),
       (snapshot: any) => {
-        const catsData: Cat[] = snapshot.docs.map((docSnap: any) => {
-          const data: any = docSnap.data() || {};
-          const cat: Cat = {
-            id: docSnap.id,
-            name: data.name || "Unnamed",
-            emoji: data.emoji || "🐱",
-            description: data.description || "",
-            personality: Array.isArray(data.personality) ? data.personality : [],
-            allowsPetting: data.allowsPetting ?? null,
-            acceptsTreats: data.acceptsTreats ?? null,
-            favoriteTreats: Array.isArray(data.favoriteTreats) ? data.favoriteTreats : [],
-            livingLocation: data.livingLocation ?? null,
-            location: data.location || { lat: 0, lng: 0, area: "", city: "", country: "", continent: "", approximateAddress: "" },
-            photos: Array.isArray(data.photos) ? data.photos : [],
-            visits: Array.isArray(data.visits) ? data.visits : [],
-            slowBlinks: Array.isArray(data.slowBlinks) ? data.slowBlinks : [],
-            descriptions: Array.isArray(data.descriptions) ? data.descriptions : [],
-            alternativeNames: Array.isArray(data.alternativeNames) ? data.alternativeNames : [],
-            createdDate: data.createdDate || data.createdAt || new Date(0).toISOString(),
-            creatorId: data.creatorId || "",
-            creator: data.creator || "Catwalker",
-            contributors: Array.isArray(data.contributors) ? data.contributors : [],
-            totalVisits: typeof data.totalVisits === "number" ? data.totalVisits : (Array.isArray(data.visits) ? data.visits.length : 0),
-            userVisits: data.userVisits || {},
-          };
-          return cat;
-        });
-        catsData.sort((a: Cat, b: Cat) => {
-          const da = a.createdDate || "";
-          const dbb = b.createdDate || "";
-          return dbb.localeCompare(da);
-        });
-        const source = snapshot.metadata.fromCache ? "cache" : "server";
-        console.log(`[Catwalk] Loaded ${catsData.length} cats from ${source}`, catsData);
+        const catsData = snapshot.docs.map((doc: any) => ({
+          id: doc.id,
+          ...doc.data(),
+        })) as Cat[];
+        console.log(`[Catwalk] Loaded ${catsData.length} cats`, catsData);
         setCats(catsData);
       },
       (error: any) => {
