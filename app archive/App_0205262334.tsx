@@ -155,11 +155,6 @@ interface ContributionDeleteOptions {
   slowBlinks: boolean;
   writtenInfo: boolean;
   catsCreated: boolean;
-  deleteCatsCreated: boolean;
-  specificPhotoIds?: string[];
-  specificVisitDates?: string[]; // format: "catId::date"
-  specificDescriptionIds?: string[];
-  specificCatIdsToDelete?: string[];
 }
 
 interface UserProfileUpdateData {
@@ -180,8 +175,6 @@ interface FilterState {
   allowsPetting: boolean | null;
   acceptsTreats: boolean | null;
   livingLocation: "indoor" | "outdoor" | "both" | null;
-  city: string | null;
-  country: string | null;
 }
 
 const DEFAULT_CAT_PHOTO_POSITION = "50% 50%";
@@ -1300,7 +1293,7 @@ function UserCatsScreen({
     <div
       style={{
         position: "fixed",
-        top: "56px",
+        top: "72px",
         left: 0,
         right: 0,
         bottom: "80px",
@@ -1489,7 +1482,7 @@ function UserPhotosScreen({
     <div
       style={{
         position: "fixed",
-        top: "56px",
+        top: "72px",
         left: 0,
         right: 0,
         bottom: "80px",
@@ -1631,7 +1624,7 @@ function UserVisitsScreen({
     <div
       style={{
         position: "fixed",
-        top: "56px",
+        top: "72px",
         left: 0,
         right: 0,
         bottom: "80px",
@@ -1803,7 +1796,7 @@ function MapSnapshot({
       const timer = setTimeout(() => {
         const map = window.L.map(mapRef.current, {
           center: [lat, lng],
-          zoom: blur ? zoom - 3 : zoom,
+          zoom: blur ? zoom - 2 : zoom,
           zoomControl: false,
           scrollWheelZoom: false,
           doubleClickZoom: false,
@@ -1825,9 +1818,9 @@ function MapSnapshot({
           className: '',
         });
 
-        // Randomise pin position for privacy when blurred (~500m radius)
-        const displayLat = blur ? lat + (Math.random() - 0.5) * 0.005 : lat;
-        const displayLng = blur ? lng + (Math.random() - 0.5) * 0.005 : lng;
+        // Slightly randomise pin position for privacy when blurred
+        const displayLat = blur ? lat + (Math.random() - 0.5) * 0.002 : lat;
+        const displayLng = blur ? lng + (Math.random() - 0.5) * 0.002 : lng;
 
         window.L.marker([displayLat, displayLng], { icon: locationIcon }).addTo(map);
         mapInstanceRef.current = map;
@@ -1885,8 +1878,6 @@ function FilterModal({
       allowsPetting: null,
       acceptsTreats: null,
       livingLocation: null,
-      city: null,
-      country: null,
     };
     setTempFilters(resetFilters);
     onUpdateFilters(resetFilters);
@@ -2376,7 +2367,7 @@ function AddCatForm({
     <div
       style={{
         position: "fixed",
-        top: "56px",
+        top: "72px",
         left: 0,
         right: 0,
         bottom: "80px",
@@ -2924,7 +2915,6 @@ function CatProfile({
   cat,
   onClose,
   currentUser,
-  userProfile,
   onVisit,
   onSlowBlink,
   onAddPhoto,
@@ -2938,7 +2928,6 @@ function CatProfile({
   cat: Cat;
   onClose: () => void;
   currentUser: User | null;
-  userProfile: UserProfile | null;
   onVisit: () => void;
   onSlowBlink: () => void;
   onAddPhoto: (file: File, objectPosition?: string) => void | Promise<void>;
@@ -3341,7 +3330,7 @@ function CatProfile({
     <div
       style={{
         position: "fixed",
-        top: "56px",
+        top: "72px",
         left: 0,
         right: 0,
         bottom: "80px",
@@ -3503,42 +3492,45 @@ function CatProfile({
         </div>
 
         {/* Visit and Slow Blink buttons */}
-        <div style={{ display: "flex", gap: "10px", marginBottom: "12px" }}>
+        <div style={{ display: "flex", gap: "12px", marginBottom: "12px" }}>
           <button
             onClick={() => handleActionClick(onVisit)}
             style={{
               flex: 1,
-              padding: "14px 16px",
-              border: userVisitCount > 0 ? "none" : "1.5px solid #e5e7eb",
+              padding: "12px 20px",
+              border: "none",
               borderRadius: "12px",
-              fontSize: "15px",
-              fontWeight: "600",
+              fontSize: "16px",
+              fontWeight: "500",
               cursor: "pointer",
-              background: userVisitCount > 0 ? "#d1fae5" : "white",
-              color: userVisitCount > 0 ? "#065f46" : "#374151",
+              background: userVisitCount > 0 ? "#d1fae5" : "#f3f4f6",
+              color: userVisitCount > 0 ? "#065f46" : "#4b5563",
             }}
           >
             {currentUser
               ? userVisitCount > 0
-                ? `✓ Visited × ${userVisitCount}`
+                ? `Visited ✓ x${userVisitCount}`
                 : "Mark as Visited"
-              : "Sign in to visit"}
+              : "Sign in to Mark Visited"}
           </button>
           <button
             onClick={() => handleActionClick(onSlowBlink)}
             style={{
               flex: 1,
-              padding: "14px 16px",
+              padding: "12px 20px",
               border: "none",
               borderRadius: "12px",
-              fontSize: "15px",
-              fontWeight: "600",
+              fontSize: "16px",
+              fontWeight: "500",
               cursor: "pointer",
               background: "#fef3c7",
               color: "#92400e",
             }}
           >
-            😊 Slow Blink{cat.slowBlinks.length > 0 ? ` (${cat.slowBlinks.length})` : ""}
+            😊{" "}
+            {currentUser
+              ? `Slow Blink (${cat.slowBlinks.length})`
+              : "Sign in to Slow Blink"}
           </button>
         </div>
 
@@ -3565,7 +3557,7 @@ function CatProfile({
             onClick={() => currentUser ? setShowMyVisitDetails(true) : onAuthRequired()}
             style={{ border: "none", background: "none", color: "#1a0dab", padding: 0, cursor: "pointer", fontSize: "14px", textDecoration: "underline" }}
           >
-            Your {userVisitCount === 0 ? "not yet visited" : userVisitCount === 1 ? "1 visit" : `${userVisitCount} visits`}
+            Your {userVisitCount === 1 ? "1 visit" : `${userVisitCount} visits`}
           </button>
 
         </div>
@@ -3663,21 +3655,9 @@ function CatProfile({
                 <div>
                   <DisplayArea location={cat.location} />, {cat.location.city}
                 </div>
-                {(() => {
-                  const joinDate = userProfile?.joinDate ? toDate(userProfile.joinDate) : null;
-                  const accountAgeDays = joinDate ? (Date.now() - joinDate.getTime()) / (1000 * 60 * 60 * 24) : 0;
-                  const isTrusted = accountAgeDays >= 30 || (userProfile?.totalContributions || 0) >= 3;
-                  if (!isTrusted) return (
-                    <div style={{ color: "#9ca3af", fontSize: "13px", fontStyle: "italic" }}>
-                      Street detail visible after 30 days or 3 contributions
-                    </div>
-                  );
-                  return cat.location.approximateAddress ? (
-                    <div style={{ color: "#6b7280", fontSize: "14px" }}>
-                      {cat.location.approximateAddress}
-                    </div>
-                  ) : null;
-                })()}
+                <div style={{ color: "#6b7280", fontSize: "14px" }}>
+                  {cat.location.approximateAddress}
+                </div>
               </div>
             </div>
             <div
@@ -3923,7 +3903,7 @@ function ContributeForm({
     <div
       style={{
         position: "fixed",
-        top: "56px",
+        top: "72px",
         left: 0,
         right: 0,
         bottom: "80px",
@@ -4343,15 +4323,13 @@ function CatspottingScreen({
     <div
       style={{
         position: "fixed",
-        top: "56px",
+        top: "72px",
         left: 0,
         right: 0,
         bottom: "80px",
         background: "white",
         zIndex: 1500,
         overflowY: "auto",
-        display: "flex",
-        flexDirection: "column",
       }}
     >
       <div
@@ -4385,7 +4363,7 @@ function CatspottingScreen({
         <div style={{ width: "40px" }}></div>
       </div>
 
-      <div style={{ padding: "20px 20px 96px", display: "flex", flexDirection: "column", flex: 1 }}>
+      <div style={{ padding: "20px 20px 96px" }}>
         {!currentUser ? (
           <div
             style={{
@@ -4423,32 +4401,27 @@ function CatspottingScreen({
             </button>
           </div>
         ) : !photoFile ? (
-          <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <div
-              style={{
-                border: "2px dashed #d1d5db",
-                borderRadius: "20px",
-                padding: "48px 32px",
-                textAlign: "center",
-                cursor: "pointer",
-                background: "#f9fafb",
-                width: "100%",
-                maxWidth: "360px",
-                transition: "border-color 0.2s",
-              }}
-              onClick={() => fileInputRef.current?.click()}
+          <div
+            style={{
+              border: "2px dashed #d1d5db",
+              borderRadius: "12px",
+              padding: "60px 20px",
+              textAlign: "center",
+              cursor: "pointer",
+              background: "#f9fafb",
+            }}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <CameraIcon />
+            <p
+              style={{ marginTop: "16px", fontSize: "18px", fontWeight: "500" }}
             >
-              <div style={{ fontSize: "48px", marginBottom: "16px" }}>📸</div>
-              <p style={{ fontSize: "20px", fontWeight: "600", color: "#111827", marginBottom: "8px" }}>
-                Spotted a cat?
-              </p>
-              <p style={{ color: "#6b7280", fontSize: "14px", lineHeight: "1.5", marginBottom: "24px" }}>
-                Upload a photo and we'll help you identify if it's already in our database
-              </p>
-              <div style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "12px 24px", background: "#1a0dab", color: "white", borderRadius: "12px", fontSize: "15px", fontWeight: "500" }}>
-                <CameraIcon /> Choose photo
-              </div>
-            </div>
+              Spotted a cat?
+            </p>
+            <p style={{ marginTop: "8px", color: "#6b7280", fontSize: "14px" }}>
+              Upload a photo and we'll help you identify if it's already in our
+              database
+            </p>
           </div>
         ) : (
           <div>
@@ -4706,7 +4679,6 @@ function UserProfile({
   onUpdateProfile,
   onDeleteSelectedContributions,
   onDeleteAccount,
-  cats,
 }: {
   onClose: () => void;
   userProfile: UserProfile | null;
@@ -4716,371 +4688,7 @@ function UserProfile({
   onUpdateProfile: (data: UserProfileUpdateData) => void | Promise<void>;
   onDeleteSelectedContributions: (options: ContributionDeleteOptions) => void | Promise<void>;
   onDeleteAccount: () => void | Promise<void>;
-  cats: Cat[];
 }) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [displayName, setDisplayName] = useState(userProfile?.displayName || "");
-  const [identity, setIdentity] = useState<UserProfile["identity"]>(userProfile?.identity || "unattached-catwalker");
-  const [location, setLocation] = useState(userProfile?.location || "");
-  const [profilePictureFile, setProfilePictureFile] = useState<File | null>(null);
-  const [profilePicturePreview, setProfilePicturePreview] = useState<string | null>(null);
-  const [showDeleteSheet, setShowDeleteSheet] = useState(false);
-  const [deleteOptions, setDeleteOptions] = useState<ContributionDeleteOptions>({
-    photos: false, visits: false, slowBlinks: false, writtenInfo: false, catsCreated: false, deleteCatsCreated: false,
-  });
-  const [selectedCatsToDelete, setSelectedCatsToDelete] = useState<string[]>([]);
-
-  // Granular selections: maps cat id -> photo ids / visit dates / description ids
-  const [selectedPhotos, setSelectedPhotos] = useState<Record<string, string[]>>({});
-  const [selectedVisits, setSelectedVisits] = useState<Record<string, string[]>>({});
-  const [selectedDescriptions, setSelectedDescriptions] = useState<Record<string, string[]>>({});
-
-  useEffect(() => {
-    setDisplayName(userProfile?.displayName || "");
-    setIdentity(userProfile?.identity || "unattached-catwalker");
-    setLocation(userProfile?.location || "");
-    setProfilePictureFile(null);
-    setProfilePicturePreview(null);
-  }, [userProfile]);
-
-  if (!userProfile) return null;
-
-  const uid = userProfile.uid;
-
-  // User's actual contributions derived from cats prop
-  const myPhotos = cats.flatMap(cat =>
-    (cat.photos || []).filter(p => p.contributorId === uid).map(p => ({ cat, photo: p }))
-  );
-  const myVisits = cats.flatMap(cat =>
-    (cat.visits || []).filter(v => v.userId === uid).map(v => ({ cat, visit: v }))
-  );
-  const myDescriptions = cats.flatMap(cat =>
-    (cat.descriptions || []).filter(d => d.contributorId === uid).map(d => ({ cat, desc: d }))
-  );
-  const myCats = cats.filter(c => c.creatorId === uid);
-
-  const togglePhoto = (catId: string, photoId: string) => {
-    setSelectedPhotos(prev => {
-      const cur = prev[catId] || [];
-      return { ...prev, [catId]: cur.includes(photoId) ? cur.filter(x => x !== photoId) : [...cur, photoId] };
-    });
-  };
-  const toggleVisit = (catId: string, visitDate: string) => {
-    setSelectedVisits(prev => {
-      const cur = prev[catId] || [];
-      return { ...prev, [catId]: cur.includes(visitDate) ? cur.filter(x => x !== visitDate) : [...cur, visitDate] };
-    });
-  };
-  const toggleDescription = (catId: string, descId: string) => {
-    setSelectedDescriptions(prev => {
-      const cur = prev[catId] || [];
-      return { ...prev, [catId]: cur.includes(descId) ? cur.filter(x => x !== descId) : [...cur, descId] };
-    });
-  };
-
-  const anyGranularSelected =
-    Object.values(selectedPhotos).some(a => a.length > 0) ||
-    Object.values(selectedVisits).some(a => a.length > 0) ||
-    Object.values(selectedDescriptions).some(a => a.length > 0) ||
-    selectedCatsToDelete.length > 0 ||
-    deleteOptions.slowBlinks || deleteOptions.catsCreated;
-
-  const handleSaveProfile = async () => {
-    const cleanName = displayName.trim();
-    if (!cleanName) { alert("Please add a display name."); return; }
-    await onUpdateProfile({ displayName: cleanName, identity, location: location.trim(), profilePictureFile });
-    setIsEditing(false);
-    setProfilePictureFile(null);
-    setProfilePicturePreview(null);
-  };
-
-  const handleProfilePictureSelect = (file: File) => {
-    setProfilePictureFile(file);
-    const reader = new FileReader();
-    reader.onloadend = () => setProfilePicturePreview(reader.result as string);
-    reader.readAsDataURL(file);
-  };
-
-  // Build ContributionDeleteOptions from granular selections + pass extra context
-  const handleDeleteGranular = async () => {
-    const hasPhotos = Object.values(selectedPhotos).some(a => a.length > 0);
-    const hasVisits = Object.values(selectedVisits).some(a => a.length > 0);
-    const hasDescs = Object.values(selectedDescriptions).some(a => a.length > 0);
-    const confirmed = window.confirm("Delete the selected contributions? This cannot be undone.");
-    if (!confirmed) return;
-    await onDeleteSelectedContributions({
-      photos: hasPhotos,
-      visits: hasVisits,
-      slowBlinks: deleteOptions.slowBlinks,
-      writtenInfo: hasDescs,
-      catsCreated: deleteOptions.catsCreated,
-      deleteCatsCreated: selectedCatsToDelete.length > 0,
-      specificPhotoIds: Object.entries(selectedPhotos).flatMap(([_, ids]) => ids),
-      specificVisitDates: Object.entries(selectedVisits).flatMap(([catId, dates]) => dates.map(d => `${catId}::${d}`)),
-      specificDescriptionIds: Object.entries(selectedDescriptions).flatMap(([_, ids]) => ids),
-      specificCatIdsToDelete: selectedCatsToDelete,
-    });
-    setShowDeleteSheet(false);
-    setSelectedPhotos({}); setSelectedVisits({}); setSelectedDescriptions({});
-    setSelectedCatsToDelete([]);
-    setDeleteOptions({ photos: false, visits: false, slowBlinks: false, writtenInfo: false, catsCreated: false, deleteCatsCreated: false });
-  };
-
-  return (
-    <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "white", zIndex: 2000, overflowY: "auto" }}>
-      {/* Header */}
-      <div style={{ position: "sticky", top: 0, background: "white", padding: "16px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #e5e7eb", zIndex: 10 }}>
-        <h2 style={{ margin: 0, fontSize: "18px", fontWeight: "600" }}>Your Profile</h2>
-        <button onClick={onClose} style={{ background: "none", border: "none", padding: "8px", cursor: "pointer", color: "#6b7280" }}>
-          <XIcon />
-        </button>
-      </div>
-
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "32px 20px 20px" }}>
-
-        {/* Avatar */}
-        <div style={{ position: "relative", marginBottom: "20px" }}>
-          <div style={{ width: "96px", height: "96px", background: "#e5e7eb", borderRadius: "50%", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            {profilePicturePreview || userProfile.profilePicture ? (
-              <img src={profilePicturePreview || userProfile.profilePicture} alt="Profile" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-            ) : <UserIcon />}
-          </div>
-          {isEditing && (
-            <PhotoCaptureButton onPhotoSelected={handleProfilePictureSelect} style={{ position: "absolute", bottom: 0, right: 0 }}>
-              <div style={{ width: "28px", height: "28px", background: "#1a0dab", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", border: "2px solid white" }}>
-                <CameraIcon />
-              </div>
-            </PhotoCaptureButton>
-          )}
-        </div>
-
-        {isEditing ? (
-          <div style={{ width: "100%", maxWidth: "420px", display: "flex", flexDirection: "column", gap: "12px", marginBottom: "20px" }}>
-            <label style={{ fontSize: "14px", fontWeight: 600, color: "#374151" }}>
-              Display name
-              <input value={displayName} onChange={(e) => setDisplayName(e.target.value)}
-                style={{ display: "block", width: "100%", marginTop: "6px", padding: "11px 14px", borderRadius: "10px", border: "1px solid #d1d5db", fontSize: "16px" }} />
-            </label>
-            <label style={{ fontSize: "14px", fontWeight: 600, color: "#374151" }}>
-              Profile type
-              <select value={identity} onChange={(e) => setIdentity(e.target.value as UserProfile["identity"])}
-                style={{ display: "block", width: "100%", marginTop: "6px", padding: "11px 14px", borderRadius: "10px", border: "1px solid #d1d5db", fontSize: "16px", background: "white" }}>
-                <option value="human-of-cat">Human of a Cat</option>
-                <option value="unattached-catwalker">Unattached Catwalker</option>
-              </select>
-            </label>
-            <label style={{ fontSize: "14px", fontWeight: 600, color: "#374151" }}>
-              Location
-              <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="e.g. London"
-                style={{ display: "block", width: "100%", marginTop: "6px", padding: "11px 14px", borderRadius: "10px", border: "1px solid #d1d5db", fontSize: "16px" }} />
-            </label>
-            <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end", marginTop: "4px" }}>
-              <button type="button" onClick={() => { setIsEditing(false); setDisplayName(userProfile.displayName || ""); setIdentity(userProfile.identity); setLocation(userProfile.location || ""); setProfilePictureFile(null); setProfilePicturePreview(null); }}
-                style={{ padding: "10px 18px", borderRadius: "10px", border: "1px solid #e5e7eb", background: "white", cursor: "pointer", fontSize: "14px" }}>
-                Cancel
-              </button>
-              <button type="button" onClick={handleSaveProfile}
-                style={{ padding: "10px 18px", borderRadius: "10px", border: "none", background: "#1a0dab", color: "white", cursor: "pointer", fontWeight: 600, fontSize: "14px" }}>
-                Save changes
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div style={{ textAlign: "center", marginBottom: "24px" }}>
-            <h3 style={{ fontSize: "24px", fontWeight: "700", margin: "0 0 4px", color: "#111827" }}>{userProfile.displayName}</h3>
-            <p style={{ fontSize: "14px", color: "#9ca3af", margin: "0 0 4px" }}>{userProfile.email}</p>
-            <p style={{ fontSize: "14px", color: "#1a0dab", fontWeight: "600", margin: "0 0 8px" }}>
-              {userProfile.identity === "human-of-cat" ? "Human of a Cat" : "Unattached Catwalker"}
-            </p>
-            {userProfile.location && <p style={{ fontSize: "14px", color: "#6b7280", margin: "0 0 12px" }}>📍 {userProfile.location}</p>}
-            <p style={{ fontSize: "13px", color: "#9ca3af", margin: "0 0 14px" }}>On the Catwalk since {userProfile.joinDate && formatDate(userProfile.joinDate)}</p>
-            <button type="button" onClick={() => setIsEditing(true)}
-              style={{ padding: "8px 18px", borderRadius: "20px", border: "1px solid #d1d5db", background: "white", color: "#374151", cursor: "pointer", fontSize: "14px", fontWeight: "600" }}>
-              Edit profile
-            </button>
-          </div>
-        )}
-
-        {/* Stats grid */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", width: "100%", maxWidth: "420px", marginBottom: "28px" }}>
-          <button onClick={onShowUserCats} style={{ textAlign: "center", padding: "18px 12px", background: "#f9fafb", borderRadius: "14px", border: "none", cursor: "pointer" }}>
-            <div style={{ fontSize: "32px", fontWeight: "800", color: "#1a0dab", marginBottom: "4px" }}>{userProfile.catsFound || 0}</div>
-            <div style={{ fontSize: "13px", color: "#6b7280" }}>Cats Added</div>
-          </button>
-          <button onClick={onShowUserPhotos} style={{ textAlign: "center", padding: "18px 12px", background: "#f9fafb", borderRadius: "14px", border: "none", cursor: "pointer" }}>
-            <div style={{ fontSize: "32px", fontWeight: "800", color: "#1a0dab", marginBottom: "4px" }}>{userProfile.photosAdded || 0}</div>
-            <div style={{ fontSize: "13px", color: "#6b7280" }}>Photos Added</div>
-          </button>
-          <div style={{ textAlign: "center", padding: "18px 12px", background: "#f9fafb", borderRadius: "14px" }}>
-            <div style={{ fontSize: "32px", fontWeight: "800", color: "#1a0dab", marginBottom: "4px" }}>{userProfile.totalContributions || 0}</div>
-            <div style={{ fontSize: "13px", color: "#6b7280" }}>Info Contributed</div>
-          </div>
-          <button onClick={onShowUserVisits} style={{ textAlign: "center", padding: "18px 12px", background: "#f9fafb", borderRadius: "14px", border: "none", cursor: "pointer" }}>
-            <div style={{ fontSize: "32px", fontWeight: "800", color: "#1a0dab", marginBottom: "4px" }}>{userProfile.catsVisited?.length || 0}</div>
-            <div style={{ fontSize: "13px", color: "#6b7280" }}>Cats Visited</div>
-          </button>
-        </div>
-
-        {/* Account controls */}
-        <div style={{ width: "100%", maxWidth: "420px", paddingTop: "20px", borderTop: "1px solid #e5e7eb" }}>
-          <h4 style={{ margin: "0 0 6px", fontSize: "15px", fontWeight: "600", color: "#111827" }}>Account controls</h4>
-          <p style={{ margin: "0 0 14px", fontSize: "13px", color: "#6b7280", lineHeight: 1.5 }}>
-            Remove specific contributions or delete your account entirely.
-          </p>
-          <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-            <button type="button" onClick={() => setShowDeleteSheet(true)}
-              style={{ padding: "12px 14px", borderRadius: "12px", border: "1px solid #f59e0b", background: "#fffbeb", color: "#92400e", cursor: "pointer", fontWeight: "600", fontSize: "14px" }}>
-              Manage contributions
-            </button>
-            <button type="button" onClick={onDeleteAccount}
-              style={{ padding: "12px 14px", borderRadius: "12px", border: "1px solid #ef4444", background: "#fef2f2", color: "#991b1b", cursor: "pointer", fontWeight: "600", fontSize: "14px" }}>
-              Delete my account
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Granular delete sheet */}
-      {showDeleteSheet && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 2100 }} onClick={() => setShowDeleteSheet(false)}>
-          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "white", borderRadius: "20px 20px 0 0", maxHeight: "80vh", display: "flex", flexDirection: "column", boxShadow: "0 -4px 24px rgba(0,0,0,0.12)" }}
-            onClick={e => e.stopPropagation()}>
-            <div style={{ display: "flex", justifyContent: "center", padding: "12px 0 0" }}>
-              <div style={{ width: "40px", height: "4px", background: "#e5e7eb", borderRadius: "2px" }} />
-            </div>
-            <div style={{ padding: "16px 20px", borderBottom: "1px solid #e5e7eb", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <h3 style={{ margin: 0, fontSize: "17px", fontWeight: "600" }}>Manage contributions</h3>
-              <button onClick={() => setShowDeleteSheet(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "#6b7280" }}>
-                <XIcon />
-              </button>
-            </div>
-            <div style={{ overflowY: "auto", padding: "16px 20px 32px", flex: 1, display: "flex", flexDirection: "column", gap: "20px" }}>
-
-              {/* Photos */}
-              {myPhotos.length > 0 && (
-                <div>
-                  <h4 style={{ margin: "0 0 10px", fontSize: "14px", fontWeight: "700", color: "#374151", textTransform: "uppercase", letterSpacing: "0.05em" }}>Photos ({myPhotos.length})</h4>
-                  <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                    {myPhotos.map(({ cat, photo }) => (
-                      <label key={photo.id} style={{ display: "flex", alignItems: "center", gap: "12px", cursor: "pointer", padding: "8px", borderRadius: "10px", background: (selectedPhotos[cat.id] || []).includes(photo.id) ? "#fef2f2" : "#f9fafb" }}>
-                        <input type="checkbox" checked={(selectedPhotos[cat.id] || []).includes(photo.id)} onChange={() => togglePhoto(cat.id, photo.id)} style={{ flexShrink: 0 }} />
-                        <img src={photo.url} alt={cat.name} style={{ width: "44px", height: "44px", objectFit: "cover", borderRadius: "8px", flexShrink: 0 }} />
-                        <div>
-                          <div style={{ fontWeight: "600", fontSize: "14px", color: "#111827" }}>{cat.name}</div>
-                          <div style={{ fontSize: "12px", color: "#9ca3af" }}>{formatDate(photo.date)}</div>
-                        </div>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Visits */}
-              {myVisits.length > 0 && (
-                <div>
-                  <h4 style={{ margin: "0 0 10px", fontSize: "14px", fontWeight: "700", color: "#374151", textTransform: "uppercase", letterSpacing: "0.05em" }}>Visits ({myVisits.length})</h4>
-                  <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                    {myVisits.map(({ cat, visit }) => (
-                      <label key={`${cat.id}-${visit.date}`} style={{ display: "flex", alignItems: "center", gap: "12px", cursor: "pointer", padding: "8px", borderRadius: "10px", background: (selectedVisits[cat.id] || []).includes(visit.date) ? "#fef2f2" : "#f9fafb" }}>
-                        <input type="checkbox" checked={(selectedVisits[cat.id] || []).includes(visit.date)} onChange={() => toggleVisit(cat.id, visit.date)} style={{ flexShrink: 0 }} />
-                        <div style={{ width: "44px", height: "44px", background: "#e5e7eb", borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "24px", flexShrink: 0 }}>
-                          {cat.emoji}
-                        </div>
-                        <div>
-                          <div style={{ fontWeight: "600", fontSize: "14px", color: "#111827" }}>{cat.name}</div>
-                          <div style={{ fontSize: "12px", color: "#9ca3af" }}>{formatDate(visit.date)}</div>
-                        </div>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Descriptions */}
-              {myDescriptions.length > 0 && (
-                <div>
-                  <h4 style={{ margin: "0 0 10px", fontSize: "14px", fontWeight: "700", color: "#374151", textTransform: "uppercase", letterSpacing: "0.05em" }}>Written contributions ({myDescriptions.length})</h4>
-                  <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                    {myDescriptions.map(({ cat, desc }) => (
-                      <label key={desc.id} style={{ display: "flex", alignItems: "flex-start", gap: "12px", cursor: "pointer", padding: "8px", borderRadius: "10px", background: (selectedDescriptions[cat.id] || []).includes(desc.id) ? "#fef2f2" : "#f9fafb" }}>
-                        <input type="checkbox" checked={(selectedDescriptions[cat.id] || []).includes(desc.id)} onChange={() => toggleDescription(cat.id, desc.id)} style={{ marginTop: "3px", flexShrink: 0 }} />
-                        <div>
-                          <div style={{ fontWeight: "600", fontSize: "14px", color: "#111827" }}>{cat.name} <span style={{ fontWeight: "400", color: "#9ca3af", fontSize: "12px", textTransform: "capitalize" }}>({desc.type})</span></div>
-                          <div style={{ fontSize: "13px", color: "#6b7280", marginTop: "2px", lineHeight: "1.4" }}>{desc.text.length > 80 ? desc.text.slice(0, 80) + "…" : desc.text}</div>
-                        </div>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Slow blinks */}
-              <div>
-                <label style={{ display: "flex", alignItems: "center", gap: "12px", cursor: "pointer", padding: "8px", borderRadius: "10px", background: deleteOptions.slowBlinks ? "#fef2f2" : "#f9fafb" }}>
-                  <input type="checkbox" checked={deleteOptions.slowBlinks} onChange={e => setDeleteOptions(p => ({ ...p, slowBlinks: e.target.checked }))} />
-                  <div>
-                    <div style={{ fontWeight: "600", fontSize: "14px", color: "#111827" }}>All slow blinks</div>
-                    <div style={{ fontSize: "12px", color: "#9ca3af" }}>Remove all your slow blink reactions</div>
-                  </div>
-                </label>
-              </div>
-
-              {/* Cats added — delete or anonymise */}
-              {myCats.length > 0 && (
-                <div>
-                  <h4 style={{ margin: "0 0 10px", fontSize: "14px", fontWeight: "700", color: "#374151", textTransform: "uppercase", letterSpacing: "0.05em" }}>Cats you added ({myCats.length})</h4>
-                  <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                    {myCats.map((cat) => (
-                      <div key={cat.id} style={{ padding: "10px", borderRadius: "10px", background: selectedCatsToDelete.includes(cat.id) ? "#fef2f2" : "#f9fafb", border: selectedCatsToDelete.includes(cat.id) ? "1px solid #fca5a5" : "1px solid transparent" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "8px" }}>
-                          {cat.photos?.[0] ? (
-                            <img src={cat.photos[0].url} alt={cat.name} style={{ width: "44px", height: "44px", objectFit: "cover", borderRadius: "8px", flexShrink: 0 }} />
-                          ) : (
-                            <div style={{ width: "44px", height: "44px", background: "#e5e7eb", borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "24px", flexShrink: 0 }}>{cat.emoji}</div>
-                          )}
-                          <div>
-                            <div style={{ fontWeight: "600", fontSize: "14px", color: "#111827" }}>{cat.name}</div>
-                            <div style={{ fontSize: "12px", color: "#9ca3af" }}>{cat.location?.area || cat.location?.city || ""}</div>
-                          </div>
-                        </div>
-                        <div style={{ display: "flex", gap: "8px" }}>
-                          <label style={{ display: "flex", alignItems: "center", gap: "6px", cursor: "pointer", fontSize: "13px", color: "#374151", flex: 1, padding: "6px 10px", background: "white", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
-                            <input type="checkbox"
-                              checked={selectedCatsToDelete.includes(cat.id)}
-                              onChange={e => setSelectedCatsToDelete(prev => e.target.checked ? [...prev, cat.id] : prev.filter(id => id !== cat.id))}
-                            />
-                            Delete entirely
-                          </label>
-                          <label style={{ display: "flex", alignItems: "center", gap: "6px", cursor: "pointer", fontSize: "13px", color: "#374151", flex: 1, padding: "6px 10px", background: "white", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
-                            <input type="checkbox"
-                              checked={deleteOptions.catsCreated}
-                              onChange={e => setDeleteOptions(p => ({ ...p, catsCreated: e.target.checked }))}
-                            />
-                            Anonymise me
-                          </label>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {myPhotos.length === 0 && myVisits.length === 0 && myDescriptions.length === 0 && (
-                <p style={{ color: "#9ca3af", fontSize: "14px", textAlign: "center", padding: "20px 0" }}>No contributions found yet.</p>
-              )}
-            </div>
-            <div style={{ padding: "16px 20px", borderTop: "1px solid #e5e7eb" }}>
-              <button type="button" disabled={!anyGranularSelected} onClick={handleDeleteGranular}
-                style={{ width: "100%", padding: "14px", borderRadius: "12px", border: "none", background: anyGranularSelected ? "#991b1b" : "#e5e7eb", color: anyGranularSelected ? "white" : "#9ca3af", cursor: anyGranularSelected ? "pointer" : "not-allowed", fontWeight: "700", fontSize: "15px" }}>
-                Delete selected
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
   const [isEditing, setIsEditing] = useState(false);
   const [displayName, setDisplayName] = useState(userProfile?.displayName || "");
   const [identity, setIdentity] = useState<UserProfile["identity"]>(userProfile?.identity || "unattached-catwalker");
@@ -5590,8 +5198,6 @@ export default function CatwalkApp() {
     allowsPetting: null,
     acceptsTreats: null,
     livingLocation: null,
-    city: null,
-    country: null,
   });
 
   // Firebase Auth State Listener
@@ -5804,7 +5410,7 @@ export default function CatwalkApp() {
       if (!document.querySelector('style[data-catwalk-leaflet-controls="true"]')) {
         const zoomStyle = document.createElement("style");
         zoomStyle.setAttribute("data-catwalk-leaflet-controls", "true");
-        zoomStyle.textContent = `.leaflet-top.leaflet-left { top: 220px !important; } .leaflet-control-zoom { z-index: 900 !important; border: none !important; box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important; } .leaflet-control-zoom a { width: 36px !important; height: 36px !important; line-height: 36px !important; }`;
+        zoomStyle.textContent = `.leaflet-top.leaflet-left { top: 310px !important; } .leaflet-control-zoom { z-index: 900 !important; border: none !important; box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important; } .leaflet-control-zoom a { width: 36px !important; height: 36px !important; line-height: 36px !important; }`;
         document.head.appendChild(zoomStyle);
       }
 
@@ -6081,20 +5687,6 @@ export default function CatwalkApp() {
   const handleVisit = async () => {
     if (!selectedCat || !currentUser || !userProfile) return;
 
-    // 24-hour cooldown — check last visit date for this cat
-    const myLastVisit = (selectedCat.visits || [])
-      .filter(v => v.userId === currentUser.uid)
-      .sort((a, b) => b.date.localeCompare(a.date))[0];
-
-    if (myLastVisit) {
-      const hoursSince = (Date.now() - new Date(myLastVisit.date).getTime()) / (1000 * 60 * 60);
-      if (hoursSince < 24) {
-        const hoursLeft = Math.ceil(24 - hoursSince);
-        alert(`You can log another visit in ${hoursLeft} hour${hoursLeft === 1 ? "" : "s"}. Visits are limited to once every 24 hours.`);
-        return;
-      }
-    }
-
     try {
       const catDoc = doc(db, "cats", selectedCat.id);
       const newVisit = {
@@ -6357,53 +5949,26 @@ export default function CatwalkApp() {
     if (!currentUser || !userProfile) return;
 
     const uid = currentUser.uid;
-    const displayName = userProfile.displayName || "Anonymous user";
+    const displayName = userProfile.displayName || "Deleted user";
     const updatedCats: Cat[] = [];
 
     for (const cat of cats) {
-      // Handle actual cat deletion (not just anonymisation)
-      const shouldDeleteCat = options.deleteCatsCreated && cat.creatorId === uid &&
-        (options.specificCatIdsToDelete?.length
-          ? options.specificCatIdsToDelete.includes(cat.id)
-          : true);
-
-      if (shouldDeleteCat) {
-        // Delete all photos from storage first
-        for (const photo of cat.photos || []) {
-          try { await deleteObject(storageRef(storage, photo.url)); } catch {}
-        }
-        await deleteDoc(doc(db, "cats", cat.id));
-        // Don't push to updatedCats — it's gone
-        continue;
-      }
-
       const previousUserVisitCount = options.visits ? cat.userVisits?.[uid] || 0 : 0;
-    const photosToRemove = options.photos
-      ? (cat.photos || []).filter((photo) =>
-          options.specificPhotoIds?.length
-            ? options.specificPhotoIds.includes(photo.id)
-            : photo.contributorId === uid
-        )
-      : [];
-    const remainingPhotos = (cat.photos || []).filter(p => !photosToRemove.some(r => r.id === p.id));
-    const remainingVisits = options.visits
-      ? (cat.visits || []).filter((visit) => {
-          if (options.specificVisitDates?.length) {
-            return !options.specificVisitDates.includes(`${cat.id}::${visit.date}`);
-          }
-          return visit.userId !== uid;
-        })
-      : cat.visits || [];
-    const remainingSlowBlinks = options.slowBlinks
-      ? (cat.slowBlinks || []).filter((blink) => blink.userId !== uid)
-      : cat.slowBlinks || [];
-    const remainingDescriptions = options.writtenInfo
-      ? (cat.descriptions || []).filter((description) =>
-          options.specificDescriptionIds?.length
-            ? !options.specificDescriptionIds.includes(description.id)
-            : description.contributorId !== uid
-        )
-      : cat.descriptions || [];
+      const photosToRemove = options.photos
+        ? (cat.photos || []).filter((photo) => photo.contributorId === uid)
+        : [];
+      const remainingPhotos = options.photos
+        ? (cat.photos || []).filter((photo) => photo.contributorId !== uid)
+        : cat.photos || [];
+      const remainingVisits = options.visits
+        ? (cat.visits || []).filter((visit) => visit.userId !== uid)
+        : cat.visits || [];
+      const remainingSlowBlinks = options.slowBlinks
+        ? (cat.slowBlinks || []).filter((blink) => blink.userId !== uid)
+        : cat.slowBlinks || [];
+      const remainingDescriptions = options.writtenInfo
+        ? (cat.descriptions || []).filter((description) => description.contributorId !== uid)
+        : cat.descriptions || [];
       const nextUserVisits = { ...(cat.userVisits || {}) };
 
       if (options.visits) {
@@ -6442,8 +6007,8 @@ export default function CatwalkApp() {
         contributors: remainingContributors,
         userVisits: nextUserVisits,
         totalVisits: Math.max(0, (cat.totalVisits || 0) - previousUserVisitCount),
-        creator: shouldAnonymiseCreatedCat ? "Anonymous user" : cat.creator,
-        creatorId: shouldAnonymiseCreatedCat ? "anonymous-user" : cat.creatorId,
+        creator: shouldAnonymiseCreatedCat ? "Deleted user" : cat.creator,
+        creatorId: shouldAnonymiseCreatedCat ? "deleted-user" : cat.creatorId,
       };
 
       const catDoc = doc(db, "cats", cat.id);
@@ -6470,18 +6035,12 @@ export default function CatwalkApp() {
       updatedCats.push(nextCat);
     }
 
-    const deletedCatCount = options.deleteCatsCreated
-      ? (options.specificCatIdsToDelete?.length
-          ? options.specificCatIdsToDelete.filter(id => cats.some(c => c.id === id && c.creatorId === uid)).length
-          : cats.filter(c => c.creatorId === uid).length)
-      : 0;
-
     const nextUserProfile: UserProfile = {
       ...userProfile,
       photosAdded: options.photos ? 0 : userProfile.photosAdded,
       catsVisited: options.visits ? [] : userProfile.catsVisited,
       totalContributions: options.writtenInfo ? 0 : userProfile.totalContributions,
-      catsFound: Math.max(0, (userProfile.catsFound || 0) - deletedCatCount - (options.catsCreated ? userProfile.catsFound || 0 : 0)),
+      catsFound: options.catsCreated ? 0 : userProfile.catsFound,
     };
 
     const userDocRef = await getUserProfileDocRef(uid);
@@ -6671,96 +6230,68 @@ export default function CatwalkApp() {
     onGuide: () => void;
     onHomeClick: () => void;
   }) {
-    const [showUserMenu, setShowUserMenu] = useState(false);
-
     return (
-      <>
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            zIndex: 1000,
-            background: "white",
-            padding: "0 16px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-            height: "56px",
-          }}
-        >
-          {/* Left: title */}
+      <div
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          zIndex: 1000,
+          background: "white",
+          padding: "16px 20px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+          height: "72px",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
           <button
             onClick={onHomeClick}
-            style={{ fontSize: "22px", fontWeight: "700", background: "none", border: "none", cursor: "pointer", padding: 0, color: "#111827", letterSpacing: "-0.5px" }}
+            style={{ fontSize: "24px", fontWeight: "bold", margin: 0, background: "none", border: "none", cursor: "pointer", padding: 0, color: "#111827" }}
           >
             Catwalk
           </button>
-
-          {/* Right: actions */}
-          <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-            <button
-              style={{ background: "none", border: "none", padding: "10px", cursor: "pointer", color: "#6b7280", fontSize: "13px", fontWeight: "500" }}
-              onClick={onGuide}
-            >
-              How to use
-            </button>
-            {currentUser ? (
-              <button
-                onClick={() => setShowUserMenu(true)}
-                style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "40px", height: "40px", background: "#f3f4f6", borderRadius: "50%", border: "none", cursor: "pointer", padding: 0 }}
-                aria-label="Account menu"
-              >
-                {userProfile?.profilePicture ? (
-                  <img src={userProfile.profilePicture} alt="" style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }} />
-                ) : (
-                  <UserIcon />
-                )}
-              </button>
-            ) : (
-              <button
-                style={{ padding: "8px 14px", background: "#1a0dab", color: "white", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "14px", fontWeight: "500" }}
-                onClick={onLogin}
-              >
-                Sign In
-              </button>
-            )}
-          </div>
         </div>
-
-        {/* User menu sheet */}
-        {showUserMenu && (
-          <div
-            style={{ position: "fixed", inset: 0, zIndex: 2000 }}
-            onClick={() => setShowUserMenu(false)}
+        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+          <button
+            style={{ background: "#f3f4f6", border: "1px solid #e5e7eb", borderRadius: "999px", padding: "7px 12px", cursor: "pointer", color: "#4b5563", fontSize: "13px", fontWeight: "500" }}
+            onClick={onGuide}
           >
-            <div
-              style={{ position: "absolute", top: "60px", right: "12px", background: "white", borderRadius: "16px", boxShadow: "0 8px 32px rgba(0,0,0,0.15)", minWidth: "220px", overflow: "hidden" }}
-              onClick={(e) => e.stopPropagation()}
+            How to use
+          </button>
+          {currentUser ? (
+            <>
+              <button
+                style={{ display: "flex", alignItems: "center", gap: "12px", background: "none", border: "none", cursor: "pointer", padding: "4px" }}
+                onClick={onProfileClick}
+              >
+                <UserIcon />
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontSize: "16px", fontWeight: "600", color: "#111827" }}>
+                    {userProfile?.displayName || "Guest"}
+                  </div>
+                  <div style={{ fontSize: "14px", color: "#6b7280" }}>
+                    {userProfile?.totalContributions || 0} contributions
+                  </div>
+                </div>
+              </button>
+              <button style={{ background: "none", border: "none", padding: "8px", cursor: "pointer", color: "#6b7280", display: "flex", alignItems: "center" }} onClick={onLogout}>
+                <LogoutIcon />
+              </button>
+            </>
+          ) : (
+            <button
+              style={{ padding: "8px 16px", background: "#1a0dab", color: "white", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "14px", fontWeight: "500" }}
+              onClick={onLogin}
             >
-              {/* User info */}
-              <div style={{ padding: "16px 18px", borderBottom: "1px solid #f3f4f6" }}>
-                <div style={{ fontWeight: "600", fontSize: "16px", color: "#111827" }}>{userProfile?.displayName || "Catwalker"}</div>
-                <div style={{ fontSize: "13px", color: "#9ca3af", marginTop: "2px" }}>{userProfile?.totalContributions || 0} contributions</div>
-              </div>
-              <button
-                onClick={() => { setShowUserMenu(false); onProfileClick(); }}
-                style={{ display: "flex", alignItems: "center", gap: "10px", width: "100%", padding: "14px 18px", background: "none", border: "none", cursor: "pointer", fontSize: "15px", color: "#111827", textAlign: "left" }}
-              >
-                <UserIcon /> My profile
-              </button>
-              <button
-                onClick={() => { setShowUserMenu(false); onLogout(); }}
-                style={{ display: "flex", alignItems: "center", gap: "10px", width: "100%", padding: "14px 18px", background: "none", border: "none", cursor: "pointer", fontSize: "15px", color: "#ef4444", textAlign: "left", borderTop: "1px solid #f3f4f6" }}
-              >
-                <LogoutIcon /> Sign out
-              </button>
-            </div>
-          </div>
-        )}
-      </>
+              Sign In
+            </button>
+          )}
+        </div>
+      </div>
     );
   }
 
@@ -6775,14 +6306,6 @@ export default function CatwalkApp() {
     onAddCat: () => void;
   }) {
     const [searchTerm, setSearchTerm] = useState("");
-
-    // Derive unique cities and countries from cats list
-    const availableCities = Array.from(new Set(
-      cats.map(c => c.location?.city).filter(Boolean) as string[]
-    )).sort();
-    const availableCountries = Array.from(new Set(
-      cats.map(c => c.location?.country).filter(Boolean) as string[]
-    )).sort();
 
     const filteredCats = cats.filter((cat) => {
       const matchesSearch = cat.name
@@ -6801,10 +6324,6 @@ export default function CatwalkApp() {
       const matchesLiving =
         filters.livingLocation === null ||
         cat.livingLocation === filters.livingLocation;
-      const matchesCity =
-        !filters.city || cat.location?.city === filters.city;
-      const matchesCountry =
-        !filters.country || cat.location?.country === filters.country;
 
       return (
         matchesSearch &&
@@ -6812,9 +6331,7 @@ export default function CatwalkApp() {
         matchesPersonality &&
         matchesPetting &&
         matchesTreats &&
-        matchesLiving &&
-        matchesCity &&
-        matchesCountry
+        matchesLiving
       );
     });
 
@@ -6823,9 +6340,7 @@ export default function CatwalkApp() {
       filters.personality.length > 0 ||
       filters.allowsPetting !== null ||
       filters.acceptsTreats !== null ||
-      filters.livingLocation !== null ||
-      filters.city !== null ||
-      filters.country !== null;
+      filters.livingLocation !== null;
 
     const canEditBrowsePhotoPosition = (cat: Cat, photo?: CatPhoto) =>
       Boolean(
@@ -6915,45 +6430,6 @@ export default function CatwalkApp() {
               )}
             </button>
           </div>
-
-          {/* Location filter chips */}
-          {(availableCountries.length > 1 || availableCities.length > 1) && (
-            <div style={{ marginTop: "12px" }}>
-              {availableCountries.length > 1 && (
-                <div style={{ marginBottom: availableCities.length > 1 ? "8px" : 0 }}>
-                  <div style={{ fontSize: "11px", fontWeight: "600", color: "#9ca3af", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: "6px" }}>Country</div>
-                  <div style={{ display: "flex", gap: "8px", overflowX: "auto", paddingBottom: "2px" }}>
-                    {availableCountries.map(country => (
-                      <button key={country}
-                        onClick={() => setFilters(f => ({ ...f, country: f.country === country ? null : country, city: null }))}
-                        style={{ padding: "6px 14px", borderRadius: "20px", border: "1.5px solid", borderColor: filters.country === country ? "#1a0dab" : "#e5e7eb", background: filters.country === country ? "#1a0dab" : "white", color: filters.country === country ? "white" : "#374151", fontSize: "13px", fontWeight: "500", cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}
-                      >
-                        {country}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {availableCities.length > 1 && (
-                <div>
-                  <div style={{ fontSize: "11px", fontWeight: "600", color: "#9ca3af", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: "6px" }}>City</div>
-                  <div style={{ display: "flex", gap: "8px", overflowX: "auto", paddingBottom: "2px" }}>
-                    {(filters.country
-                      ? availableCities.filter(city => cats.some(c => c.location?.city === city && c.location?.country === filters.country))
-                      : availableCities
-                    ).map(city => (
-                      <button key={city}
-                        onClick={() => setFilters(f => ({ ...f, city: f.city === city ? null : city }))}
-                        style={{ padding: "6px 14px", borderRadius: "20px", border: "1.5px solid", borderColor: filters.city === city ? "#1a0dab" : "#e5e7eb", background: filters.city === city ? "#1a0dab" : "white", color: filters.city === city ? "white" : "#374151", fontSize: "13px", fontWeight: "500", cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}
-                      >
-                        {city}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
         </div>
 
         <div style={{ padding: "20px", background: "white" }}>
@@ -7045,14 +6521,6 @@ export default function CatwalkApp() {
                       }}
                       onError={(e) => {
                         e.currentTarget.style.display = "none";
-                        const parent = e.currentTarget.parentElement;
-                        if (parent) {
-                          parent.style.display = "flex";
-                          parent.style.alignItems = "center";
-                          parent.style.justifyContent = "center";
-                          parent.style.fontSize = "52px";
-                          parent.innerHTML = cat.emoji;
-                        }
                       }}
                     />
                   ) : (
@@ -7063,10 +6531,11 @@ export default function CatwalkApp() {
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
-                        fontSize: "52px",
+                        color: "#9ca3af",
+                        fontSize: "14px",
                       }}
                     >
-                      {cat.emoji}
+                      No photo
                     </div>
                   )}
                   {false && canEditBrowsePhotoPosition(cat, cat.photos[0]) && (
@@ -7346,7 +6815,7 @@ export default function CatwalkApp() {
         width: "100%",
         height: "100vh",
         overflow: "hidden",
-        paddingTop: "56px",
+        paddingTop: "72px",
         fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
         background: "#f5f5f5",
       }}
@@ -7367,28 +6836,27 @@ export default function CatwalkApp() {
           <div
             style={{
               position: "absolute",
-              top: "66px",
+              top: "90px",
               left: "10px",
-              right: "10px",
               zIndex: 1000,
               display: "flex",
               flexDirection: "column",
-              gap: "8px",
+              gap: "12px",
             }}
           >
             {/* Location search */}
             <div style={{ position: "relative" }}>
-              <div style={{ background: "white", borderRadius: "12px", boxShadow: "0 2px 8px rgba(0, 0, 0, 0.12)", display: "flex", alignItems: "center", padding: "9px 12px", gap: "8px" }}>
-                <span style={{ fontSize: "14px" }}>🔍</span>
+              <div style={{ background: "white", borderRadius: "12px", boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)", display: "flex", alignItems: "center", padding: "10px 14px", gap: "8px" }}>
+                <span>🔍</span>
                 <input
                   type="text"
                   placeholder="Search for a location..."
                   value={locationSearch}
                   onChange={(e) => handleLocationSearch(e.target.value)}
-                  style={{ border: "none", outline: "none", fontSize: "14px", flex: 1, background: "transparent" }}
+                  style={{ border: "none", outline: "none", fontSize: "14px", width: "200px", background: "transparent" }}
                 />
                 {searchingLocation && <span style={{ fontSize: "12px", color: "#9ca3af" }}>...</span>}
-                {locationSearch && <button onClick={() => { setLocationSearch(""); setLocationResults([]); }} style={{ background: "none", border: "none", cursor: "pointer", color: "#9ca3af", fontSize: "18px", padding: 0, lineHeight: 1 }}>×</button>}
+                {locationSearch && <button onClick={() => { setLocationSearch(""); setLocationResults([]); }} style={{ background: "none", border: "none", cursor: "pointer", color: "#9ca3af", fontSize: "16px", padding: 0 }}>×</button>}
               </div>
               {locationResults.length > 0 && (
                 <div style={{ position: "absolute", top: "100%", left: 0, right: 0, background: "white", borderRadius: "12px", boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)", marginTop: "4px", overflow: "hidden", zIndex: 1001 }}>
@@ -7404,53 +6872,101 @@ export default function CatwalkApp() {
                 </div>
               )}
             </div>
-
-            {/* Location status + drop pin — compact row */}
-            <div style={{ display: "flex", gap: "8px" }}>
-              <div style={{ background: "white", borderRadius: "10px", boxShadow: "0 2px 8px rgba(0,0,0,0.1)", padding: "8px 12px", fontSize: "13px", display: "flex", alignItems: "center", gap: "6px", flex: 1, minWidth: 0 }}>
-                <span style={{ color: "#ef4444", flexShrink: 0 }}>📍</span>
-                <span style={{ color: "#374151", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {manualLocation ? `Pin: ${manualLocation[0].toFixed(3)}, ${manualLocation[1].toFixed(3)}` : userLocation ? "Your location" : "Location unavailable"}
-                </span>
-                {(manualLocation || userLocation) && (
-                  <button
-                    style={{ color: "#ef4444", textDecoration: "underline", background: "none", border: "none", cursor: "pointer", fontSize: "13px", flexShrink: 0, padding: 0 }}
-                    onClick={() => {
-                      setManualLocation(null);
-                      if (manualMarkerRef.current && mapInstanceRef.current) {
-                        mapInstanceRef.current.removeLayer(manualMarkerRef.current);
-                        manualMarkerRef.current = null;
-                      }
-                      if (userLocation && mapInstanceRef.current) {
-                        mapInstanceRef.current.flyTo(userLocation, 15);
-                      } else if (navigator.geolocation) {
-                        navigator.geolocation.getCurrentPosition(
-                          (position) => {
-                            const nextLocation: [number, number] = [position.coords.latitude, position.coords.longitude];
-                            setUserLocation(nextLocation);
-                            mapInstanceRef.current?.flyTo(nextLocation, 15);
-                          },
-                          () => { alert("Could not get your current location."); },
-                          { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
-                        );
-                      }
-                    }}
-                  >
-                    Reset
-                  </button>
-                )}
-              </div>
-              <button
-                style={{ background: isPlacingPin ? "#1a0dab" : "white", color: isPlacingPin ? "white" : "#374151", padding: "8px 12px", border: "none", borderRadius: "10px", boxShadow: "0 2px 8px rgba(0,0,0,0.1)", fontSize: "13px", cursor: "pointer", flexShrink: 0 }}
-                onClick={() => setIsPlacingPin(!isPlacingPin)}
-              >
-                📌 {isPlacingPin ? "Tap map" : "Drop pin"}
-              </button>
+            <div
+              style={{
+                background: "white",
+                padding: "12px 20px",
+                borderRadius: "12px",
+                boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
+                fontSize: "14px",
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+              }}
+            >
+              <span style={{ color: "#ef4444" }}>📍</span>
+              <span>
+                {manualLocation
+                  ? `Pin selected (${manualLocation[0].toFixed(
+                      4
+                    )}, ${manualLocation[1].toFixed(4)})`
+                  : userLocation
+                  ? "Using your current location"
+                  : "Location not available"}
+              </span>
+              {(manualLocation || userLocation) && (
+                <button
+                  style={{
+                    color: "#ef4444",
+                    textDecoration: "underline",
+                    marginLeft: "8px",
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    fontSize: "14px",
+                  }}
+                  onClick={() => {
+                    setManualLocation(null);
+                    if (manualMarkerRef.current && mapInstanceRef.current) {
+                      mapInstanceRef.current.removeLayer(
+                        manualMarkerRef.current
+                      );
+                      manualMarkerRef.current = null;
+                    }
+                    if (userLocation && mapInstanceRef.current) {
+                      mapInstanceRef.current.flyTo(userLocation, 15);
+                    } else if (navigator.geolocation) {
+                      navigator.geolocation.getCurrentPosition(
+                        (position) => {
+                          const nextLocation: [number, number] = [
+                            position.coords.latitude,
+                            position.coords.longitude,
+                          ];
+                          setUserLocation(nextLocation);
+                          mapInstanceRef.current?.flyTo(nextLocation, 15);
+                        },
+                        () => {
+                          alert("Could not get your current location. Please check browser location permissions.");
+                        },
+                        { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
+                      );
+                    } else {
+                      alert("Location services are not available in this browser.");
+                    }
+                  }}
+                >
+                  Reset location
+                </button>
+              )}
             </div>
-
+            <button
+              style={{
+                background: isPlacingPin ? "#1a0dab" : "white",
+                color: isPlacingPin ? "white" : "black",
+                padding: "12px 20px",
+                border: "none",
+                borderRadius: "12px",
+                boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
+                fontSize: "14px",
+                cursor: "pointer",
+              }}
+              onClick={() => setIsPlacingPin(!isPlacingPin)}
+            >
+              📌 {isPlacingPin ? "Tap map to place pin" : manualLocation ? "Move custom pin" : "Drop custom pin"}
+            </button>
             {manualLocation && !isPlacingPin && (
-              <div style={{ background: "#eff6ff", color: "#1e3a8a", padding: "8px 12px", borderRadius: "10px", fontSize: "12px", boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}>
-                Pin placed. Tap + Add cat to continue.
+              <div
+                style={{
+                  background: "#eff6ff",
+                  color: "#1e3a8a",
+                  padding: "10px 12px",
+                  borderRadius: "12px",
+                  fontSize: "13px",
+                  boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
+                  maxWidth: "280px",
+                }}
+              >
+                Custom pin placed. This adjusts the map area only. To create a new cat, tap the blue + Add cat button.
               </div>
             )}
             {isPlacingPin && (
@@ -7635,7 +7151,6 @@ Tap the map to place a custom map pin. To create a cat, use the blue + Add cat b
           cat={selectedCat}
           onClose={() => setSelectedCat(null)}
           currentUser={currentUser}
-          userProfile={userProfile}
           onVisit={handleVisit}
           onSlowBlink={handleSlowBlink}
           onAddPhoto={handleAddPhoto}
@@ -7668,7 +7183,6 @@ Tap the map to place a custom map pin. To create a cat, use the blue + Add cat b
           onUpdateProfile={handleUpdateUserProfile}
           onDeleteSelectedContributions={handleDeleteSelectedContributions}
           onDeleteAccount={handleDeleteAccount}
-          cats={cats}
         />
       )}
 
