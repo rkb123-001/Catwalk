@@ -836,7 +836,7 @@ async function createUserProfile(
     await addDoc(collection(db, "users"), {
       uid: user.uid,
       email: user.email,
-      displayName: additionalData.displayName || "Catwalker",
+      displayName: additionalData.displayName || user.email?.split("@")[0],
       joinDate: serverTimestamp(),
       totalContributions: 0,
       catsFound: 0,
@@ -2250,7 +2250,7 @@ function AddCatForm({
       // Previously this made Save cat silently do nothing. Create a safe fallback
       // profile so the cat can still be saved, then use it for attribution.
       if (!activeUserProfile) {
-        const fallbackName = "Catwalker";
+        const fallbackName = currentUser.email?.split("@")[0] || "Catwalker";
         await createUserProfile(currentUser as unknown as FirebaseUser, {
           displayName: fallbackName,
           identity: "unattached-catwalker",
