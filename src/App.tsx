@@ -472,7 +472,12 @@ function PhotoCaptureButton({
 
   return (
     <>
-      <div onClick={() => setShowOptions(true)} style={style}>{children}</div>
+      <div
+        onClick={() => setShowOptions(true)}
+        style={{ ...style, width: "100%", boxSizing: "border-box" }}
+      >
+        {children}
+      </div>
       <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileSelect} style={{ display: "none" }} />
       {showOptions && (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.5)", zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center" }}
@@ -2765,28 +2770,38 @@ function AddCatForm({
               Add a photo of the cat so people can recognise them. This is optional — you can skip straight to saving.
             </p>
 
-            <PhotoCaptureButton
-              onPhotoSelected={(file) => {
-                setPhotoFile(file);
-                const reader = new FileReader();
-                reader.onloadend = () => setPhotoPreview(reader.result as string);
-                reader.readAsDataURL(file);
-              }}
-              style={{ width: "100%" }}
-            >
-              {photoPreview ? (
-                <div style={{ position: "relative" }}>
-                  <PhotoFocusPicker imageUrl={photoPreview} objectPosition={photoObjectPosition} onChange={setPhotoObjectPosition} height={260} />
-                  <div style={{ marginTop: "8px", textAlign: "center", fontSize: "13px", color: "#6b7280" }}>Tap to change photo · Drag the circle to adjust focus</div>
-                </div>
-              ) : (
+            {photoPreview ? (
+              <div style={{ width: "100%" }}>
+                <PhotoFocusPicker imageUrl={photoPreview} objectPosition={photoObjectPosition} onChange={setPhotoObjectPosition} height={260} />
+                <PhotoCaptureButton
+                  onPhotoSelected={(file) => {
+                    setPhotoFile(file);
+                    const reader = new FileReader();
+                    reader.onloadend = () => setPhotoPreview(reader.result as string);
+                    reader.readAsDataURL(file);
+                  }}
+                  style={{ display: "inline-block", marginTop: "8px" }}
+                >
+                  <div style={{ fontSize: "13px", color: "#1a0dab", cursor: "pointer", textDecoration: "underline", textUnderlineOffset: "2px" }}>Change photo</div>
+                </PhotoCaptureButton>
+              </div>
+            ) : (
+              <PhotoCaptureButton
+                onPhotoSelected={(file) => {
+                  setPhotoFile(file);
+                  const reader = new FileReader();
+                  reader.onloadend = () => setPhotoPreview(reader.result as string);
+                  reader.readAsDataURL(file);
+                }}
+                style={{ width: "100%" }}
+              >
                 <div style={{ border: "2px dashed #d1d5db", borderRadius: "16px", padding: "40px 24px", textAlign: "center", cursor: "pointer", background: "#f9fafb" }}>
                   <div style={{ fontSize: "40px", marginBottom: "12px" }}>📷</div>
                   <div style={{ fontSize: "16px", fontWeight: "600", color: "#111827", marginBottom: "6px" }}>Add a photo</div>
                   <div style={{ fontSize: "14px", color: "#6b7280" }}>Tap to choose from your photos or take one now</div>
                 </div>
-              )}
-            </PhotoCaptureButton>
+              </PhotoCaptureButton>
+            )}
 
             {/* Summary before saving */}
             <div style={{ background: "#f9fafb", borderRadius: "14px", padding: "16px 18px", border: "1px solid #e5e7eb" }}>
@@ -3103,12 +3118,18 @@ function CatProfile({
     reader.readAsDataURL(file);
   };
 
+  const [confirmingUpload, setConfirmingUpload] = useState(false);
   const handleConfirmPhotoUpload = async () => {
-    if (!pendingPhotoFile) return;
-    await onAddPhoto(pendingPhotoFile, pendingPhotoObjectPosition);
-    setPendingPhotoFile(null);
-    setPendingPhotoPreview(null);
-    setPendingPhotoObjectPosition(DEFAULT_CAT_PHOTO_POSITION);
+    if (!pendingPhotoFile || confirmingUpload) return;
+    setConfirmingUpload(true);
+    try {
+      await onAddPhoto(pendingPhotoFile, pendingPhotoObjectPosition);
+      setPendingPhotoFile(null);
+      setPendingPhotoPreview(null);
+      setPendingPhotoObjectPosition(DEFAULT_CAT_PHOTO_POSITION);
+    } finally {
+      setConfirmingUpload(false);
+    }
   };
 
   const handleActionClick = (action: () => void) => {
@@ -3430,7 +3451,6 @@ function CatProfile({
             }}
           >
             <h3 style={{ margin: 0, fontSize: "17px", fontWeight: 700, flexShrink: 0 }}>Position the photo</h3>
-            <p style={{ margin: 0, fontSize: "13px", color: "#6b7280", flexShrink: 0 }}>Drag the dot onto the cat's face or body. This keeps them centred when the image gets cropped into cards.</p>
             <div style={{ flex: 1, minHeight: 0 }}>
               <PhotoFocusPicker
                 imageUrl={pendingPhotoPreview}
@@ -3454,9 +3474,10 @@ function CatProfile({
               <button
                 type="button"
                 onClick={handleConfirmPhotoUpload}
-                style={{ padding: "12px 20px", borderRadius: "999px", border: "none", background: "#1a0dab", color: "white", cursor: "pointer", fontWeight: 600, fontSize: "15px" }}
+                disabled={confirmingUpload}
+                style={{ padding: "12px 20px", borderRadius: "999px", border: "none", background: confirmingUpload ? "#9ca3af" : "#1a0dab", color: "white", cursor: confirmingUpload ? "not-allowed" : "pointer", fontWeight: 600, fontSize: "15px" }}
               >
-                Add photo
+                {confirmingUpload ? "Uploading..." : "Add photo"}
               </button>
             </div>
           </div>
