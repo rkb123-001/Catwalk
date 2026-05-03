@@ -3220,7 +3220,6 @@ function CatProfile({
   cat,
   onClose,
   currentUser,
-  userProfile,
   onVisit,
   onSlowBlink,
   onAddPhoto,
