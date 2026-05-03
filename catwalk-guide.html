@@ -662,7 +662,7 @@
   <!-- STATS -->
   <div class="stat-row">
     <div class="stat">
-      <div class="stat-n">7,497</div>
+      <div class="stat-n">8,035</div>
       <div class="stat-label">Lines of code</div>
     </div>
     <div class="stat">
@@ -1069,6 +1069,14 @@
         </div>
       </div>
       <div class="stack-row">
+        <div class="stack-layer">PWA</div>
+        <div class="stack-items">
+          <span class="tag">Web manifest</span>
+          <span class="tag">Self-healing cache</span>
+          <span>Installable to iOS/Android home screen. Build-hash polling forces auto-reload when a new version is deployed, so users on stale caches recover without intervention.</span>
+        </div>
+      </div>
+      <div class="stack-row">
         <div class="stack-layer">Dev process</div>
         <div class="stack-items">
           <span class="tag">AI-assisted</span>
@@ -1139,6 +1147,16 @@
           <td>Apply only at display time</td>
           <td>Display-only privacy is fragile — if the display logic changes, the data is exposed. Writing first name only to Firestore makes the privacy choice permanent and unconditional.</td>
         </tr>
+        <tr>
+          <td>Sort cats with Firestore orderBy, not client-side</td>
+          <td>Fetch unsorted, sort in JavaScript</td>
+          <td>A misjudged client-side sort can throw on unexpected data shapes (e.g. Firestore Timestamp vs string) and silently kill the entire setState call. Firestore's orderBy is type-aware and never throws on mixed field types.</td>
+        </tr>
+        <tr>
+          <td>PWA version check + auto-reload</td>
+          <td>Manual user refresh</td>
+          <td>iOS standalone PWAs cache aggressively. Without a self-healing mechanism, a single bad deploy strands users on broken code with no recourse. Polling for the bundle hash and force-reloading on change means deploys propagate within 60 seconds, with no user action needed.</td>
+        </tr>
       </tbody>
     </table>
   </section>
@@ -1152,12 +1170,12 @@
 
     <div class="roadmap">
       <div class="roadmap-phase">
-        <div class="roadmap-phase-label">Shipped — v1.0</div>
+        <div class="roadmap-phase-label">Shipped — v1.1</div>
         <h4>Foundation</h4>
         <ul>
           <li>Community cat map with real-time sync</li>
           <li>Full auth + profile system with photo</li>
-          <li>Photo upload (gallery + live camera)</li>
+          <li>Photo upload (gallery + live camera) with focus picker</li>
           <li>Visit logging + slow blinks</li>
           <li>24-hour visit rate limiting</li>
           <li>Location blur + safety layers</li>
@@ -1165,14 +1183,20 @@
           <li>Browse with search (name, area, city, country) + filters</li>
           <li>Country/city filter chips</li>
           <li>Catspotting flow</li>
+          <li>3-step Add Cat wizard for non-technical users</li>
+          <li>Manual full-address fallback when location search fails</li>
           <li>Granular contribution management (delete specific photos, visits, descriptions)</li>
           <li>Public user profiles with cats added sheet</li>
-          <li>Duplicate submission guard</li>
+          <li>Duplicate submission guard (refs not state)</li>
+          <li>Photo upload ref-guard preventing duplicate uploads</li>
           <li>Reverse geocoding from pin (not hardcoded)</li>
           <li>First names only at write time</li>
-          <li>Map centred on user location with localStorage memory</li>
-          <li>Location search via Nominatim</li>
+          <li>Map centred on user location, with silent permission check</li>
+          <li>Location search via Nominatim with backoff and rate-limit handling</li>
           <li>Mobile-optimised header with dropdown account menu</li>
+          <li>Safe-area insets for iPhone home indicator</li>
+          <li>PWA manifest, version checker, and self-healing cache</li>
+          <li>"Refresh app" affordance for stale-cache recovery</li>
         </ul>
       </div>
       <div class="roadmap-phase current">
@@ -1219,9 +1243,10 @@
     <div class="callout">
       <p><strong>This project is a proof-of-concept for a different kind of product development:</strong> one where the barrier between product thinking and production code is close to zero. The bottleneck is no longer "can this be built" — it's "is this worth building, and is it safe."</p>
     </div>
-    <p>Version control was managed via GitHub's browser interface and the macOS Terminal. No IDE, no local npm, no build tools installed on the machine. The entire codebase — 7,497 lines of TypeScript — was written, debugged, and refactored through dialogue, including TypeScript error resolution, React state bugs, Firestore rule changes, mobile layout fixes, and real user-reported issues from live testing.</p>
-    <p>The most instructive moments were the bugs: a hardcoded "London" for cat location that only surfaced when a user in Perth added a cat; a duplicate submission problem caused by a user tapping the button twice during photo upload; an email prefix showing in the visit list instead of a name. Each was a product decision that had been deferred, and each had a clean fix once the actual data was in front of us. Real usage found things that no amount of speculative planning would have.</p>
-    <p>The process revealed which product decisions are genuinely complex (safety architecture, data model, user trust levels, privacy at write-time vs display-time) and which only appeared complex because of the traditional gap between design and engineering. That gap — and the months it normally takes to close it — was largely absent here.</p>
+    <p>Version control was managed via GitHub's browser interface and the macOS Terminal. No IDE, no local npm, no build tools installed on the machine. The entire codebase — 8,035 lines of TypeScript — was written, debugged, and refactored through dialogue, including TypeScript error resolution, React state bugs, Firestore rule changes, mobile layout fixes, PWA cache management, and real user-reported issues from live testing.</p>
+    <p>The most instructive moments were the bugs: a hardcoded "London" for cat location that only surfaced when a user in Perth added a cat; a duplicate submission problem caused by a user tapping the button twice during photo upload; an email prefix showing in the visit list instead of a name; a Firestore Timestamp object being passed to a string sort function, which threw an exception that silently killed the entire setState call and showed every user "0 cats." Each was a product decision that had been deferred, and each had a clean fix once the actual data was in front of us. Real usage found things that no amount of speculative planning would have.</p>
+    <p>The PWA debugging cycle was particularly revealing: an iOS-installed home-screen icon kept running the broken bundle long after the fix was deployed, because Safari's standalone mode caches IndexedDB and JavaScript independently of the regular browser. The solution was a self-healing version checker that polls for new bundle hashes every 60 seconds and on app focus, then clears caches and reloads automatically — turning a fragile install pattern into a resilient one. This pattern of "bug surfaces in production → diagnose with console logs → fix root cause → add automatic recovery for future occurrences" became the standard rhythm.</p>
+    <p>The process revealed which product decisions are genuinely complex (safety architecture, data model, user trust levels, privacy at write-time vs display-time, PWA cache strategy) and which only appeared complex because of the traditional gap between design and engineering. That gap — and the months it normally takes to close it — was largely absent here.</p>
   </section>
 
   <!-- 10 CAT LOCATIONS FEATURE -->
