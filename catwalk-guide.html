@@ -1,0 +1,1543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Catwalk — Build & Product Guide — Confidential</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,300&display=swap');
+
+  :root {
+    --ink: #0f0f0f;
+    --ink-mid: #3a3a3a;
+    --ink-light: #7a7a7a;
+    --rule: #d8d8d0;
+    --cream: #faf9f6;
+    --page: #ffffff;
+    --accent: #1a0dab;
+    --accent-dim: rgba(26,13,171,0.08);
+    --warn: #c05621;
+    --success: #166534;
+    --mono: 'DM Mono', monospace;
+    --serif: 'DM Serif Display', Georgia, serif;
+    --sans: 'DM Sans', system-ui, sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--cream);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.7;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── LAYOUT ── */
+  .page-wrap {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0 32px 120px;
+  }
+
+  /* ── MASTHEAD ── */
+  .masthead {
+    padding: 72px 0 48px;
+    border-bottom: 1px solid var(--rule);
+    margin-bottom: 64px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: end;
+    gap: 24px;
+  }
+
+  .masthead-eyebrow {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-light);
+    margin-bottom: 16px;
+  }
+
+  .masthead h1 {
+    font-family: var(--serif);
+    font-size: clamp(42px, 6vw, 64px);
+    font-weight: 400;
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+  }
+
+  .masthead h1 em {
+    font-style: italic;
+    color: var(--accent);
+  }
+
+  .masthead-sub {
+    margin-top: 18px;
+    font-size: 16px;
+    color: var(--ink-mid);
+    font-weight: 300;
+    max-width: 520px;
+    line-height: 1.65;
+  }
+
+  .masthead-meta {
+    text-align: right;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-light);
+    line-height: 2;
+  }
+
+  /* ── STAT ROW ── */
+  .stat-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    margin-bottom: 72px;
+    overflow: hidden;
+  }
+
+  .stat {
+    background: var(--page);
+    padding: 24px 20px;
+    text-align: center;
+  }
+
+  .stat-n {
+    font-family: var(--serif);
+    font-size: 36px;
+    color: var(--accent);
+    line-height: 1;
+    margin-bottom: 6px;
+  }
+
+  .stat-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-light);
+  }
+
+  /* ── SECTION ── */
+  .section {
+    margin-bottom: 72px;
+  }
+
+  .section-header {
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    margin-bottom: 32px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .section-num {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-light);
+    letter-spacing: 0.1em;
+    flex-shrink: 0;
+  }
+
+  .section h2 {
+    font-family: var(--serif);
+    font-size: 28px;
+    font-weight: 400;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+    line-height: 1.2;
+  }
+
+  /* ── BODY TEXT ── */
+  p { margin-bottom: 16px; color: var(--ink-mid); }
+  p:last-child { margin-bottom: 0; }
+
+  strong { font-weight: 600; color: var(--ink); }
+
+  /* ── FLOW STEPS ── */
+  .flow {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    position: relative;
+  }
+
+  .flow::before {
+    content: '';
+    position: absolute;
+    left: 20px;
+    top: 40px;
+    bottom: 40px;
+    width: 1px;
+    background: var(--rule);
+  }
+
+  .flow-step {
+    display: grid;
+    grid-template-columns: 40px 1fr;
+    gap: 20px;
+    padding: 24px 0;
+    position: relative;
+  }
+
+  .flow-step + .flow-step {
+    border-top: 1px solid var(--rule);
+  }
+
+  .flow-dot {
+    width: 40px;
+    height: 40px;
+    background: var(--page);
+    border: 1px solid var(--rule);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-light);
+    flex-shrink: 0;
+    position: relative;
+    z-index: 1;
+  }
+
+  .flow-dot.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+  }
+
+  .flow-content h3 {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--ink);
+    margin-bottom: 6px;
+    line-height: 1.3;
+    padding-top: 9px;
+  }
+
+  .flow-content p {
+    font-size: 14px;
+    margin-bottom: 0;
+    color: var(--ink-mid);
+  }
+
+  /* ── COMPONENT GRID ── */
+  .component-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .component-card {
+    background: var(--page);
+    padding: 20px 22px;
+  }
+
+  .component-name {
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--accent);
+    margin-bottom: 4px;
+  }
+
+  .component-desc {
+    font-size: 13px;
+    color: var(--ink-mid);
+    line-height: 1.5;
+    margin: 0;
+  }
+
+  /* ── DECISION TABLE ── */
+  .decision-table {
+    width: 100%;
+    border-collapse: collapse;
+    border: 1px solid var(--rule);
+    font-size: 13.5px;
+  }
+
+  .decision-table th {
+    background: var(--ink);
+    color: white;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 10px 16px;
+    text-align: left;
+    font-weight: 400;
+  }
+
+  .decision-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+    color: var(--ink-mid);
+    line-height: 1.5;
+  }
+
+  .decision-table tr:last-child td { border-bottom: none; }
+  .decision-table tr:nth-child(even) td { background: var(--cream); }
+
+  .decision-table td:first-child {
+    font-weight: 600;
+    color: var(--ink);
+    white-space: nowrap;
+  }
+
+  /* ── SAFETY GRID ── */
+  .safety-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+
+  .safety-card {
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    padding: 18px 20px;
+    background: var(--page);
+  }
+
+  .safety-card.done {
+    border-left: 3px solid #166534;
+  }
+
+  .safety-card.partial {
+    border-left: 3px solid #d97706;
+  }
+
+  .safety-card-tag {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .safety-card.done .safety-card-tag { color: #166534; }
+  .safety-card.partial .safety-card-tag { color: #d97706; }
+
+  .safety-card h4 {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--ink);
+    margin-bottom: 4px;
+  }
+
+  .safety-card p {
+    font-size: 13px;
+    margin: 0;
+    color: var(--ink-mid);
+    line-height: 1.5;
+  }
+
+  /* ── TECH STACK ── */
+  .stack-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    border: 1px solid var(--rule);
+    background: var(--rule);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .stack-row {
+    display: grid;
+    grid-template-columns: 140px 1fr;
+    background: var(--page);
+  }
+
+  .stack-layer {
+    background: var(--ink);
+    color: white;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+  }
+
+  .stack-items {
+    padding: 14px 18px;
+    font-size: 13.5px;
+    color: var(--ink-mid);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .tag {
+    font-family: var(--mono);
+    font-size: 11px;
+    background: var(--accent-dim);
+    color: var(--accent);
+    padding: 2px 8px;
+    border-radius: 2px;
+  }
+
+  /* ── ROADMAP ── */
+  .roadmap {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .roadmap-phase {
+    background: var(--page);
+    padding: 22px;
+  }
+
+  .roadmap-phase-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-light);
+    margin-bottom: 12px;
+  }
+
+  .roadmap-phase h4 {
+    font-family: var(--serif);
+    font-size: 18px;
+    font-weight: 400;
+    color: var(--ink);
+    margin-bottom: 14px;
+    line-height: 1.2;
+  }
+
+  .roadmap-phase ul {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+  }
+
+  .roadmap-phase li {
+    font-size: 13px;
+    color: var(--ink-mid);
+    padding-left: 14px;
+    position: relative;
+    line-height: 1.4;
+  }
+
+  .roadmap-phase li::before {
+    content: '—';
+    position: absolute;
+    left: 0;
+    color: var(--rule);
+  }
+
+  .roadmap-phase.current { background: var(--cream); }
+  .roadmap-phase.current .roadmap-phase-label { color: var(--accent); }
+
+  /* ── QUOTE BLOCK ── */
+  .callout {
+    border-left: 2px solid var(--accent);
+    padding: 18px 24px;
+    background: var(--accent-dim);
+    margin: 32px 0;
+    border-radius: 0 4px 4px 0;
+  }
+
+  .callout p {
+    font-size: 14px;
+    color: var(--ink-mid);
+    margin: 0;
+    line-height: 1.6;
+  }
+
+  /* ── FOOTER ── */
+  .footer {
+    margin-top: 96px;
+    padding-top: 32px;
+    border-top: 1px solid var(--rule);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .footer-left {
+    font-family: var(--serif);
+    font-size: 18px;
+    font-style: italic;
+    color: var(--ink-mid);
+  }
+
+  .footer-right {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-light);
+    text-align: right;
+    line-height: 1.8;
+  }
+
+  /* ── INLINE CODE ── */
+  code {
+    font-family: var(--mono);
+    font-size: 12px;
+    background: var(--cream);
+    border: 1px solid var(--rule);
+    padding: 1px 5px;
+    border-radius: 2px;
+    color: var(--ink);
+  }
+
+  /* ── PRINT / RESPONSIVE ── */
+  .confidential-banner {
+    background: var(--ink);
+    color: white;
+    padding: 10px 32px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .confidential-banner span { opacity: 0.5; }
+
+  .copyright-block {
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--ink);
+    padding: 20px 24px;
+    margin-bottom: 32px;
+    background: var(--page);
+  }
+
+  .copyright-block h4 {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-light);
+    margin-bottom: 10px;
+  }
+
+  .copyright-block p {
+    font-size: 13px;
+    color: var(--ink-mid);
+    margin-bottom: 8px;
+    line-height: 1.6;
+  }
+
+  .copyright-block p:last-child { margin-bottom: 0; }
+
+  .mono-revenue {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+    margin-right: 6px;
+  }
+
+  .revenue-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    border: 1px solid var(--rule);
+    background: var(--rule);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-bottom: 32px;
+  }
+
+  .revenue-row {
+    display: grid;
+    grid-template-columns: 220px 1fr auto;
+    background: var(--page);
+    padding: 18px 22px;
+    gap: 24px;
+    align-items: start;
+  }
+
+  .revenue-row-title {
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--ink);
+    line-height: 1.3;
+  }
+
+  .revenue-row-title small {
+    display: block;
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 400;
+    color: var(--accent);
+    letter-spacing: 0.08em;
+    margin-top: 3px;
+    text-transform: uppercase;
+  }
+
+  .revenue-row-desc {
+    font-size: 13px;
+    color: var(--ink-mid);
+    line-height: 1.55;
+    margin: 0;
+  }
+
+  .revenue-est {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-light);
+    white-space: nowrap;
+    padding-top: 2px;
+    text-align: right;
+  }
+
+  @media (max-width: 680px) {
+    .revenue-row { grid-template-columns: 1fr; gap: 8px; }
+    .revenue-est { text-align: left; }
+  }
+    .page-wrap { padding: 0 20px 80px; }
+    .masthead { grid-template-columns: 1fr; }
+    .masthead-meta { text-align: left; }
+    .stat-row { grid-template-columns: repeat(2, 1fr); }
+    .component-grid { grid-template-columns: 1fr; }
+    .safety-grid { grid-template-columns: 1fr; }
+    .roadmap { grid-template-columns: 1fr; }
+    .stack-row { grid-template-columns: 1fr; }
+    .stack-layer { padding: 8px 16px; }
+  }
+
+  @media print {
+    body { background: white; }
+    .page-wrap { max-width: 100%; padding: 0 24px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="confidential-banner">
+  <div>Confidential — not for distribution</div>
+  <span>© 2026 Rebekah Kosonen Bide. All rights reserved.</span>
+</div>
+
+<div class="page-wrap">
+
+  <!-- MASTHEAD -->
+  <header class="masthead">
+    <div>
+      <p class="masthead-eyebrow">Product + Build Documentation</p>
+      <h1>Catwalk<br><em>Walk the walk.</em></h1>
+      <p class="masthead-sub">A community-built map of neighbourhood cats — designed, engineered, and iterated in a single collaborative session using AI-assisted development. This document covers product rationale, user flows, technical architecture, and safety design.</p>
+    </div>
+    <div class="masthead-meta">
+      <div>Rebekah Kosonen Bide</div>
+      <div>May 2026</div>
+      <div>v1.1 — Production</div>
+      <div>catwalk-walk-the-walk.vercel.app</div>
+      <div style="margin-top:8px; color: var(--ink); font-weight:500;">Confidential</div>
+    </div>
+  </header>
+
+  <!-- STATS -->
+  <div class="stat-row">
+    <div class="stat">
+      <div class="stat-n">7,497</div>
+      <div class="stat-label">Lines of code</div>
+    </div>
+    <div class="stat">
+      <div class="stat-n">30+</div>
+      <div class="stat-label">React components</div>
+    </div>
+    <div class="stat">
+      <div class="stat-n">1</div>
+      <div class="stat-label">TSX file</div>
+    </div>
+    <div class="stat">
+      <div class="stat-n">0</div>
+      <div class="stat-label">External UI libraries</div>
+    </div>
+  </div>
+
+  <!-- 01 PRODUCT RATIONALE -->
+  <section class="section">
+    <div class="section-header">
+      <span class="section-num">01</span>
+      <h2>Product rationale</h2>
+    </div>
+    <p>Catwalk solves a specific, real problem: neighbourhood cats are invisible to the people who love them. You might walk past the same black cat on Brownlow Road every morning for two years and never learn its name, who feeds it, or whether anyone else knows it exists.</p>
+    <p>The product is a <strong>community-maintained geographic directory of cats</strong> — not a social network, not a photo app. The map is the product. Everything else (profiles, visits, contributions, slow blinks) is infrastructure that makes the map richer over time.</p>
+    <div class="callout">
+      <p><strong>Core thesis:</strong> Street-level community knowledge should be shareable and persistent. The person who moves away shouldn't take the cat's name with them. Catwalk is the record.</p>
+    </div>
+    <p>The product is designed with two types of user in mind: the <em>contributor</em> (someone who adds and enriches cat profiles) and the <em>walker</em> (someone who wants to find cats in a new area). Both are served by the same data model — one writes, the other reads — and the friction to switch between roles is intentionally low.</p>
+  </section>
+
+  <!-- 02 USER FLOWS -->
+  <section class="section">
+    <div class="section-header">
+      <span class="section-num">02</span>
+      <h2>Core user flows</h2>
+    </div>
+
+    <p style="margin-bottom: 28px;">Five primary flows cover all meaningful user activity in the app.</p>
+
+    <h3 style="font-size:15px; font-weight:600; color:var(--ink); margin-bottom: 16px; margin-top: 32px;">Flow A — First visit</h3>
+    <div class="flow">
+      <div class="flow-step">
+        <div class="flow-dot active">1</div>
+        <div class="flow-content">
+          <h3>Landing + location consent</h3>
+          <p>User lands on the login wall. Location consent modal fires on first load. The anti-theft statement is visible before the user has any access to data.</p>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-dot active">2</div>
+        <div class="flow-content">
+          <h3>Registration</h3>
+          <p>Email + password. Optional profile photo (gallery or live camera). Identity type: <em>Human of a cat</em> or <em>Unattached catwalker</em>. Location string (free text, not precise coordinates).</p>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-dot active">3</div>
+        <div class="flow-content">
+          <h3>Map loads centred on user</h3>
+          <p>Geolocation resolves, map flies to user position. Cat emoji markers appear. "1 cats in this area" counter top-right. Location saved to localStorage for subsequent sessions.</p>
+        </div>
+      </div>
+    </div>
+
+    <h3 style="font-size:15px; font-weight:600; color:var(--ink); margin-bottom: 16px; margin-top: 40px;">Flow B — Adding a cat</h3>
+    <div class="flow">
+      <div class="flow-step">
+        <div class="flow-dot">1</div>
+        <div class="flow-content">
+          <h3>Pin placement</h3>
+          <p>Tap "Drop pin" or tap directly on the map. Draggable marker. Location auto-resolves to area + city + country via Nominatim reverse geocoding.</p>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-dot">2</div>
+        <div class="flow-content">
+          <h3>Duplicate detection</h3>
+          <p>Within a 200m radius, existing cats are checked. If found, the user is shown potential matches and can attach their photo to an existing profile rather than create a duplicate.</p>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-dot">3</div>
+        <div class="flow-content">
+          <h3>Cat form</h3>
+          <p>Name, emoji (colour-coded: 8 types), description, personality traits (multi-select), optional photo. Address field pre-filled from reverse geocode, editable.</p>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-dot">4</div>
+        <div class="flow-content">
+          <h3>Saved to Firestore</h3>
+          <p>Cat document created with creator attribution, contributor array, <code>serverTimestamp()</code>. User's <code>catsFound</code> counter incremented. Map marker appears immediately via <code>onSnapshot</code> listener.</p>
+        </div>
+      </div>
+    </div>
+
+    <h3 style="font-size:15px; font-weight:600; color:var(--ink); margin-bottom: 16px; margin-top: 40px;">Flow C — Visiting a cat profile</h3>
+    <div class="flow">
+      <div class="flow-step">
+        <div class="flow-dot">1</div>
+        <div class="flow-content">
+          <h3>Open profile</h3>
+          <p>Tap map marker or browse card. Full-screen profile slides up. Photos, description, characteristics, blurred location map, community descriptions, contributors.</p>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-dot">2</div>
+        <div class="flow-content">
+          <h3>Mark as Visited</h3>
+          <p>Records a visit with timestamp. 24-hour cooldown enforced per cat to prevent systematic data collection. Total visit count and personal visit count displayed separately.</p>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-dot">3</div>
+        <div class="flow-content">
+          <h3>Slow Blink</h3>
+          <p>Cats' traditional greeting. Recorded as a community affection metric. No limit. Count visible on profile.</p>
+        </div>
+      </div>
+    </div>
+
+    <h3 style="font-size:15px; font-weight:600; color:var(--ink); margin-bottom: 16px; margin-top: 40px;">Flow D — Contributing to a cat</h3>
+    <div class="flow">
+      <div class="flow-step">
+        <div class="flow-dot">1</div>
+        <div class="flow-content">
+          <h3>Open Contribute form</h3>
+          <p>Editable fields: description, personality traits, alternative names, behaviour characteristics. Plus a community description section with type selector (description / anecdote / behaviour).</p>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-dot">2</div>
+        <div class="flow-content">
+          <h3>Community descriptions</h3>
+          <p>Each description saved as a separate object in the cat's <code>descriptions[]</code> array via <code>arrayUnion</code>. Displays below the blurred map with type badge, date, and first name of contributor.</p>
+        </div>
+      </div>
+    </div>
+
+    <h3 style="font-size:15px; font-weight:600; color:var(--ink); margin-bottom: 16px; margin-top: 40px;">Flow E — Catspotting</h3>
+    <div class="flow">
+      <div class="flow-step">
+        <div class="flow-dot">1</div>
+        <div class="flow-content">
+          <h3>Upload or capture photo</h3>
+          <p>Dedicated tab for quick in-the-moment spotting. Photo capture via gallery or live camera. Attempts GPS extraction from EXIF data to find nearby cats automatically.</p>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-dot">2</div>
+        <div class="flow-content">
+          <h3>Match or create</h3>
+          <p>If nearby cats found within 500m: user prompted to confirm which cat. If no match: option to create a new profile from the catspotting photo.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 03 COMPONENT ARCHITECTURE -->
+  <section class="section">
+    <div class="section-header">
+      <span class="section-num">03</span>
+      <h2>Component architecture</h2>
+    </div>
+    <p style="margin-bottom: 24px;">The entire application is a single <code>App.tsx</code> file. This was a deliberate constraint during rapid iteration — all state lives in the root <code>CatwalkApp</code> component and is passed down via props. There are no external state management libraries, no context providers, no routing library.</p>
+    <div class="component-grid">
+      <div class="component-card">
+        <div class="component-name">CatwalkApp</div>
+        <p class="component-desc">Root component. Holds all global state: auth, cats array, filters, selected cat, modal visibility flags. Firebase listeners live here.</p>
+      </div>
+      <div class="component-card">
+        <div class="component-name">HeaderBar</div>
+        <p class="component-desc">Fixed top bar, 56px. Clickable Catwalk title returns to map. Circular avatar (profile photo if set) opens a dropdown sheet with name, contribution count, "My profile", and "Sign out" — designed for mobile tap targets. "How to use" link opens the guide.</p>
+      </div>
+      <div class="component-card">
+        <div class="component-name">CatList (Browse)</div>
+        <p class="component-desc">Title bar + Add Cat button at top, then search (name, area, city, country, alternative names) and filter row below. Inline country/city filter chips derived from live data. Filter modal for trait/behaviour filters. All stackable.</p>
+      </div>
+      <div class="component-card">
+        <div class="component-name">CatProfile</div>
+        <p class="component-desc">Full-screen cat detail. Photos with focus picker, visit/blink actions, blurred map, characteristics, community descriptions, contributor attribution with clickable public profiles.</p>
+      </div>
+      <div class="component-card">
+        <div class="component-name">MapSnapshot</div>
+        <p class="component-desc">Reusable Leaflet mini-map. In blur mode: pin randomised ±500m, zoom pulled back 3 levels, CSS blur applied. Protects exact location without removing neighbourhood context.</p>
+      </div>
+      <div class="component-card">
+        <div class="component-name">AddCatForm</div>
+        <p class="component-desc">Multi-step cat creation. Location from GPS, manual pin drag, or search. Duplicate detection within 200m. Reverse geocoding via Nominatim.</p>
+      </div>
+      <div class="component-card">
+        <div class="component-name">ContributeForm</div>
+        <p class="component-desc">Edit a cat's known information. Fields include description, personality traits, living situation, alternative names, plus community description with type selector.</p>
+      </div>
+      <div class="component-card">
+        <div class="component-name">CatspottingScreen</div>
+        <p class="component-desc">Quick-capture flow. Photo → EXIF location extraction → nearby cat matching → attach or create. Centred empty state, live camera option.</p>
+      </div>
+      <div class="component-card">
+        <div class="component-name">UserProfile</div>
+        <p class="component-desc">Own profile: stats grid (clickable), edit form with live photo overlay, granular contribution management. Delete sheet shows individual photos, visits, and descriptions as checkboxes. Cats can be deleted entirely or anonymised independently.</p>
+      </div>
+      <div class="component-card">
+        <div class="component-name">PublicUserProfileModal</div>
+        <p class="component-desc">Another user's profile. Stats grid with "Cats added" as a tappable trigger — opens a bottom sheet listing that user's cats, each linking to the cat profile.</p>
+      </div>
+      <div class="component-card">
+        <div class="component-name">PhotoCaptureButton</div>
+        <p class="component-desc">Reusable wrapper component. Presents gallery vs. live camera choice. Handles <code>getUserMedia</code> stream, canvas capture, and graceful fallback to file input.</p>
+      </div>
+      <div class="component-card">
+        <div class="component-name">FilterModal + FilterState</div>
+        <p class="component-desc">Trait/behaviour/petting filters. FilterState extended to include city and country. Country selection auto-narrows city options. All filters stackable.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 04 DATA MODEL -->
+  <section class="section">
+    <div class="section-header">
+      <span class="section-num">04</span>
+      <h2>Data model</h2>
+    </div>
+    <p style="margin-bottom: 24px;">Two Firestore collections. All relationship data is denormalised into the cat document to minimise read operations.</p>
+
+    <table class="decision-table" style="margin-bottom: 32px;">
+      <thead>
+        <tr>
+          <th>Field</th>
+          <th>Type</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>name</td>
+          <td>string</td>
+          <td>Cat's primary name</td>
+        </tr>
+        <tr>
+          <td>alternativeNames</td>
+          <td>string[]</td>
+          <td>Other names the cat is known by</td>
+        </tr>
+        <tr>
+          <td>emoji</td>
+          <td>string</td>
+          <td>Colour-coded emoji used as map marker (8 types)</td>
+        </tr>
+        <tr>
+          <td>location</td>
+          <td>CatLocation</td>
+          <td>lat, lng, area, city, country, continent, approximateAddress — all resolved from pin coordinates via Nominatim reverse geocode at creation time</td>
+        </tr>
+        <tr>
+          <td>photos</td>
+          <td>CatPhoto[]</td>
+          <td>url, contributorId, date, objectPosition (for focus picker)</td>
+        </tr>
+        <tr>
+          <td>descriptions</td>
+          <td>Description[]</td>
+          <td>Community text: id, text, type, contributor, date</td>
+        </tr>
+        <tr>
+          <td>visits</td>
+          <td>Visit[]</td>
+          <td>userId, userName (first name only), date (ISO string)</td>
+        </tr>
+        <tr>
+          <td>userVisits</td>
+          <td>Record&lt;uid, count&gt;</td>
+          <td>Denormalised per-user visit count for fast profile lookups</td>
+        </tr>
+        <tr>
+          <td>totalVisits</td>
+          <td>number</td>
+          <td>Maintained via Firestore <code>increment()</code></td>
+        </tr>
+        <tr>
+          <td>slowBlinks</td>
+          <td>SlowBlink[]</td>
+          <td>userId, userName, date</td>
+        </tr>
+        <tr>
+          <td>contributors</td>
+          <td>Contributor[]</td>
+          <td>id, name, type (creator / photo / info), contributions count</td>
+        </tr>
+        <tr>
+          <td>creatorId / creator</td>
+          <td>string</td>
+          <td>Original author. Set to "anonymous-user" / "Anonymous user" when anonymised</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p>The <code>users</code> collection mirrors stats back onto the profile document (<code>catsFound</code>, <code>photosAdded</code>, <code>totalContributions</code>, <code>catsVisited[]</code>) for display without requiring cross-collection queries on every profile view.</p>
+  </section>
+
+  <!-- 05 SAFETY -->
+  <section class="section">
+    <div class="section-header">
+      <span class="section-num">05</span>
+      <h2>Safety architecture</h2>
+    </div>
+    <p style="margin-bottom: 24px;">Location data about living animals carries genuine risk. Safety was treated as a product feature, not a compliance checkbox. Each layer addresses a specific threat model.</p>
+
+    <div class="safety-grid">
+      <div class="safety-card done">
+        <div class="safety-card-tag">Implemented</div>
+        <h4>Login wall</h4>
+        <p>Full auth required before any data is accessible. No public-facing cat map. Firestore rules enforce <code>request.auth != null</code> on all reads.</p>
+      </div>
+      <div class="safety-card done">
+        <div class="safety-card-tag">Implemented</div>
+        <h4>Location blur</h4>
+        <p>Cat profile maps randomise the pin ±500m and pull zoom back 3 levels. Neighbourhood context retained, precise address obscured.</p>
+      </div>
+      <div class="safety-card done">
+        <div class="safety-card-tag">Implemented</div>
+        <h4>Street-level trust gate</h4>
+        <p>Approximate street address hidden from accounts under 30 days old with fewer than 3 contributions. Visible text: "Street detail visible after 30 days or 3 contributions."</p>
+      </div>
+      <div class="safety-card done">
+        <div class="safety-card-tag">Implemented</div>
+        <h4>Visit rate limiting</h4>
+        <p>Visits limited to once per cat per 24 hours. Prevents systematic "visit every cat" data collection patterns. Enforced client-side with server timestamp comparison.</p>
+      </div>
+      <div class="safety-card done">
+        <div class="safety-card-tag">Implemented</div>
+        <h4>First names only</h4>
+        <p><code>firstName()</code> utility applied at both display time and write time. Full names never stored in cat-related documents. Email prefix fallback replaced with "Catwalker".</p>
+      </div>
+      <div class="safety-card done">
+        <div class="safety-card-tag">Implemented</div>
+        <h4>Anti-theft statement</h4>
+        <p>Visible on the login screen before any interaction. Framing: "Catwalk celebrates cats in your community — it is not a tool for harm."</p>
+      </div>
+      <div class="safety-card done">
+        <div class="safety-card-tag">Implemented</div>
+        <h4>Duplicate submission guard</h4>
+        <p>A <code>submittingRef</code> boolean blocks reentry on the cat creation form. Prevents accidental duplicate cats from rapid taps during photo upload.</p>
+      </div>
+      <div class="safety-card done">
+        <div class="safety-card-tag">Implemented</div>
+        <h4>Firestore auth rules</h4>
+        <p>Cats collection reads require <code>request.auth != null</code>. Prevents unauthenticated scraping of location data via the Firebase API.</p>
+      </div>
+      <div class="safety-card partial">
+        <div class="safety-card-tag">Next iteration</div>
+        <h4>Report / flag system</h4>
+        <p>Allow users to flag a cat profile or user as suspicious. Firestore field + admin review queue. Not yet implemented.</p>
+      </div>
+      <div class="safety-card partial">
+        <div class="safety-card-tag">Next iteration</div>
+        <h4>Zoom-level marker gating</h4>
+        <p>Hide cat pins until user zooms past a threshold, preventing "pull back and map the whole neighbourhood" reconnaissance from the map view.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 06 TECH STACK -->
+  <section class="section">
+    <div class="section-header">
+      <span class="section-num">06</span>
+      <h2>Technical stack</h2>
+    </div>
+    <div class="stack-list">
+      <div class="stack-row">
+        <div class="stack-layer">Frontend</div>
+        <div class="stack-items">
+          <span class="tag">React 19</span>
+          <span class="tag">TypeScript 5.8</span>
+          <span class="tag">Vite 6</span>
+          <span class="tag">Tailwind CSS 3</span>
+          <span>All UI via inline styles — zero component library dependencies</span>
+        </div>
+      </div>
+      <div class="stack-row">
+        <div class="stack-layer">Backend</div>
+        <div class="stack-items">
+          <span class="tag">Firebase Auth</span>
+          <span class="tag">Firestore</span>
+          <span class="tag">Firebase Storage</span>
+          <span>Email/password auth, real-time cat sync via <code>onSnapshot</code></span>
+        </div>
+      </div>
+      <div class="stack-row">
+        <div class="stack-layer">Maps</div>
+        <div class="stack-items">
+          <span class="tag">Leaflet 1.9</span>
+          <span class="tag">OpenStreetMap</span>
+          <span class="tag">Nominatim</span>
+          <span>Reverse geocoding, location search, map snapshots</span>
+        </div>
+      </div>
+      <div class="stack-row">
+        <div class="stack-layer">Deploy</div>
+        <div class="stack-items">
+          <span class="tag">Vercel</span>
+          <span class="tag">GitHub</span>
+          <span>Continuous deployment from main branch. Zero config.</span>
+        </div>
+      </div>
+      <div class="stack-row">
+        <div class="stack-layer">Dev process</div>
+        <div class="stack-items">
+          <span class="tag">AI-assisted</span>
+          <span>Designed, built, and iterated entirely through conversational AI development — no local dev environment used. Version control via GitHub browser + Terminal git push.</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 07 DESIGN DECISIONS -->
+  <section class="section">
+    <div class="section-header">
+      <span class="section-num">07</span>
+      <h2>Key design decisions</h2>
+    </div>
+
+    <table class="decision-table">
+      <thead>
+        <tr>
+          <th>Decision</th>
+          <th>Alternatives considered</th>
+          <th>Rationale</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Single App.tsx</td>
+          <td>File-per-component structure</td>
+          <td>Enabled rapid iteration with AI tools. Full context always visible. Can be refactored when team scales.</td>
+        </tr>
+        <tr>
+          <td>Login required for everything</td>
+          <td>Public browse, login for contribution</td>
+          <td>Safety: unauthenticated users cannot scrape cat locations via API. Community: all data is attributed.</td>
+        </tr>
+        <tr>
+          <td>Denormalised Firestore model</td>
+          <td>Normalised collections with joins</td>
+          <td>Eliminates N+1 reads for the map view. Cat document is the source of truth for all its activity.</td>
+        </tr>
+        <tr>
+          <td>First names only, always</td>
+          <td>Display names stored verbatim</td>
+          <td>Privacy by default. Applied at write time so the choice is permanent, not just a display toggle.</td>
+        </tr>
+        <tr>
+          <td>No external UI library</td>
+          <td>MUI, shadcn, Radix</td>
+          <td>Full visual control. Faster initial load. Forces intentional design rather than default component behaviour.</td>
+        </tr>
+        <tr>
+          <td>Granular contribution deletion</td>
+          <td>Delete by type only</td>
+          <td>GDPR-adjacent right to erasure. User should control exactly what's removed — specific photos, specific visits, specific descriptions — not face an all-or-nothing choice.</td>
+        </tr>
+        <tr>
+          <td>Nominatim for geocoding</td>
+          <td>Google Maps API, Mapbox</td>
+          <td>Free, open-source, no API key required for low-volume use. Consistent with the OSM map tiles.</td>
+        </tr>
+        <tr>
+          <td>submittingRef not useState for submit guard</td>
+          <td>Disable button via state</td>
+          <td>A ref is synchronous — it blocks reentry immediately, before React re-renders. State-based guards can still race if the user taps twice in the same frame.</td>
+        </tr>
+        <tr>
+          <td>firstName() applied at write time</td>
+          <td>Apply only at display time</td>
+          <td>Display-only privacy is fragile — if the display logic changes, the data is exposed. Writing first name only to Firestore makes the privacy choice permanent and unconditional.</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- 08 ROADMAP -->
+  <section class="section">
+    <div class="section-header">
+      <span class="section-num">08</span>
+      <h2>Product roadmap</h2>
+    </div>
+
+    <div class="roadmap">
+      <div class="roadmap-phase">
+        <div class="roadmap-phase-label">Shipped — v1.0</div>
+        <h4>Foundation</h4>
+        <ul>
+          <li>Community cat map with real-time sync</li>
+          <li>Full auth + profile system with photo</li>
+          <li>Photo upload (gallery + live camera)</li>
+          <li>Visit logging + slow blinks</li>
+          <li>24-hour visit rate limiting</li>
+          <li>Location blur + safety layers</li>
+          <li>Street-level trust gate (30 days / 3 contributions)</li>
+          <li>Browse with search (name, area, city, country) + filters</li>
+          <li>Country/city filter chips</li>
+          <li>Catspotting flow</li>
+          <li>Granular contribution management (delete specific photos, visits, descriptions)</li>
+          <li>Public user profiles with cats added sheet</li>
+          <li>Duplicate submission guard</li>
+          <li>Reverse geocoding from pin (not hardcoded)</li>
+          <li>First names only at write time</li>
+          <li>Map centred on user location with localStorage memory</li>
+          <li>Location search via Nominatim</li>
+          <li>Mobile-optimised header with dropdown account menu</li>
+        </ul>
+      </div>
+      <div class="roadmap-phase current">
+        <div class="roadmap-phase-label">Next — v1.1</div>
+        <h4>Trust &amp; Safety</h4>
+        <ul>
+          <li>Report / flag system</li>
+          <li>Zoom-level marker gating</li>
+          <li>Email verification requirement</li>
+          <li>Admin review queue (Firestore)</li>
+          <li>Moderator role in user doc</li>
+          <li>Spam detection on contribution rate</li>
+        </ul>
+      </div>
+      <div class="roadmap-phase">
+        <div class="roadmap-phase-label">Future — v2.0</div>
+        <h4>Community</h4>
+        <ul>
+          <li>Notifications (new cat nearby)</li>
+          <li>Cat "missing" status flag</li>
+          <li>Multi-photo galleries per cat</li>
+          <li>Verified owner badge</li>
+          <li>Offline-first PWA mode</li>
+          <li>Native app (React Native)</li>
+          <li>Neighbourhood leaderboard</li>
+          <li>Monthly "most visited cat" digest</li>
+          <li><strong>Full visual redesign</strong> — custom cat illustrations replacing emoji markers; cohesive colour system and shape language developed for Catwalk specifically; current emojis and colours are functional placeholders</li>
+          <li><strong>Cat-relevant locations layer</strong> — vets, pet shops, cat cafés, feeding stations, cat-friendly gardens. Each type with its own marker style, user reviews, and opening hours</li>
+          <li>Link cats to nearby locations (e.g. "Puss is often found outside Haggerston Vets")</li>
+          <li>Emergency vet finder — nearest 24hr vets from current map position</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 09 BUILD PROCESS -->
+  <section class="section">
+    <div class="section-header">
+      <span class="section-num">09</span>
+      <h2>Build process</h2>
+    </div>
+    <p>Catwalk was built entirely through conversational AI-assisted development — from the first component to the production deployment — without a local development environment.</p>
+    <p>The workflow was: <strong>describe a feature or problem in plain language → receive code → paste into GitHub → Vercel auto-deploys → test on device → iterate.</strong> The entire development cycle from idea to deployed feature routinely took under ten minutes.</p>
+    <div class="callout">
+      <p><strong>This project is a proof-of-concept for a different kind of product development:</strong> one where the barrier between product thinking and production code is close to zero. The bottleneck is no longer "can this be built" — it's "is this worth building, and is it safe."</p>
+    </div>
+    <p>Version control was managed via GitHub's browser interface and the macOS Terminal. No IDE, no local npm, no build tools installed on the machine. The entire codebase — 7,497 lines of TypeScript — was written, debugged, and refactored through dialogue, including TypeScript error resolution, React state bugs, Firestore rule changes, mobile layout fixes, and real user-reported issues from live testing.</p>
+    <p>The most instructive moments were the bugs: a hardcoded "London" for cat location that only surfaced when a user in Perth added a cat; a duplicate submission problem caused by a user tapping the button twice during photo upload; an email prefix showing in the visit list instead of a name. Each was a product decision that had been deferred, and each had a clean fix once the actual data was in front of us. Real usage found things that no amount of speculative planning would have.</p>
+    <p>The process revealed which product decisions are genuinely complex (safety architecture, data model, user trust levels, privacy at write-time vs display-time) and which only appeared complex because of the traditional gap between design and engineering. That gap — and the months it normally takes to close it — was largely absent here.</p>
+  </section>
+
+  <!-- 10 CAT LOCATIONS FEATURE -->
+  <section class="section">
+    <div class="section-header">
+      <span class="section-num">10</span>
+      <h2>Feature concept: cat-relevant locations</h2>
+    </div>
+    <p>The natural extension of a cat map is a map of the infrastructure cats depend on — and that their communities use. A second data layer of <strong>cat-relevant locations</strong> would sit alongside the cat pins, togglable as an overlay, and serve both practical and community-building functions.</p>
+
+    <div class="callout">
+      <p><strong>Core idea:</strong> cats exist in an ecosystem. Knowing where Puss lives is more useful if you also know the nearest vet is two streets away, the pet shop stocks her favourite food, and there's a cat café on the same road. The location layer connects the cats to their world.</p>
+    </div>
+
+    <h3 style="font-size:15px; font-weight:600; color:var(--ink); margin-bottom:16px; margin-top:32px;">Location types</h3>
+    <div class="component-grid">
+      <div class="component-card">
+        <div class="component-name">🏥 Veterinary practices</div>
+        <p class="component-desc">Standard and 24-hour emergency vets. Opening hours, phone number, distance from current position. Surfaced prominently in a future "emergency vet finder" flow.</p>
+      </div>
+      <div class="component-card">
+        <div class="component-name">🛍 Pet shops</div>
+        <p class="component-desc">Community-submitted independent and chain pet shops. Users can tag which cats in the area they stock food for, or note if the shop knows local cats.</p>
+      </div>
+      <div class="component-card">
+        <div class="component-name">☕ Cat cafés</div>
+        <p class="component-desc">Cat café locations with resident cat profiles linked directly to their Catwalk entries. Bridges the community map to formal cat-hospitality businesses.</p>
+      </div>
+      <div class="component-card">
+        <div class="component-name">🍽 Feeding stations</div>
+        <p class="component-desc">Community feeding points for strays and semi-ferals. Sensitive location type — visible only to trusted users (same 30-day / 3-contribution trust gate as street addresses).</p>
+      </div>
+      <div class="component-card">
+        <div class="component-name">🌿 Cat-friendly gardens</div>
+        <p class="component-desc">Parks, community gardens, or private spaces whose owners have indicated cats are welcome. Useful for catwalkers exploring a new neighbourhood.</p>
+      </div>
+      <div class="component-card">
+        <div class="component-name">🏠 Cat rescue centres</div>
+        <p class="component-desc">Local rescue organisations and foster networks. Could integrate with adoption listings in a later version.</p>
+      </div>
+    </div>
+
+    <h3 style="font-size:15px; font-weight:600; color:var(--ink); margin-bottom:16px; margin-top:40px;">Data model extension</h3>
+    <p style="margin-bottom: 24px;">A new <code>locations</code> Firestore collection, separate from <code>cats</code>, with a similar contributor model. Key fields:</p>
+    <table class="decision-table">
+      <thead>
+        <tr><th>Field</th><th>Type</th><th>Notes</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>type</td><td>enum</td><td>vet / petshop / cafè / feeding-station / garden / rescue</td></tr>
+        <tr><td>name</td><td>string</td><td>Business or location name</td></tr>
+        <tr><td>location</td><td>CatLocation</td><td>Same structure as cat locations. Feeding stations use trust gate.</td></tr>
+        <tr><td>linkedCatIds</td><td>string[]</td><td>Cat profiles associated with this location</td></tr>
+        <tr><td>openingHours</td><td>string</td><td>Free text, community-maintained</td></tr>
+        <tr><td>is24hr</td><td>boolean</td><td>For vet practices — surfaces in emergency finder</td></tr>
+        <tr><td>contributors</td><td>Contributor[]</td><td>Same attribution model as cats</td></tr>
+        <tr><td>verified</td><td>boolean</td><td>Future: moderator-verified locations get a badge</td></tr>
+      </tbody>
+    </table>
+
+    <h3 style="font-size:15px; font-weight:600; color:var(--ink); margin-bottom:16px; margin-top:40px;">Product considerations</h3>
+    <div class="safety-grid">
+      <div class="safety-card done">
+        <div class="safety-card-tag">Design principle</div>
+        <h4>Overlay, not replacement</h4>
+        <p>Location pins appear as a toggleable layer — they don't clutter the cat map by default. Users opt in to seeing them.</p>
+      </div>
+      <div class="safety-card done">
+        <div class="safety-card-tag">Design principle</div>
+        <h4>Community-maintained, not scraped</h4>
+        <p>Locations are submitted by users, not imported from Google Places or Yelp. This maintains the community-knowledge character of the product and avoids API costs.</p>
+      </div>
+      <div class="safety-card partial">
+        <div class="safety-card-tag">Safety consideration</div>
+        <h4>Feeding stations</h4>
+        <p>Feeding station locations require the same trust gate as cat street addresses — visible only to accounts 30+ days old or with 3+ contributions. Protects stray colonies from disturbance.</p>
+      </div>
+      <div class="safety-card partial">
+        <div class="safety-card-tag">Future integration</div>
+        <h4>Emergency vet finder</h4>
+        <p>A dedicated "find nearest open vet" button in the app header — filters the locations layer for 24hr practices, sorted by distance from current position. High-value, low-engineering-cost feature once the data layer exists.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 11 MONETISATION -->
+  <section class="section">
+    <div class="section-header">
+      <span class="section-num">11</span>
+      <h2>Monetisation</h2>
+    </div>
+    <p>Catwalk's monetisation should feel like a natural extension of the product — not a tax on community participation. Core features (the map, cat profiles, visiting, contributing) stay free. Revenue comes from users and businesses who want more, or who want to be more visible.</p>
+
+    <div class="callout">
+      <p><strong>Principle:</strong> nothing that generates revenue should compromise the safety architecture, the community character, or the data privacy of the people and animals in the product.</p>
+    </div>
+
+    <div class="revenue-grid">
+      <div class="revenue-row">
+        <div>
+          <div class="revenue-row-title">
+            Catwalk Pro
+            <small>Subscription</small>
+          </div>
+        </div>
+        <p class="revenue-row-desc">A small monthly or annual subscription for power users. Unlocks: full personal visit history export, advanced analytics on cats you've added (visit trends, slow blink counts over time), early access to new features, and a Pro badge on your public profile. Critically, <strong>no core functionality is paywalled</strong> — Pro is additive, not restrictive. Target price: £2.99/month or £24.99/year.</p>
+        <div class="revenue-est">£2.99/mo<br>individual</div>
+      </div>
+      <div class="revenue-row" style="background: var(--cream);">
+        <div>
+          <div class="revenue-row-title">
+            Verified business listings
+            <small>B2B subscription</small>
+          </div>
+        </div>
+        <p class="revenue-row-desc">Once the cat-relevant locations layer is built (Section 10), businesses — vets, pet shops, cat cafés, rescue centres — can claim and verify their listing. A verified listing gets: a badge, rich profile (services, opening hours, photos, staff bios), priority map visibility, and the ability to link their location to cats in the area. Community-submitted locations remain free and unverified. Target price: £15–35/month depending on location type and tier. Low churn category — a vet practice's listing is evergreen value.</p>
+        <div class="revenue-est">£15–35/mo<br>per business</div>
+      </div>
+      <div class="revenue-row">
+        <div>
+          <div class="revenue-row-title">
+            Data insights
+            <small>B2B / institutional</small>
+          </div>
+        </div>
+        <p class="revenue-row-desc">Anonymised, aggregated neighbourhood cat density data has genuine value to third parties — <strong>not individual cat data</strong>, but area-level insights: which neighbourhoods have the highest stray density, seasonal presence patterns, concentration around specific location types. Potential buyers: local councils managing stray populations, vet groups doing catchment analysis, animal welfare NGOs doing urban cat research, pet food brands doing geographic targeting. Delivered as periodic reports or API access. Requires a data processing agreement and transparent user disclosure (already architecturally sound — no PII in the cat documents). Target: £500–5,000/report depending on scope.</p>
+        <div class="revenue-est">£500–5k<br>per report</div>
+      </div>
+    </div>
+
+    <h3 style="font-size:15px; font-weight:600; color:var(--ink); margin-bottom:16px; margin-top:8px;">Revenue model summary</h3>
+    <table class="decision-table">
+      <thead>
+        <tr><th>Stream</th><th>Stage</th><th>Effort to implement</th><th>Risk</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Catwalk Pro</td>
+          <td>Can launch now — features already exist</td>
+          <td>Stripe integration + feature flags</td>
+          <td>Low — additive, non-disruptive</td>
+        </tr>
+        <tr>
+          <td>Verified listings</td>
+          <td>Requires locations layer (v2.0)</td>
+          <td>Locations feature + payment + admin UI</td>
+          <td>Low — clear B2B value exchange</td>
+        </tr>
+        <tr>
+          <td>Data insights</td>
+          <td>Requires scale (500+ cats) + legal groundwork</td>
+          <td>Report tooling + data agreements</td>
+          <td>Medium — needs legal review, user disclosure</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- 12 IP + COPYRIGHT -->
+  <section class="section">
+    <div class="section-header">
+      <span class="section-num">12</span>
+      <h2>Intellectual property</h2>
+    </div>
+
+    <div class="copyright-block">
+      <h4>Ownership statement</h4>
+      <p><strong>© 2026 Rebekah Kosonen Bide. All rights reserved.</strong></p>
+      <p>Catwalk — including its concept, design, product architecture, safety framework, data model, codebase, and this document — is the original work of Rebekah Kosonen Bide. Development began in 2025 (v1.0) and continued into 2026 (v1.1, current production version at catwalk-walk-the-walk.vercel.app). All intellectual property rights are retained by the author. No part of this document or the associated product may be reproduced, distributed, or used as the basis for a derivative product without explicit written permission.</p>
+      <p>This document is shared in confidence. Receipt of this document does not confer any rights to the described product, its architecture, or its underlying ideas.</p>
+    </div>
+
+    <h3 style="font-size:15px; font-weight:600; color:var(--ink); margin-bottom:16px; margin-top:8px;">What is protected</h3>
+    <table class="decision-table" style="margin-bottom:32px;">
+      <thead>
+        <tr><th>Asset</th><th>Protection type</th><th>Evidence</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Source code (App.tsx)</td>
+          <td>Copyright — automatic from creation</td>
+          <td>GitHub commit history with timestamps from May 2026</td>
+        </tr>
+        <tr>
+          <td>This document</td>
+          <td>Copyright — automatic from creation</td>
+          <td>File creation date + email record</td>
+        </tr>
+        <tr>
+          <td>Product concept and safety architecture</td>
+          <td>Trade secret (while undisclosed) — document with NDA before sharing</td>
+          <td>This document + build conversation log</td>
+        </tr>
+        <tr>
+          <td>Data model design</td>
+          <td>Copyright in expression; trade secret while undisclosed</td>
+          <td>Documented here + codebase</td>
+        </tr>
+        <tr>
+          <td>"Catwalk" name</td>
+          <td>Not yet trademarked — consider UK IPO application if commercialising</td>
+          <td>Domain registration, GitHub repo, Vercel deployment</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3 style="font-size:15px; font-weight:600; color:var(--ink); margin-bottom:16px;">Recommended steps before wider sharing</h3>
+    <div class="safety-grid">
+      <div class="safety-card done">
+        <div class="safety-card-tag">Done</div>
+        <h4>GitHub commit history</h4>
+        <p>Timestamped build history from first commit. Do not rebase or force-push main — this history is evidence of authorship and sequence.</p>
+      </div>
+      <div class="safety-card done">
+        <div class="safety-card-tag">Recommended now</div>
+        <h4>Dated email record</h4>
+        <p>Email yourself this document with a subject line including today's date. The email server provides a third-party timestamp that is difficult to dispute.</p>
+      </div>
+      <div class="safety-card partial">
+        <div class="safety-card-tag">Before formal pitching</div>
+        <h4>Non-disclosure agreement</h4>
+        <p>If presenting to a product team or investor with intent to commercialise, request an NDA before the meeting. Protects the concept (which copyright alone does not).</p>
+      </div>
+      <div class="safety-card partial">
+        <div class="safety-card-tag">If commercialising</div>
+        <h4>UK trademark application</h4>
+        <p>Register "Catwalk" as a trademark in Class 42 (software / app services) via the UK IPO. ~£170 for a single class. Prevents a company from launching a competing product under the same name.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 13 VISUAL DESIGN INTENT -->
+  <section class="section">
+    <div class="section-header">
+      <span class="section-num">13</span>
+      <h2>Visual design — intent</h2>
+    </div>
+    <p>The current visual design is functional but provisional. Emoji markers and the default purple/blue colour palette are placeholders that allowed the product to be built and tested quickly. The intended visual direction is substantially more considered.</p>
+
+    <div class="callout">
+      <p><strong>The current version proves what it needs to prove:</strong> the product works, the data model is sound, the safety architecture holds, and people use it. The next phase is to make it feel like something you'd want to show someone.</p>
+    </div>
+
+    <div class="safety-grid" style="margin-bottom: 32px;">
+      <div class="safety-card done">
+        <div class="safety-card-tag">Planned</div>
+        <h4>Custom cat illustrations</h4>
+        <p>Replace emoji markers on the map and browse cards with a set of hand-drawn cat illustrations — one per colour type (black, grey, orange, white, tabby, etc.). Distinctive, ownable, and immediately readable at small map sizes. The illustrations become the brand.</p>
+      </div>
+      <div class="safety-card done">
+        <div class="safety-card-tag">Planned</div>
+        <h4>Cohesive colour system</h4>
+        <p>The current hyperlink blue and grey palette was chosen for legibility and neutrality during build. The intended palette is warmer — developed around the product's character rather than inherited from a default. Cat profiles could carry a subtle tint derived from the cat's colour type.</p>
+      </div>
+      <div class="safety-card done">
+        <div class="safety-card-tag">Planned</div>
+        <h4>Shape language</h4>
+        <p>Cards, modals, and buttons currently use generic border radii. The redesign would develop a shape vocabulary specific to Catwalk — soft but not childish, expressive but not chaotic. Profile cards and map markers would feel like they belong to the same visual family.</p>
+      </div>
+      <div class="safety-card done">
+        <div class="safety-card-tag">Planned</div>
+        <h4>Map marker redesign</h4>
+        <p>Replacing the emoji div-icon markers with SVG illustrations per cat colour type. Custom marker shadow and hover states. Cluster treatment for dense areas that resolves back to illustrations on zoom. The map should feel like it was made for cats specifically, not borrowed from a generic mapping template.</p>
+      </div>
+    </div>
+
+    <table class="decision-table">
+      <thead>
+        <tr><th>Element</th><th>Current (placeholder)</th><th>Intended</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Map markers</td>
+          <td>Emoji characters in a div</td>
+          <td>Custom SVG illustrations per colour type</td>
+        </tr>
+        <tr>
+          <td>Primary colour</td>
+          <td>Hyperlink blue #1a0dab</td>
+          <td>Bespoke palette developed for the brand</td>
+        </tr>
+        <tr>
+          <td>Cat profile header</td>
+          <td>Emoji + name in plain text</td>
+          <td>Illustrated cat silhouette with colour-matched background tint</td>
+        </tr>
+        <tr>
+          <td>Browse cards</td>
+          <td>Photo or large emoji fallback</td>
+          <td>Illustrated fallback per colour type when no photo exists</td>
+        </tr>
+        <tr>
+          <td>Slow blink interaction</td>
+          <td>Yellow button with 😊</td>
+          <td>Illustrated cat eye animation — the slow blink itself</td>
+        </tr>
+        <tr>
+          <td>Empty states</td>
+          <td>Text + generic icon</td>
+          <td>Contextual illustrations (e.g. a cat on an empty map)</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="footer">
+    <div class="footer-left">Catwalk — walk the walk.</div>
+    <div class="footer-right">
+      <div>© 2026 Rebekah Kosonen Bide. All rights reserved.</div>
+      <div>Confidential — not for distribution</div>
+      <div>catwalk-walk-the-walk.vercel.app</div>
+      <div>github.com/rkb123-001/Catwalk</div>
+    </div>
+  </footer>
+
+</div>
+</body>
+</html>

@@ -2405,6 +2405,9 @@ function AddCatForm({
     }
   };
 
+  // Step-by-step wizard state
+  const [step, setStep] = useState<"location" | "details" | "photo">("location");
+
   return (
     <div
       style={{
@@ -2418,6 +2421,7 @@ function AddCatForm({
         overflowY: "auto",
       }}
     >
+      {/* Header */}
       <div
         style={{
           position: "sticky",
@@ -2432,381 +2436,295 @@ function AddCatForm({
         }}
       >
         <button
-          onClick={onCancel}
-          style={{
-            background: "none",
-            border: "none",
-            padding: "8px",
-            cursor: "pointer",
-            color: "#6b7280",
-          }}
+          onClick={step === "location" ? onCancel : () => setStep(step === "photo" ? "details" : "location")}
+          style={{ background: "none", border: "none", padding: "8px", cursor: "pointer", color: "#6b7280" }}
         >
-          <XIcon />
+          {step === "location" ? <XIcon /> : <ArrowBackIcon />}
         </button>
-        <h2 style={{ fontSize: "18px", fontWeight: "600", margin: 0 }}>
-          Add Cat Details
-        </h2>
-        <button
-          onClick={handleSubmit}
-          disabled={!name.trim() || !location || uploading}
-          style={{
-            color: "#1a0dab",
-            fontWeight: "500",
-            background: "none",
-            border: "none",
-            cursor: name.trim() && location && !uploading ? "pointer" : "not-allowed",
-            fontSize: "16px",
-            opacity: name.trim() && location && !uploading ? 1 : 0.5,
-          }}
-        >
-          {uploading ? "Saving..." : "Save cat"}
-        </button>
+        <div style={{ textAlign: "center" }}>
+          <h2 style={{ fontSize: "17px", fontWeight: "600", margin: 0 }}>
+            {step === "location" ? "Where is this cat?" : step === "details" ? "Tell us about the cat" : "Add a photo"}
+          </h2>
+          <div style={{ display: "flex", gap: "6px", justifyContent: "center", marginTop: "6px" }}>
+            {(["location", "details", "photo"] as const).map((s) => (
+              <div key={s} style={{ width: "24px", height: "4px", borderRadius: "2px", background: s === step ? "#1a0dab" : (["location", "details", "photo"].indexOf(s) < ["location", "details", "photo"].indexOf(step) ? "#1a0dab" : "#e5e7eb"), opacity: s === step ? 1 : 0.5 }} />
+            ))}
+          </div>
+        </div>
+        {step === "photo" ? (
+          <button
+            onClick={handleSubmit}
+            disabled={!name.trim() || !location || uploading}
+            style={{ color: "#1a0dab", fontWeight: "600", background: "none", border: "none", cursor: name.trim() && location && !uploading ? "pointer" : "not-allowed", fontSize: "16px", opacity: name.trim() && location && !uploading ? 1 : 0.4 }}
+          >
+            {uploading ? "Saving..." : "Save"}
+          </button>
+        ) : (
+          <div style={{ width: "40px" }} />
+        )}
       </div>
 
-      <div
-        style={{
-          padding: "20px",
-          display: "flex",
-          flexDirection: "column",
-          gap: "24px",
-        }}
-      >
-        {/* Cat Location Picker */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-          <div>
-            <h3 style={{ fontSize: "16px", fontWeight: 700, margin: "0 0 4px", color: "#111827" }}>Cat location *</h3>
-            <p style={{ fontSize: "13px", color: "#6b7280", margin: 0 }}>Choose an approximate spot for this cat. This is separate from your map search, your general location, or any pin you dropped on the main map.</p>
-          </div>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "flex-start",
-              gap: "10px",
-              padding: "12px",
-              background: location ? "#ecfdf5" : "#fef3c7",
-              borderRadius: "12px",
-              fontSize: "14px",
-              color: location ? "#065f46" : "#92400e",
-            }}
-          >
-            <span>📍</span>
+      <div style={{ padding: "24px 20px", display: "flex", flexDirection: "column", gap: "20px" }}>
+
+        {/* ── STEP 1: LOCATION ── */}
+        {step === "location" && (
+          <>
+            <p style={{ fontSize: "15px", color: "#6b7280", margin: 0, lineHeight: 1.6 }}>
+              Show us roughly where you usually see this cat. You don't need to be exact — just the right street or area is fine.
+            </p>
+
+            {/* Option A: Use my location */}
+            <button
+              type="button"
+              onClick={() => {
+                if (!navigator.geolocation) { alert("Location not available on this browser."); return; }
+                navigator.geolocation.getCurrentPosition(
+                  (pos) => {
+                    placeCatLocationMarker(pos.coords.latitude, pos.coords.longitude, fuzzyLocation(pos.coords.latitude, pos.coords.longitude));
+                  },
+                  () => alert("Could not get your location. Try searching instead."),
+                  { enableHighAccuracy: false, timeout: 8000 }
+                );
+              }}
+              style={{ display: "flex", alignItems: "center", gap: "16px", padding: "18px 16px", border: "2px solid #e5e7eb", borderRadius: "14px", background: "white", cursor: "pointer", textAlign: "left", width: "100%" }}
+            >
+              <span style={{ fontSize: "32px" }}>📍</span>
+              <div>
+                <div style={{ fontSize: "16px", fontWeight: "600", color: "#111827", marginBottom: "3px" }}>Use my current location</div>
+                <div style={{ fontSize: "13px", color: "#6b7280" }}>Best if you're near the cat right now</div>
+              </div>
+            </button>
+
+            {/* Option B: Search */}
             <div>
-              <strong>{location ? "Cat location selected" : "Choose the cat’s approximate location"}</strong>
-              <div style={{ marginTop: "3px" }}>
-                {location
-                  ? "Approximate cat location selected. You can still move the dot before tapping Save cat."
-                  : "Search for an area, tap the map, drag the dot, or use your current location. The cat will not be saved until you tap Save cat."}
+              <p style={{ fontSize: "14px", fontWeight: "600", color: "#111827", marginBottom: "10px" }}>Or search for the street or area:</p>
+              <div style={{ position: "relative" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", border: "2px solid #d1d5db", borderRadius: "12px", padding: "12px 14px", background: "white" }}>
+                  <span>🔍</span>
+                  <input
+                    type="text"
+                    value={catLocationSearch}
+                    onChange={(e) => handleCatLocationSearch(e.target.value)}
+                    placeholder="e.g. Brownlow Road, Haggerston"
+                    style={{ border: "none", outline: "none", width: "100%", fontSize: "16px", background: "transparent" }}
+                  />
+                  {searchingCatLocation && <span style={{ fontSize: "12px", color: "#9ca3af" }}>...</span>}
+                </div>
+                {catLocationResults.length > 0 && (
+                  <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 30, background: "white", borderRadius: "12px", boxShadow: "0 6px 18px rgba(0,0,0,0.15)", marginTop: "4px", overflow: "hidden" }}>
+                    {catLocationResults.map((result: any, i: number) => (
+                      <button key={i} type="button" onClick={() => handleCatLocationSelect(result)}
+                        style={{ display: "block", width: "100%", padding: "13px 16px", background: "white", border: "none", borderBottom: i < catLocationResults.length - 1 ? "1px solid #f3f4f6" : "none", textAlign: "left", cursor: "pointer", fontSize: "15px", color: "#111827" }}>
+                        {result.display_name.split(",").slice(0, 3).join(",")}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
-          </div>
 
-          <div style={{ position: "relative" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "8px", border: "1px solid #d1d5db", borderRadius: "12px", padding: "10px 12px", background: "white" }}>
-              <span>🔍</span>
+            {/* Option C: Map picker */}
+            <div>
+              <p style={{ fontSize: "14px", fontWeight: "600", color: "#111827", marginBottom: "8px" }}>Or tap the map to mark the spot:</p>
+              <p style={{ fontSize: "13px", color: "#6b7280", marginBottom: "10px" }}>Tap anywhere on the map. A blue dot will appear — you can drag it to adjust.</p>
+              <div ref={pickerMapRef} style={{ height: "220px", borderRadius: "16px", overflow: "hidden", border: "2px solid #e5e7eb", background: "#e8f5e9" }} />
+              <button
+                type="button"
+                onClick={() => {
+                  const centre = pickerMapInstanceRef.current?.getCenter?.();
+                  if (!centre) return;
+                  placeCatLocationMarker(centre.lat, centre.lng, fuzzyLocation(centre.lat, centre.lng));
+                }}
+                style={{ marginTop: "8px", padding: "9px 14px", borderRadius: "999px", border: "1px solid #d1d5db", background: "white", cursor: "pointer", fontSize: "13px", color: "#374151" }}
+              >
+                Use the centre of what I see on the map
+              </button>
+            </div>
+
+            {/* Status + next */}
+            <div style={{ background: location ? "#ecfdf5" : "#f9fafb", border: `2px solid ${location ? "#6ee7b7" : "#e5e7eb"}`, borderRadius: "14px", padding: "16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px" }}>
+              <div>
+                <div style={{ fontWeight: "600", fontSize: "14px", color: location ? "#065f46" : "#6b7280" }}>
+                  {location ? "📍 Location selected!" : "No location yet"}
+                </div>
+                {location && catAreaName && <div style={{ fontSize: "13px", color: "#059669", marginTop: "2px" }}>{catAreaName}</div>}
+                {!location && <div style={{ fontSize: "13px", color: "#9ca3af", marginTop: "2px" }}>Use one of the options above</div>}
+              </div>
+              {location && (
+                <button
+                  type="button"
+                  onClick={() => setStep("details")}
+                  style={{ padding: "12px 22px", background: "#1a0dab", color: "white", border: "none", borderRadius: "12px", cursor: "pointer", fontSize: "15px", fontWeight: "600", whiteSpace: "nowrap" }}
+                >
+                  Next →
+                </button>
+              )}
+            </div>
+          </>
+        )}
+
+        {/* ── STEP 2: DETAILS ── */}
+        {step === "details" && (
+          <>
+            <p style={{ fontSize: "15px", color: "#6b7280", margin: 0, lineHeight: 1.6 }}>
+              Give the cat a name and tell us what they're like. Only the name is required — everything else is optional.
+            </p>
+
+            {/* Name */}
+            <div>
+              <label style={{ display: "block", fontSize: "15px", fontWeight: "600", marginBottom: "8px", color: "#111827" }}>
+                What's the cat's name? *
+              </label>
               <input
                 type="text"
-                value={catLocationSearch}
-                onChange={(e) => handleCatLocationSearch(e.target.value)}
-                placeholder="Search for the cat’s approximate area, e.g. Dalston"
-                style={{ border: "none", outline: "none", width: "100%", fontSize: "15px", background: "transparent" }}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g. Puss, Splodge, The Corner Shop Cat"
+                style={{ width: "100%", padding: "14px", border: "2px solid #d1d5db", borderRadius: "12px", fontSize: "16px" }}
               />
-              {searchingCatLocation && <span style={{ fontSize: "12px", color: "#9ca3af" }}>...</span>}
             </div>
-            {catLocationResults.length > 0 && (
-              <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 30, background: "white", borderRadius: "12px", boxShadow: "0 6px 18px rgba(0,0,0,0.15)", marginTop: "4px", overflow: "hidden" }}>
-                {catLocationResults.map((result: any, i: number) => (
+
+            {/* Colour */}
+            <div>
+              <label style={{ display: "block", fontSize: "15px", fontWeight: "600", marginBottom: "10px", color: "#111827" }}>
+                What colour is the cat?
+              </label>
+              <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                {CAT_EMOJIS.map((catEmoji) => (
                   <button
-                    key={`${result.place_id || result.display_name}-${i}`}
-                    type="button"
-                    onClick={() => handleCatLocationSelect(result)}
-                    style={{ display: "block", width: "100%", padding: "11px 14px", background: "white", border: "none", borderBottom: i < catLocationResults.length - 1 ? "1px solid #f3f4f6" : "none", textAlign: "left", cursor: "pointer", fontSize: "13px", color: "#111827" }}
+                    key={catEmoji.emoji}
+                    onClick={() => setSelectedEmoji(catEmoji.emoji)}
+                    style={{
+                      fontSize: "22px", padding: "8px 6px", borderRadius: "12px",
+                      background: selectedEmoji === catEmoji.emoji ? "rgba(26,13,171,0.08)" : "#f3f4f6",
+                      border: selectedEmoji === catEmoji.emoji ? "2px solid #1a0dab" : "2px solid transparent",
+                      cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: "3px",
+                    }}
                   >
-                    {result.display_name.split(",").slice(0, 3).join(",")}
+                    <span>{catEmoji.emoji}</span>
+                    <span style={{ fontSize: "10px", color: "#6b7280" }}>{catEmoji.label.split(" ")[0]}</span>
                   </button>
                 ))}
               </div>
-            )}
-          </div>
-
-          <div
-            ref={pickerMapRef}
-            style={{
-              height: "260px",
-              minHeight: "260px",
-              borderRadius: "16px",
-              overflow: "hidden",
-              border: "1px solid #e5e7eb",
-              background: "#e8f5e9",
-            }}
-          />
-
-          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-            <button
-              type="button"
-              onClick={() => {
-                if (!navigator.geolocation) {
-                  alert("Location services are not available in this browser.");
-                  return;
-                }
-                navigator.geolocation.getCurrentPosition(
-                  (position) => {
-                    const lat = position.coords.latitude;
-                    const lng = position.coords.longitude;
-                    placeCatLocationMarker(lat, lng, fuzzyLocation(lat, lng));
-                  },
-                  () => alert("Could not get your current location. Please check browser location permissions."),
-                  { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
-                );
-              }}
-              style={{ padding: "9px 12px", borderRadius: "999px", border: "1px solid #d1d5db", background: "white", cursor: "pointer", fontSize: "13px", fontWeight: 600 }}
-            >
-              Use my current location
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                const centre = pickerMapInstanceRef.current?.getCenter?.();
-                if (!centre) return;
-                placeCatLocationMarker(centre.lat, centre.lng, fuzzyLocation(centre.lat, centre.lng));
-              }}
-              style={{ padding: "9px 12px", borderRadius: "999px", border: "1px solid #d1d5db", background: "white", cursor: "pointer", fontSize: "13px", fontWeight: 600 }}
-            >
-              Use centre of this map
-            </button>
-          </div>
-
-          <div>
-            <label style={{ display: "block", fontSize: "14px", fontWeight: "500", marginBottom: "8px", color: "#111827" }}>
-              Approximate address / landmark, optional
-            </label>
-            <input
-              type="text"
-              value={approximateAddress}
-              onChange={(e) => setApproximateAddress(e.target.value)}
-              placeholder="e.g., Near High Street & Park Lane"
-              style={{ width: "100%", padding: "10px 14px", border: "1px solid #d1d5db", borderRadius: "12px", fontSize: "16px" }}
-            />
-          </div>
-        </div>
-
-        {/* Emoji Selection */}
-        <div>
-          <label
-            style={{
-              display: "block",
-              fontSize: "14px",
-              fontWeight: "500",
-              marginBottom: "8px",
-              color: "#111827",
-            }}
-          >
-            Choose Cat Color
-          </label>
-          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-            {CAT_EMOJIS.map((catEmoji) => (
-              <button
-                key={catEmoji.emoji}
-                onClick={() => setSelectedEmoji(catEmoji.emoji)}
-                style={{
-                  fontSize: "24px",
-                  padding: "8px",
-                  borderRadius: "12px",
-                  background:
-                    selectedEmoji === catEmoji.emoji ? "rgba(26,13,171,0.08)" : "#f3f4f6",
-                  border:
-                    selectedEmoji === catEmoji.emoji
-                      ? "2px solid #1a0dab"
-                      : "2px solid transparent",
-                  cursor: "pointer",
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: "4px",
-                }}
-              >
-                <span>{catEmoji.emoji}</span>
-                <span style={{ fontSize: "10px", color: "#6b7280" }}>
-                  {catEmoji.label.split(" ")[0]}
-                </span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Name */}
-        <div>
-          <label
-            style={{
-              display: "block",
-              fontSize: "14px",
-              fontWeight: "500",
-              marginBottom: "8px",
-              color: "#111827",
-            }}
-          >
-            Cat Name *
-          </label>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Enter cat's name"
-            style={{
-              width: "100%",
-              padding: "10px 14px",
-              border: "1px solid #d1d5db",
-              borderRadius: "12px",
-              fontSize: "16px",
-            }}
-          />
-        </div>
-
-        {/* Description */}
-        <div>
-          <label
-            style={{
-              display: "block",
-              fontSize: "14px",
-              fontWeight: "500",
-              marginBottom: "8px",
-              color: "#111827",
-            }}
-          >
-            Description
-          </label>
-          <textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            rows={3}
-            placeholder="Tell us about this cat..."
-            style={{
-              width: "100%",
-              padding: "10px 14px",
-              border: "1px solid #d1d5db",
-              borderRadius: "12px",
-              fontSize: "16px",
-              resize: "vertical",
-            }}
-          />
-        </div>
-
-        {/* Personality Traits */}
-        <div>
-          <label
-            style={{
-              display: "block",
-              fontSize: "14px",
-              fontWeight: "500",
-              marginBottom: "8px",
-              color: "#111827",
-            }}
-          >
-            Personality Traits
-          </label>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
-            {PERSONALITY_TRAITS.map((trait) => (
-              <button
-                key={trait}
-                onClick={() => {
-                  setSelectedTraits((prev) =>
-                    prev.includes(trait)
-                      ? prev.filter((t) => t !== trait)
-                      : [...prev, trait]
-                  );
-                }}
-                style={{
-                  padding: "6px 16px",
-                  borderRadius: "20px",
-                  fontSize: "14px",
-                  background: selectedTraits.includes(trait)
-                    ? "rgba(26,13,171,0.08)"
-                    : "#f3f4f6",
-                  color: selectedTraits.includes(trait) ? "#1a0dab" : "#6b7280",
-                  border: "none",
-                  cursor: "pointer",
-                }}
-              >
-                {trait}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Photo Upload */}
-        <div>
-          <label style={{ display: "block", fontSize: "14px", fontWeight: "500", marginBottom: "8px", color: "#111827" }}>
-            Add Photo
-          </label>
-          <PhotoCaptureButton
-            onPhotoSelected={(file) => {
-              setPhotoFile(file);
-              setPhotoObjectPosition(DEFAULT_CAT_PHOTO_POSITION);
-              const reader = new FileReader();
-              reader.onloadend = () => setPhotoPreview(reader.result as string);
-              reader.readAsDataURL(file);
-            }}
-            style={{ border: "2px dashed #d1d5db", borderRadius: "12px", padding: "32px", textAlign: "center", cursor: "pointer" }}
-          >
-            <>
-              <CameraIcon />
-              <p style={{ marginTop: "8px", color: "#6b7280", fontSize: "14px" }}>
-                {photoPreview ? "Tap to change photo" : "Tap to add photo"}
-              </p>
-            </>
-          </PhotoCaptureButton>
-          {photoPreview && (
-            <div style={{ marginTop: "12px" }}>
-              <PhotoFocusPicker
-                imageUrl={photoPreview}
-                objectPosition={photoObjectPosition}
-                onChange={setPhotoObjectPosition}
-                height={220}
-              />
-              <p style={{ margin: "8px 0 0", color: "#059669", fontSize: "13px", fontWeight: 600 }}>
-                Photo selected. Drag the focus dot onto the cat, then tap Save cat.
-              </p>
             </div>
-          )}
-        </div>
 
-        <div
-          style={{
-            position: "sticky",
-            bottom: "12px",
-            background: "rgba(255,255,255,0.96)",
-            border: "1px solid #e5e7eb",
-            borderRadius: "16px",
-            padding: "12px",
-            boxShadow: "0 6px 20px rgba(0,0,0,0.08)",
-          }}
-        >
-          <button
-            type="button"
-            onClick={handleSubmit}
-            disabled={!name.trim() || !location || uploading}
-            style={{
-              width: "100%",
-              padding: "14px 18px",
-              background: name.trim() && location && !uploading ? "#1a0dab" : "#d1d5db",
-              color: "white",
-              border: "none",
-              borderRadius: "12px",
-              fontSize: "16px",
-              fontWeight: 700,
-              cursor: name.trim() && location && !uploading ? "pointer" : "not-allowed",
-            }}
-          >
-            {uploading ? "Saving cat..." : "Save cat"}
-          </button>
-          <p style={{ margin: "8px 0 0", color: "#6b7280", fontSize: "12px", textAlign: "center" }}>
-            The pin and photo are only saved after you tap Save cat.
-          </p>
-        </div>
+            {/* Description */}
+            <div>
+              <label style={{ display: "block", fontSize: "15px", fontWeight: "600", marginBottom: "8px", color: "#111827" }}>
+                Anything else to say about them? <span style={{ fontWeight: 400, color: "#9ca3af" }}>(optional)</span>
+              </label>
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={3}
+                placeholder="e.g. Usually found sleeping on the front step. Very friendly."
+                style={{ width: "100%", padding: "12px 14px", border: "2px solid #d1d5db", borderRadius: "12px", fontSize: "15px", resize: "vertical" }}
+              />
+            </div>
+
+            {/* Personality */}
+            <div>
+              <label style={{ display: "block", fontSize: "15px", fontWeight: "600", marginBottom: "10px", color: "#111827" }}>
+                Personality <span style={{ fontWeight: 400, color: "#9ca3af" }}>(tap any that apply)</span>
+              </label>
+              <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                {PERSONALITY_TRAITS.map((trait) => (
+                  <button
+                    key={trait}
+                    type="button"
+                    onClick={() => setSelectedTraits(prev => prev.includes(trait) ? prev.filter(t => t !== trait) : [...prev, trait])}
+                    style={{
+                      padding: "8px 14px", borderRadius: "999px", border: "2px solid",
+                      borderColor: selectedTraits.includes(trait) ? "#1a0dab" : "#e5e7eb",
+                      background: selectedTraits.includes(trait) ? "#1a0dab" : "white",
+                      color: selectedTraits.includes(trait) ? "white" : "#374151",
+                      cursor: "pointer", fontSize: "14px", fontWeight: "500",
+                    }}
+                  >
+                    {trait}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <button
+              type="button"
+              disabled={!name.trim()}
+              onClick={() => setStep("photo")}
+              style={{ padding: "16px", background: name.trim() ? "#1a0dab" : "#e5e7eb", color: name.trim() ? "white" : "#9ca3af", border: "none", borderRadius: "14px", cursor: name.trim() ? "pointer" : "not-allowed", fontSize: "16px", fontWeight: "700" }}
+            >
+              Next →
+            </button>
+          </>
+        )}
+
+        {/* ── STEP 3: PHOTO ── */}
+        {step === "photo" && (
+          <>
+            <p style={{ fontSize: "15px", color: "#6b7280", margin: 0, lineHeight: 1.6 }}>
+              Add a photo of the cat so people can recognise them. This is optional — you can skip straight to saving.
+            </p>
+
+            <PhotoCaptureButton
+              onPhotoSelected={(file) => {
+                setPhotoFile(file);
+                const reader = new FileReader();
+                reader.onloadend = () => setPhotoPreview(reader.result as string);
+                reader.readAsDataURL(file);
+              }}
+              style={{ width: "100%" }}
+            >
+              {photoPreview ? (
+                <div style={{ position: "relative" }}>
+                  <PhotoFocusPicker imageUrl={photoPreview} objectPosition={photoObjectPosition} onChange={setPhotoObjectPosition} height={260} />
+                  <div style={{ marginTop: "8px", textAlign: "center", fontSize: "13px", color: "#6b7280" }}>Tap to change photo · Drag the circle to adjust focus</div>
+                </div>
+              ) : (
+                <div style={{ border: "2px dashed #d1d5db", borderRadius: "16px", padding: "40px 24px", textAlign: "center", cursor: "pointer", background: "#f9fafb" }}>
+                  <div style={{ fontSize: "40px", marginBottom: "12px" }}>📷</div>
+                  <div style={{ fontSize: "16px", fontWeight: "600", color: "#111827", marginBottom: "6px" }}>Add a photo</div>
+                  <div style={{ fontSize: "14px", color: "#6b7280" }}>Tap to choose from your photos or take one now</div>
+                </div>
+              )}
+            </PhotoCaptureButton>
+
+            {/* Summary before saving */}
+            <div style={{ background: "#f9fafb", borderRadius: "14px", padding: "16px 18px", border: "1px solid #e5e7eb" }}>
+              <div style={{ fontSize: "13px", fontWeight: "600", color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "10px" }}>Ready to save</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "14px", color: "#374151" }}>
+                <div>🐱 <strong>{name}</strong> {selectedEmoji}</div>
+                {catAreaName && <div>📍 {catAreaName}</div>}
+                {photoFile && <div>📷 Photo added</div>}
+                {selectedTraits.length > 0 && <div>✨ {selectedTraits.slice(0, 3).join(", ")}{selectedTraits.length > 3 ? "..." : ""}</div>}
+              </div>
+            </div>
+
+            <button
+              type="button"
+              disabled={!name.trim() || !location || uploading}
+              onClick={handleSubmit}
+              style={{ padding: "18px", background: name.trim() && location && !uploading ? "#1a0dab" : "#e5e7eb", color: name.trim() && location && !uploading ? "white" : "#9ca3af", border: "none", borderRadius: "14px", cursor: name.trim() && location && !uploading ? "pointer" : "not-allowed", fontSize: "17px", fontWeight: "700" }}
+            >
+              {uploading ? "Saving cat..." : "Save cat to the map 🐱"}
+            </button>
+
+            {!photoFile && (
+              <button
+                type="button"
+                disabled={!name.trim() || !location || uploading}
+                onClick={handleSubmit}
+                style={{ padding: "14px", background: "none", border: "none", cursor: "pointer", fontSize: "14px", color: "#6b7280", textDecoration: "underline", textUnderlineOffset: "2px" }}
+              >
+                Skip photo and save anyway
+              </button>
+            )}
+          </>
+        )}
+
       </div>
     </div>
   );
 }
-
 
 // Public profile preview shown from visitor lists
 function PublicUserProfileModal({
@@ -3469,15 +3387,16 @@ function CatProfile({
               padding: "8px 16px",
               border: "none",
               borderRadius: "20px",
-              fontSize: "16px",
+              fontSize: "15px",
               fontWeight: "500",
               cursor: "pointer",
               background: "#1a0dab",
               color: "white",
+              whiteSpace: "nowrap",
             }}
             onClick={() => handleActionClick(onContribute)}
           >
-            <EditIcon /> {currentUser ? "Contribute" : "Sign in to Contribute"}
+            <EditIcon /> {currentUser ? "Contribute" : "Sign in"}
           </button>
           <button
             style={{
@@ -3487,15 +3406,16 @@ function CatProfile({
               padding: "8px 16px",
               border: "1px solid #1a0dab",
               borderRadius: "20px",
-              fontSize: "16px",
+              fontSize: "15px",
               fontWeight: "500",
               cursor: "pointer",
               background: "white",
               color: "#1a0dab",
+              whiteSpace: "nowrap",
             }}
             onClick={handlePhotoClick}
           >
-            <CameraIcon /> {currentUser ? "Add Photo" : "Sign in to Add Photo"}
+            <CameraIcon /> {currentUser ? "Add Photo" : "Sign in"}
           </button>
           <input
             ref={fileInputRef}
@@ -5439,32 +5359,12 @@ export default function CatwalkApp() {
     setCurrentView(view);
   };
 
-  // Show location consent on first visit
+  // Show location consent on first visit (per device — localStorage is device-specific)
   useEffect(() => {
     const asked = localStorage.getItem("catwalk-location-asked");
-    if (!asked) setShowLocationConsent(true);
-  }, []);
-
-  // Get user location without blocking the first map render.
-  // The map now mounts immediately using a saved/default centre, then recentres
-  // if the browser returns a location quickly.
-  useEffect(() => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const loc: [number, number] = [position.coords.latitude, position.coords.longitude];
-          setUserLocation(loc);
-          localStorage.setItem("catwalk-last-location", JSON.stringify(loc));
-          if (mapInstanceRef.current) {
-            mapInstanceRef.current.flyTo(loc, 15, { duration: 0.6 });
-          }
-        },
-        () => {
-          // Permission denied or slow response — keep saved/default location
-        },
-        { timeout: 3500, maximumAge: 300000, enableHighAccuracy: false }
-      );
-    }
+    const saved = localStorage.getItem("catwalk-last-location");
+    // Show if never asked, OR if asked before but no saved location (i.e. was denied/skipped)
+    if (!asked || (!saved && asked)) setShowLocationConsent(true);
   }, []);
 
   // Load Leaflet
@@ -6405,10 +6305,10 @@ export default function CatwalkApp() {
           {/* Right: actions */}
           <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
             <button
-              style={{ background: "none", border: "none", padding: "10px", cursor: "pointer", color: "#6b7280", fontSize: "13px", fontWeight: "500" }}
+              style={{ background: "none", border: "none", padding: "10px", cursor: "pointer", color: "#6b7280", fontSize: "13px", fontWeight: "500", whiteSpace: "nowrap" }}
               onClick={onGuide}
             >
-              How to use
+              How to use (walk the walk)
             </button>
             {currentUser ? (
               <button
@@ -6896,6 +6796,7 @@ export default function CatwalkApp() {
         display: "flex",
         justifyContent: "space-around",
         padding: "8px 0",
+        paddingBottom: "calc(8px + env(safe-area-inset-bottom, 0px))",
         zIndex: 1000,
       }}
     >
@@ -6922,7 +6823,7 @@ export default function CatwalkApp() {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "40px" }}>
               <div>
                 <p style={{ fontSize: "11px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#9ca3af", marginBottom: "12px", fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>Guide</p>
-                <h1 style={{ fontSize: "28px", fontWeight: "normal", fontStyle: "italic", fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', color: "#111827" }}>How to use Catwalk</h1>
+                <h1 style={{ fontSize: "28px", fontWeight: "normal", fontStyle: "italic", fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', color: "#111827" }}>How to use Catwalk (walk the walk)</h1>
               </div>
               <button onClick={() => setShowGuide(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "#6b7280", padding: "4px", fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', fontSize: "20px" }}>×</button>
             </div>
@@ -7188,8 +7089,8 @@ Tap the map to place a custom map pin. To create a cat, use the blue + Add cat b
           {showMapChrome && (
           <div
             style={{
-              position: "absolute",
-              bottom: "100px",
+              position: "fixed",
+              bottom: "calc(80px + env(safe-area-inset-bottom, 0px) + 16px)",
               left: "12px",
               background: "rgba(255,255,255,0.92)",
               padding: "5px 10px",
@@ -7224,13 +7125,13 @@ Tap the map to place a custom map pin. To create a cat, use the blue + Add cat b
           {currentUser && showMapChrome && (
             <div
               style={{
-                position: "absolute",
-                bottom: "100px",
+                position: "fixed",
+                bottom: "calc(80px + env(safe-area-inset-bottom, 0px) + 16px)",
                 right: "20px",
                 display: "flex",
                 flexDirection: "column",
                 gap: "12px",
-                zIndex: 999,
+                zIndex: 1100,
               }}
             >
               {/* Catspotting Button */}
@@ -7462,11 +7363,15 @@ Tap the map to place a custom map pin. To create a cat, use the blue + Add cat b
                         localStorage.setItem("catwalk-last-location", JSON.stringify(loc));
                         if (mapInstanceRef.current) mapInstanceRef.current.flyTo(loc, 15);
                       },
-                      () => {}
+                      () => {
+                        // Denied — remove the saved flag so they see the prompt again next visit
+                        localStorage.removeItem("catwalk-last-location");
+                      },
+                      { timeout: 15000, maximumAge: 0, enableHighAccuracy: false }
                     );
                   }
                 }}
-                style={{ padding: "12px 20px", background: "white", border: "1px solid #1a1a1a", cursor: "pointer", fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', fontSize: "14px", color: "#111827" }}
+                style={{ padding: "14px 20px", background: "#1a0dab", border: "none", cursor: "pointer", fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', fontSize: "15px", fontWeight: "600", color: "white", borderRadius: "12px" }}
               >
                 Allow location
               </button>
@@ -7477,7 +7382,7 @@ Tap the map to place a custom map pin. To create a cat, use the blue + Add cat b
                 }}
                 style={{ padding: "12px 20px", background: "none", border: "none", cursor: "pointer", fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', fontSize: "13px", color: "#6b7280", textDecoration: "underline", textUnderlineOffset: "2px" }}
               >
-                Skip for now
+                Skip for now — I'll search for my location manually
               </button>
             </div>
           </div>
