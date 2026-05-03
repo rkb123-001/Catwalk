@@ -5081,6 +5081,332 @@ function UserProfile({
     </div>
   );
 }
+  const [isEditing, setIsEditing] = useState(false);
+  const [displayName, setDisplayName] = useState(userProfile?.displayName || "");
+  const [identity, setIdentity] = useState<UserProfile["identity"]>(userProfile?.identity || "unattached-catwalker");
+  const [location, setLocation] = useState(userProfile?.location || "");
+  const [profilePictureFile, setProfilePictureFile] = useState<File | null>(null);
+  const [profilePicturePreview, setProfilePicturePreview] = useState<string | null>(null);
+  const [showContributionPicker, setShowContributionPicker] = useState(false);
+  const [deleteOptions, setDeleteOptions] = useState<ContributionDeleteOptions>({
+    photos: false,
+    visits: false,
+    slowBlinks: false,
+    writtenInfo: false,
+    catsCreated: false,
+  });
+
+  useEffect(() => {
+    setDisplayName(userProfile?.displayName || "");
+    setIdentity(userProfile?.identity || "unattached-catwalker");
+    setLocation(userProfile?.location || "");
+    setProfilePictureFile(null);
+    setProfilePicturePreview(null);
+  }, [userProfile]);
+
+  if (!userProfile) return null;
+
+  const handleProfilePictureSelect = (file: File) => {
+    setProfilePictureFile(file);
+    const reader = new FileReader();
+    reader.onloadend = () => setProfilePicturePreview(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const hasSelectedContributions = Object.values(deleteOptions).some(Boolean);
+
+  const handleSaveProfile = async () => {
+    const cleanName = displayName.trim();
+    if (!cleanName) {
+      alert("Please add a display name.");
+      return;
+    }
+    await onUpdateProfile({
+      displayName: cleanName,
+      identity,
+      location: location.trim(),
+      profilePictureFile,
+    });
+    setIsEditing(false);
+    setProfilePictureFile(null);
+    setProfilePicturePreview(null);
+  };
+
+  const contributionChoices: { key: keyof ContributionDeleteOptions; label: string; description: string }[] = [
+    { key: "photos", label: "Photo uploads", description: "Remove photos you uploaded from cat profiles." },
+    { key: "visits", label: "Visit history", description: "Remove your logged visits and update visit totals." },
+    { key: "slowBlinks", label: "Slow blinks", description: "Remove your slow blink reactions." },
+    { key: "writtenInfo", label: "Written information", description: "Remove descriptions, anecdotes and behaviour notes you added." },
+    { key: "catsCreated", label: "Cats you added", description: "Keep the cat profiles visible, but anonymise you as the creator." },
+  ];
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: "white",
+        zIndex: 2000,
+        overflowY: "auto",
+      }}
+    >
+      <div
+        style={{
+          position: "sticky",
+          top: 0,
+          background: "white",
+          padding: "16px 20px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          borderBottom: "1px solid #e5e7eb",
+          zIndex: 10,
+        }}
+      >
+        <h2>Your Profile</h2>
+        <button
+          onClick={onClose}
+          style={{
+            background: "none",
+            border: "none",
+            padding: "8px",
+            cursor: "pointer",
+            color: "#6b7280",
+          }}
+        >
+          <XIcon />
+        </button>
+      </div>
+
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          padding: "40px 20px",
+        }}
+      >
+        <div
+          style={{
+            width: "120px",
+            height: "120px",
+            background: "#e5e7eb",
+            borderRadius: "50%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            marginBottom: "24px",
+            overflow: "hidden",
+          }}
+        >
+          {profilePicturePreview || userProfile.profilePicture ? (
+            <img
+              src={profilePicturePreview || userProfile.profilePicture}
+              alt="Profile"
+              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+            />
+          ) : (
+            <UserIcon />
+          )}
+        </div>
+
+        {isEditing ? (
+          <div style={{ width: "100%", maxWidth: "420px", display: "flex", flexDirection: "column", gap: "12px", marginBottom: "28px" }}>
+            <label style={{ fontSize: "14px", fontWeight: 600, color: "#374151" }}>
+              Display name
+              <input
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                style={{ width: "100%", marginTop: "6px", padding: "12px", borderRadius: "12px", border: "1px solid #d1d5db", fontSize: "16px" }}
+              />
+            </label>
+            <label style={{ fontSize: "14px", fontWeight: 600, color: "#374151" }}>
+              Profile type
+              <select
+                value={identity}
+                onChange={(e) => setIdentity(e.target.value as UserProfile["identity"])}
+                style={{ width: "100%", marginTop: "6px", padding: "12px", borderRadius: "12px", border: "1px solid #d1d5db", fontSize: "16px", background: "white" }}
+              >
+                <option value="human-of-cat">Human of a Cat</option>
+                <option value="unattached-catwalker">Unattached Catwalker</option>
+              </select>
+            </label>
+            <label style={{ fontSize: "14px", fontWeight: 600, color: "#374151" }}>
+              Location
+              <input
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                placeholder="e.g. London"
+                style={{ width: "100%", marginTop: "6px", padding: "12px", borderRadius: "12px", border: "1px solid #d1d5db", fontSize: "16px" }}
+              />
+            </label>
+            <div>
+              <div style={{ fontSize: "14px", fontWeight: 600, color: "#374151", marginBottom: "6px" }}>Profile picture</div>
+              <PhotoCaptureButton
+                onPhotoSelected={handleProfilePictureSelect}
+                style={{ width: "100%" }}
+              >
+                <button
+                  type="button"
+                  style={{ width: "100%", padding: "12px 14px", borderRadius: "12px", border: "1px solid #d1d5db", background: "#f9fafb", cursor: "pointer", fontWeight: 600 }}
+                >
+                  {profilePictureFile ? "Change profile photo" : "Choose profile photo"}
+                </button>
+              </PhotoCaptureButton>
+            </div>
+            <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end", marginTop: "4px" }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsEditing(false);
+                  setDisplayName(userProfile.displayName || "");
+                  setIdentity(userProfile.identity || "unattached-catwalker");
+                  setLocation(userProfile.location || "");
+                  setProfilePictureFile(null);
+                  setProfilePicturePreview(null);
+                }}
+                style={{ padding: "10px 14px", borderRadius: "999px", border: "1px solid #e5e7eb", background: "white", cursor: "pointer" }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveProfile}
+                style={{ padding: "10px 16px", borderRadius: "999px", border: "none", background: "#1a0dab", color: "white", cursor: "pointer", fontWeight: 600 }}
+              >
+                Save changes
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <h3 style={{ fontSize: "28px", fontWeight: "600", marginBottom: "8px" }}>
+              {userProfile.displayName}
+            </h3>
+            <p style={{ fontSize: "16px", color: "#6b7280", marginBottom: "8px" }}>
+              {userProfile.email}
+            </p>
+            <p
+              style={{
+                fontSize: "16px",
+                color: "#1a0dab",
+                marginBottom: "8px",
+                fontWeight: "500",
+              }}
+            >
+              {userProfile.identity === "human-of-cat"
+                ? "Human of a Cat"
+                : "Unattached Catwalker"}
+            </p>
+            {userProfile.location && (
+              <p style={{ fontSize: "16px", color: "#6b7280", marginBottom: "8px" }}>
+                📍 {userProfile.location}
+              </p>
+            )}
+            <button
+              type="button"
+              onClick={() => setIsEditing(true)}
+              style={{ padding: "9px 14px", borderRadius: "999px", border: "1px solid #d1d5db", background: "white", color: "#374151", cursor: "pointer", fontWeight: 600, marginBottom: "18px" }}
+            >
+              Edit profile
+            </button>
+          </>
+        )}
+
+        <p style={{ fontSize: "14px", color: "#9ca3af", marginBottom: "40px" }}>
+          On the Catwalk since {userProfile.joinDate && formatDate(userProfile.joinDate)}
+        </p>
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: "24px",
+            width: "100%",
+            maxWidth: "400px",
+          }}
+        >
+          <button onClick={onShowUserCats} style={{ textAlign: "center", padding: "20px", background: "#f9fafb", borderRadius: "12px", border: "none", cursor: "pointer", transition: "all 0.2s" }}>
+            <div style={{ fontSize: "36px", fontWeight: "700", color: "#1a0dab", marginBottom: "8px" }}>{userProfile.catsFound}</div>
+            <div style={{ fontSize: "14px", color: "#6b7280" }}>Cats Added</div>
+          </button>
+
+          <button onClick={onShowUserPhotos} style={{ textAlign: "center", padding: "20px", background: "#f9fafb", borderRadius: "12px", border: "none", cursor: "pointer", transition: "all 0.2s" }}>
+            <div style={{ fontSize: "36px", fontWeight: "700", color: "#1a0dab", marginBottom: "8px" }}>{userProfile.photosAdded}</div>
+            <div style={{ fontSize: "14px", color: "#6b7280" }}>Photos Added</div>
+          </button>
+
+          <div style={{ textAlign: "center", padding: "20px", background: "#f9fafb", borderRadius: "12px" }}>
+            <div style={{ fontSize: "36px", fontWeight: "700", color: "#1a0dab", marginBottom: "8px" }}>{userProfile.totalContributions}</div>
+            <div style={{ fontSize: "14px", color: "#6b7280" }}>Info Contributed</div>
+          </div>
+
+          <button onClick={onShowUserVisits} style={{ textAlign: "center", padding: "20px", background: "#f9fafb", borderRadius: "12px", border: "none", cursor: "pointer", transition: "all 0.2s" }}>
+            <div style={{ fontSize: "36px", fontWeight: "700", color: "#1a0dab", marginBottom: "8px" }}>{userProfile.catsVisited.length}</div>
+            <div style={{ fontSize: "14px", color: "#6b7280" }}>Cats Visited</div>
+          </button>
+        </div>
+
+        <div style={{ width: "100%", maxWidth: "420px", marginTop: "28px", paddingTop: "20px", borderTop: "1px solid #e5e7eb" }}>
+          <h4 style={{ margin: "0 0 8px", fontSize: "16px", color: "#111827" }}>Account controls</h4>
+          <p style={{ margin: "0 0 14px", fontSize: "13px", color: "#6b7280", lineHeight: 1.45 }}>
+            You can choose exactly which parts of your Catwalk activity to remove. Deleting your account removes your profile record and then signs you out.
+          </p>
+          <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+            <button
+              type="button"
+              onClick={() => setShowContributionPicker((prev) => !prev)}
+              style={{ padding: "12px 14px", borderRadius: "12px", border: "1px solid #f59e0b", background: "#fffbeb", color: "#92400e", cursor: "pointer", fontWeight: 600 }}
+            >
+              Choose contributions to delete
+            </button>
+            {showContributionPicker && (
+              <div style={{ border: "1px solid #fde68a", background: "#fffbeb", borderRadius: "14px", padding: "14px", display: "flex", flexDirection: "column", gap: "12px" }}>
+                {contributionChoices.map((choice) => (
+                  <label key={choice.key} style={{ display: "flex", gap: "10px", alignItems: "flex-start", cursor: "pointer" }}>
+                    <input
+                      type="checkbox"
+                      checked={deleteOptions[choice.key]}
+                      onChange={(e) => setDeleteOptions((prev) => ({ ...prev, [choice.key]: e.target.checked }))}
+                      style={{ marginTop: "3px" }}
+                    />
+                    <span>
+                      <span style={{ display: "block", fontWeight: 700, color: "#111827" }}>{choice.label}</span>
+                      <span style={{ display: "block", fontSize: "13px", color: "#6b7280", lineHeight: 1.4 }}>{choice.description}</span>
+                    </span>
+                  </label>
+                ))}
+                <button
+                  type="button"
+                  disabled={!hasSelectedContributions}
+                  onClick={async () => {
+                    if (!hasSelectedContributions) return;
+                    await onDeleteSelectedContributions(deleteOptions);
+                    setDeleteOptions({ photos: false, visits: false, slowBlinks: false, writtenInfo: false, catsCreated: false });
+                    setShowContributionPicker(false);
+                  }}
+                  style={{ padding: "11px 14px", borderRadius: "999px", border: "none", background: hasSelectedContributions ? "#92400e" : "#e5e7eb", color: hasSelectedContributions ? "white" : "#9ca3af", cursor: hasSelectedContributions ? "pointer" : "not-allowed", fontWeight: 700 }}
+                >
+                  Delete selected contributions
+                </button>
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={onDeleteAccount}
+              style={{ padding: "12px 14px", borderRadius: "12px", border: "1px solid #ef4444", background: "#fef2f2", color: "#991b1b", cursor: "pointer", fontWeight: 600 }}
+            >
+              Delete my account
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // Duplicate Modal Component
 function DuplicateModal({
