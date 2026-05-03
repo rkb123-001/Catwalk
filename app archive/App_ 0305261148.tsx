@@ -757,34 +757,6 @@ async function getApproximateAreaName(lat: number, lng: number): Promise<string>
   }
 }
 
-async function getReverseGeocode(lat: number, lng: number): Promise<{ area: string; city: string; country: string; continent: string }> {
-  try {
-    const res = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(String(lat))}&lon=${encodeURIComponent(String(lng))}&zoom=15&addressdetails=1`
-    );
-    if (!res.ok) return { area: "Nearby area", city: "", country: "", continent: "" };
-    const data = await res.json();
-    const address = data?.address || {};
-    const area = getAreaNameFromNominatimResult(data);
-    const city = address.city || address.town || address.village || address.county || "";
-    const country = address.country || "";
-    // Rough continent lookup by country_code
-    const cc = (address.country_code || "").toLowerCase();
-    const continentMap: Record<string, string> = {
-      gb: "Europe", fr: "Europe", de: "Europe", es: "Europe", it: "Europe", nl: "Europe", pt: "Europe", be: "Europe", ch: "Europe", at: "Europe", se: "Europe", no: "Europe", dk: "Europe", fi: "Europe", pl: "Europe", ie: "Europe", gr: "Europe",
-      us: "North America", ca: "North America", mx: "North America",
-      au: "Oceania", nz: "Oceania",
-      jp: "Asia", cn: "Asia", in: "Asia", kr: "Asia", sg: "Asia", hk: "Asia", tw: "Asia", th: "Asia", id: "Asia", my: "Asia", ph: "Asia", vn: "Asia", pk: "Asia", bd: "Asia",
-      br: "South America", ar: "South America", cl: "South America", co: "South America", pe: "South America",
-      za: "Africa", ng: "Africa", ke: "Africa", et: "Africa", gh: "Africa", eg: "Africa",
-    };
-    const continent = continentMap[cc] || "";
-    return { area, city, country, continent };
-  } catch {
-    return { area: "Nearby area", city: "", country: "", continent: "" };
-  }
-}
-
 function shouldResolveAreaName(area?: string): boolean {
   if (!area) return true;
   const normalised = area.trim().toLowerCase();
@@ -2306,8 +2278,7 @@ function AddCatForm({
         userName: firstName(activeUserProfile.displayName),
       };
 
-      const geo = await getReverseGeocode(location[0], location[1]);
-      const resolvedAreaName = catAreaName || geo.area;
+      const resolvedAreaName = catAreaName || await getApproximateAreaName(location[0], location[1]);
 
       // Create the cat document first. Creating a cat also counts as the
       // creator's first visit, because they have physically spotted the cat.
@@ -2326,9 +2297,9 @@ function AddCatForm({
           lat: location[0],
           lng: location[1],
           area: resolvedAreaName || "Nearby area",
-          city: geo.city,
-          country: geo.country,
-          continent: geo.continent,
+          city: "London",
+          country: "United Kingdom",
+          continent: "Europe",
           approximateAddress:
             approximateAddress || fuzzyLocation(location[0], location[1]),
         },
@@ -6493,14 +6464,9 @@ export default function CatwalkApp() {
     )).sort();
 
     const filteredCats = cats.filter((cat) => {
-      const term = searchTerm.toLowerCase();
-      const matchesSearch = !term ||
-        cat.name.toLowerCase().includes(term) ||
-        cat.location?.area?.toLowerCase().includes(term) ||
-        cat.location?.city?.toLowerCase().includes(term) ||
-        cat.location?.country?.toLowerCase().includes(term) ||
-        cat.location?.approximateAddress?.toLowerCase().includes(term) ||
-        cat.alternativeNames?.some(n => n.toLowerCase().includes(term));
+      const matchesSearch = cat.name
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase());
       const matchesEmoji = !filters.emoji || cat.emoji === filters.emoji;
       const matchesPersonality =
         filters.personality.length === 0 ||
@@ -6565,33 +6531,6 @@ export default function CatwalkApp() {
           overflowY: "auto",
         }}
       >
-        {/* Title bar first */}
-        <div style={{ padding: "16px 20px", background: "white", borderBottom: "1px solid #e5e7eb", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <h2 style={{ fontSize: "20px", fontWeight: "600", margin: 0 }}>Browse Cats</h2>
-          <button
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              padding: "10px 18px",
-              background: "#1a0dab",
-              border: "none",
-              borderRadius: "24px",
-              color: "white",
-              fontSize: "15px",
-              fontWeight: "600",
-              cursor: "pointer",
-              boxShadow: "0 2px 8px rgba(26,13,171,0.3)",
-              whiteSpace: "nowrap",
-            }}
-            onClick={() => requireAuth(onAddCat)}
-          >
-            <PlusIcon size={18} />{" "}
-            {currentUser ? "Add Cat" : "Sign in"}
-          </button>
-        </div>
-
-        {/* Search + filter below title */}
         <div
           style={{
             padding: "16px 20px",
@@ -6622,7 +6561,7 @@ export default function CatwalkApp() {
               </div>
               <input
                 type="text"
-                placeholder="Search by name, area, city..."
+                placeholder="Search cats..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 style={{
@@ -6694,6 +6633,42 @@ export default function CatwalkApp() {
               )}
             </div>
           )}
+        </div>
+
+        <div style={{ padding: "20px", background: "white" }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: "16px",
+            }}
+          >
+            <h2 style={{ fontSize: "20px", fontWeight: "600", margin: 0 }}>
+              Browse Cats
+            </h2>
+            <button
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                padding: "10px 18px",
+                background: "#1a0dab",
+                border: "none",
+                borderRadius: "24px",
+                color: "white",
+                fontSize: "15px",
+                fontWeight: "600",
+                cursor: "pointer",
+                boxShadow: "0 2px 8px rgba(26,13,171,0.3)",
+                whiteSpace: "nowrap",
+              }}
+              onClick={() => requireAuth(onAddCat)}
+            >
+              <PlusIcon size={18} />{" "}
+              {currentUser ? "Add Cat" : "Sign in"}
+            </button>
+          </div>
         </div>
 
         <div style={{ padding: "20px 20px 96px" }}>
