@@ -5658,26 +5658,36 @@ export default function CatwalkApp() {
   // Firebase Auth State Listener
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user: FirebaseUser | null) => {
-      if (user) {
-        setCurrentUser({ uid: user.uid, email: user.email });
-        const profile = await getUserProfile(user.uid);
-        setUserProfile(profile);
-      } else {
-        setCurrentUser(null);
-        setUserProfile(null);
+      try {
+        if (user) {
+          setCurrentUser({ uid: user.uid, email: user.email });
+          try {
+            const profile = await getUserProfile(user.uid);
+            setUserProfile(profile);
+          } catch (e) {
+            console.error("[Catwalk] getUserProfile failed", e);
+            setUserProfile(null);
+          }
+        } else {
+          setCurrentUser(null);
+          setUserProfile(null);
+        }
+      } finally {
+        setAuthLoading(false);
       }
-      setAuthLoading(false);
     });
 
     return () => unsubscribe();
   }, []);
 
   // Load cats from Firebase
-  // Critical: do NOT use orderBy("createdDate") in the query because Firestore
-  // silently excludes documents missing that field. Sort client-side instead.
-  // Also: PWA standalone mode caches aggressively — explicitly accept both
-  // cached and fresh snapshots and log everything for debugging.
+  // Subscribes once auth state is resolved. Preserves ALL fields from Firestore
+  // (defensive defaults are applied for filtering only — not as a replacement).
   useEffect(() => {
+    // Wait for auth to finish loading before subscribing — Firestore rules
+    // require auth, so subscribing too early returns nothing.
+    if (authLoading) return;
+
     // Detect PWA standalone (iOS adds-to-homescreen, Android installed)
     const isStandalone = typeof window !== "undefined" && (
       window.matchMedia?.("(display-mode: standalone)")?.matches ||
@@ -5685,21 +5695,18 @@ export default function CatwalkApp() {
     );
     console.log("[Catwalk] App start — standalone PWA:", isStandalone, "user:", currentUser?.uid || "(none)");
 
-    // Bounce the Firestore network connection in PWA mode to ensure fresh data
-    if (isStandalone) {
-      disableNetwork(db).then(() => enableNetwork(db)).catch((e) => console.warn("[Catwalk] Network bounce failed", e));
-    }
-
     console.log("[Catwalk] Subscribing to cats collection. Current user:", currentUser?.uid || "(no user)");
     const unsubscribe = onSnapshot(
       collection(db, "cats"),
       { includeMetadataChanges: true },
       (snapshot: any) => {
-        const catsData = snapshot.docs.map((docSnap: any) => {
-          const data = docSnap.data() || {};
-          return {
+        const catsData: Cat[] = snapshot.docs.map((docSnap: any) => {
+          const data: any = docSnap.data() || {};
+          // Build the cat object explicitly, with defensive defaults for any
+          // field used in filtering or rendering. Keep all original fields
+          // by reading them from data; only override when they'd cause a crash.
+          const cat: Cat = {
             id: docSnap.id,
-            // Defensive defaults for every optional field used in filtering/UI
             name: data.name || "Unnamed",
             emoji: data.emoji || "🐱",
             description: data.description || "",
@@ -5717,7 +5724,11 @@ export default function CatwalkApp() {
             createdDate: data.createdDate || data.createdAt || new Date(0).toISOString(),
             creatorId: data.creatorId || "",
             creator: data.creator || "Catwalker",
-          } as Cat;
+            contributors: Array.isArray(data.contributors) ? data.contributors : [],
+            totalVisits: typeof data.totalVisits === "number" ? data.totalVisits : (Array.isArray(data.visits) ? data.visits.length : 0),
+            userVisits: data.userVisits || {},
+          };
+          return cat;
         });
         // Sort client-side, newest first; cats without dates land at the end
         catsData.sort((a: Cat, b: Cat) => {
@@ -5735,7 +5746,7 @@ export default function CatwalkApp() {
     );
 
     return () => unsubscribe();
-  }, [currentUser?.uid]);
+  }, [authLoading, currentUser?.uid]);
 
   const catsPhotoStorageSignature = cats
     .map((cat) => `${cat.id}:${(cat.photos || []).map((photo) => photo.url || photo.id).join(",")}`)
