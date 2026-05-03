@@ -33,6 +33,7 @@ import {
   uploadBytes,
   getDownloadURL,
   deleteObject,
+  listAll,
 } from "firebase/storage";
 
 // Updated Firebase configuration with your real config
@@ -713,16 +714,172 @@ function getDistanceFromLatLonInMeters(
 }
 
 function fuzzyLocation(_lat: number, _lng: number): string {
-  const streets = [
-    "High Street",
-    "Main Street",
-    "Park Lane",
-    "Church Road",
-    "Victoria Street",
+  // Keep a fuzzy label as the privacy-first fallback. This should never be a
+  // house number, road name, or exact address.
+  return "Approximate area only";
+}
+
+const STREET_LEVEL_WORDS = [
+  "alley",
+  "avenue",
+  "ave",
+  "boulevard",
+  "blvd",
+  "close",
+  "court",
+  "ct",
+  "crescent",
+  "drive",
+  "dr",
+  "gardens",
+  "grove",
+  "highway",
+  "hwy",
+  "lane",
+  "ln",
+  "mews",
+  "parade",
+  "place",
+  "pl",
+  "point",
+  "road",
+  "rd",
+  "square",
+  "sq",
+  "street",
+  "st",
+  "terrace",
+  "way",
+];
+
+function normalisePlacePart(value?: string | null): string {
+  return (value || "")
+    .replace(/\s+/g, " ")
+    .replace(/^\s*,+|,+\s*$/g, "")
+    .trim();
+}
+
+function uniquePlaceParts(parts: Array<string | undefined | null>): string[] {
+  const seen = new Set<string>();
+  return parts
+    .map(normalisePlacePart)
+    .filter(Boolean)
+    .filter((part) => {
+      const key = part.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+}
+
+function isGenericPlacePart(part: string): boolean {
+  return ["local area", "nearby area", "approximate area only"].includes(part.toLowerCase());
+}
+
+function looksStreetLevel(value?: string | null): boolean {
+  const part = normalisePlacePart(value);
+  if (!part) return false;
+
+  const lower = part.toLowerCase();
+  const hasHouseNumber = /(^|\s)\d+[a-z]?(\s|-)/i.test(part);
+  const hasStreetWord = STREET_LEVEL_WORDS.some((word) =>
+    new RegExp(`\\b${word}\\b`, "i").test(lower)
+  );
+  const looksPostcode = /\b[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}\b/i.test(part) || /\b\d{4,6}\b/.test(part);
+
+  return (hasHouseNumber && hasStreetWord) || looksPostcode;
+}
+
+function makeApproximateLocationLabel(
+  area?: string | null,
+  city?: string | null,
+  country?: string | null
+): string {
+  const parts = uniquePlaceParts([area, city, country]).filter(
+    (part) => !isGenericPlacePart(part) && !looksStreetLevel(part)
+  );
+
+  return parts.slice(0, 3).join(", ") || "Approximate area only";
+}
+
+function removeStreetLevelPrefix(value?: string | null): string {
+  return normalisePlacePart(value)
+    .replace(
+      new RegExp(
+        `^\\s*\\d+[a-z]?\\s+.*?\\b(?:${STREET_LEVEL_WORDS.join("|")})\\b\\s*`,
+        "i"
+      ),
+      ""
+    )
+    .replace(/^,\s*/, "")
+    .trim();
+}
+
+function makeFuzzyLabelFromFreeText(value?: string | null): string {
+  const withoutStreetPrefix = removeStreetLevelPrefix(value);
+  const parts = uniquePlaceParts(withoutStreetPrefix.split(",")).filter(
+    (part) => !isGenericPlacePart(part) && !looksStreetLevel(part)
+  );
+
+  return parts.slice(0, 3).join(", ") || "";
+}
+
+function detectCountryFromText(value?: string | null): string {
+  const lower = (value || "").toLowerCase();
+  if (!lower) return "";
+
+  const aliases: Array<[string, string[]]> = [
+    ["Australia", ["australia", "western australia", " west australia", " wa "]],
+    ["United Kingdom", ["united kingdom", " uk ", " england", " scotland", " wales", " northern ireland"]],
+    ["United States", ["united states", " usa ", " us ", " america"]],
+    ["Canada", ["canada"]],
+    ["New Zealand", ["new zealand", " nz "]],
   ];
-  const street1 = streets[Math.floor(Math.random() * streets.length)];
-  const street2 = streets[Math.floor(Math.random() * streets.length)];
-  return `Near ${street1} & ${street2}`;
+
+  const padded = ` ${lower} `;
+  const match = aliases.find(([, terms]) => terms.some((term) => padded.includes(term)));
+  return match?.[0] || "";
+}
+
+function hasLocationCountryConflict(location: CatLocation): boolean {
+  const textCountry = detectCountryFromText(location.approximateAddress);
+  if (!textCountry || !location.country) return false;
+  return textCountry.toLowerCase() !== location.country.toLowerCase();
+}
+
+function getSafeLocationLabel(location: CatLocation): string {
+  const structuredLabel = makeApproximateLocationLabel(location.area, location.city, location.country);
+  const freeTextLabel = makeFuzzyLabelFromFreeText(location.approximateAddress);
+
+  // Some older records saved the typed address but accidentally kept the map
+  // centre's London coordinates. In that case, show the fuzzed typed label
+  // rather than a wrong resolved borough.
+  if (freeTextLabel && hasLocationCountryConflict(location)) return freeTextLabel;
+
+  if (structuredLabel !== "Approximate area only") return structuredLabel;
+  return freeTextLabel || "Approximate area only";
+}
+
+function getSafeCountryLabel(location: CatLocation): string {
+  return detectCountryFromText(location.approximateAddress) || location.country || "";
+}
+
+function getCityNameFromNominatimResult(result: any): string {
+  const address = result?.address || {};
+  const city =
+    address.city ||
+    address.town ||
+    address.village ||
+    address.municipality ||
+    address.county ||
+    address.state_district ||
+    address.state ||
+    "";
+  return normalisePlacePart(city);
+}
+
+function getCountryNameFromNominatimResult(result: any): string {
+  return normalisePlacePart(result?.address?.country || "");
 }
 
 function cleanAreaName(value?: string | null): string {
@@ -773,8 +930,8 @@ async function getReverseGeocode(lat: number, lng: number): Promise<{ area: stri
     const data = await res.json();
     const address = data?.address || {};
     const area = getAreaNameFromNominatimResult(data);
-    const city = address.city || address.town || address.village || address.county || "";
-    const country = address.country || "";
+    const city = getCityNameFromNominatimResult(data);
+    const country = getCountryNameFromNominatimResult(data);
     // Rough continent lookup by country_code
     const cc = (address.country_code || "").toLowerCase();
     const continentMap: Record<string, string> = {
@@ -789,6 +946,23 @@ async function getReverseGeocode(lat: number, lng: number): Promise<{ area: stri
     return { area, city, country, continent };
   } catch {
     return { area: "Nearby area", city: "", country: "", continent: "" };
+  }
+}
+
+async function geocodeAddress(queryText: string): Promise<any | null> {
+  const cleanQuery = queryText.trim();
+  if (!cleanQuery) return null;
+
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&q=${encodeURIComponent(cleanQuery)}&limit=1`,
+      { headers: { "Accept-Language": "en" } }
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    return Array.isArray(data) && data.length > 0 ? data[0] : null;
+  } catch {
+    return null;
   }
 }
 
@@ -822,13 +996,11 @@ function DisplayArea({ location }: { location: CatLocation }) {
 function extractLocationFromPhoto(
   _file: File
 ): Promise<[number, number] | null> {
-  return new Promise((resolve) => {
-    const mockLocation: [number, number] = [
-      51.5074 + (Math.random() - 0.5) * 0.01,
-      -0.1278 + (Math.random() - 0.5) * 0.01,
-    ];
-    setTimeout(() => resolve(mockLocation), 500);
-  });
+  // Do not guess or mock photo locations. The previous placeholder returned
+  // random London coordinates, which could make non-London cats appear in London.
+  // A real EXIF parser can be added later, but until then we should ask users
+  // to choose a location manually.
+  return Promise.resolve(null);
 }
 
 // Firebase helper functions
@@ -861,6 +1033,55 @@ async function uploadPhotoToStorage(
     console.error("Error uploading photo:", error);
     throw error;
   }
+}
+
+function makeStorageOnlyPhoto(item: any, url: string): CatPhoto {
+  return {
+    id: `storage-only::${item.fullPath || item.name || url}`,
+    url,
+    contributor: "Catwalk",
+    contributorId: "",
+    date: new Date().toISOString(),
+    uploadedAt: new Date().toISOString(),
+    objectPosition: DEFAULT_CAT_PHOTO_POSITION,
+  };
+}
+
+async function getStorageOnlyCatPhotos(catId: string, existingPhotos: CatPhoto[] = []): Promise<CatPhoto[]> {
+  const existingUrls = new Set(existingPhotos.map((photo) => photo.url).filter(Boolean));
+  const existingPaths = new Set(
+    existingPhotos
+      .map((photo) => {
+        try {
+          return decodeURIComponent(new URL(photo.url).pathname);
+        } catch {
+          return "";
+        }
+      })
+      .filter(Boolean)
+  );
+
+  try {
+    const folderRef = storageRef(storage, `cats/${catId}/photos`);
+    const listed = await listAll(folderRef);
+    const photos = await Promise.all(
+      listed.items.map(async (item) => {
+        const url = await getDownloadURL(item);
+        const decodedPath = decodeURIComponent(new URL(url).pathname);
+        if (existingUrls.has(url) || existingPaths.has(decodedPath)) return null;
+        return makeStorageOnlyPhoto(item, url);
+      })
+    );
+
+    return photos.filter(Boolean) as CatPhoto[];
+  } catch (error) {
+    console.warn("Could not list extra photos from Firebase Storage:", error);
+    return [];
+  }
+}
+
+function isStorageOnlyPhoto(photo: CatPhoto): boolean {
+  return photo.id.startsWith("storage-only::");
 }
 
 async function createUserProfile(
@@ -2242,7 +2463,7 @@ function AddCatForm({
     searchDebounceRef.current = window.setTimeout(async () => {
       setSearchingCatLocation(true);
       const url = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&q=${encodeURIComponent(queryText)}&limit=8`;
-      const headers = { "Accept-Language": "en", "User-Agent": "Catwalk/1.1 (catwalk-walk-the-walk.vercel.app)" };
+      const headers = { "Accept-Language": "en" };
 
       const tryFetch = async (attempt: number): Promise<any[]> => {
         const controller = new AbortController();
@@ -2281,13 +2502,15 @@ function AddCatForm({
   const handleCatLocationSelect = (result: any) => {
     const lat = parseFloat(result.lat);
     const lng = parseFloat(result.lon);
-    // Use full address for the approximateAddress, short label for the search box
-    const fullAddress = result.display_name || "";
-    const shortLabel = result.display_name.split(",").slice(0, 3).join(",");
-    setCatLocationSearch(shortLabel);
+    const area = getAreaNameFromNominatimResult(result);
+    const city = getCityNameFromNominatimResult(result);
+    const country = getCountryNameFromNominatimResult(result);
+    const safeLabel = makeApproximateLocationLabel(area, city, country);
+
+    setCatLocationSearch(safeLabel);
     setCatLocationResults([]);
-    setApproximateAddress(fullAddress);
-    placeCatLocationMarker(lat, lng, fullAddress, getAreaNameFromNominatimResult(result));
+    setApproximateAddress(safeLabel);
+    placeCatLocationMarker(lat, lng, safeLabel, area);
   };
 
   const handleSubmit = async () => {
@@ -2369,8 +2592,11 @@ function AddCatForm({
           city: geo.city,
           country: geo.country,
           continent: geo.continent,
-          approximateAddress:
-            approximateAddress || fuzzyLocation(location[0], location[1]),
+          approximateAddress: makeApproximateLocationLabel(
+            resolvedAreaName,
+            geo.city,
+            geo.country
+          ),
         },
         createdDate: serverTimestamp(),
         totalVisits: 1,
@@ -2510,7 +2736,7 @@ function AddCatForm({
         {step === "location" && (
           <>
             <p style={{ fontSize: "15px", color: "#6b7280", margin: 0, lineHeight: 1.6 }}>
-              Show us roughly where you usually see this cat. You don't need to be exact — just the right street or area is fine.
+              Show us roughly where you usually see this cat. You don't need to be exact — the app will only show a wider area, not a street address.
             </p>
 
             {/* Option A: Use my location */}
@@ -2531,13 +2757,13 @@ function AddCatForm({
               <span style={{ fontSize: "32px" }}>📍</span>
               <div>
                 <div style={{ fontSize: "16px", fontWeight: "600", color: "#111827", marginBottom: "3px" }}>Use my current location</div>
-                <div style={{ fontSize: "13px", color: "#6b7280" }}>Best if you're near the cat right now</div>
+                <div style={{ fontSize: "13px", color: "#6b7280" }}>Best if you're near the cat right now. Only an approximate area is shown.</div>
               </div>
             </button>
 
             {/* Option B: Search */}
             <div>
-              <p style={{ fontSize: "14px", fontWeight: "600", color: "#111827", marginBottom: "10px" }}>Or search for the street or area:</p>
+              <p style={{ fontSize: "14px", fontWeight: "600", color: "#111827", marginBottom: "10px" }}>Or search for the address or area:</p>
               <div style={{ position: "relative" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "8px", border: "2px solid #d1d5db", borderRadius: "12px", padding: "12px 14px", background: "white" }}>
                   <span>🔍</span>
@@ -2545,7 +2771,7 @@ function AddCatForm({
                     type="text"
                     value={catLocationSearch}
                     onChange={(e) => handleCatLocationSearch(e.target.value)}
-                    placeholder="Type a full address, street, or area name"
+                    placeholder="Type an address, suburb, or area name"
                     style={{ border: "none", outline: "none", width: "100%", fontSize: "16px", background: "transparent" }}
                   />
                   {searchingCatLocation && <span style={{ fontSize: "12px", color: "#9ca3af" }}>Searching...</span>}
@@ -2554,7 +2780,7 @@ function AddCatForm({
                   )}
                 </div>
                 <p style={{ fontSize: "12px", color: "#9ca3af", marginTop: "6px" }}>
-                  e.g. "32 Brownlow Road, London" or just "Haggerston" — the more you type the more accurate the result
+                  e.g. "Bicton WA" or "Haggerston". You can use an address to find the spot, but only the wider area will be shown.
                 </p>
                 {catLocationResults.length > 0 && (
                   <div style={{ position: "fixed", left: "20px", right: "20px", zIndex: 3500, background: "white", borderRadius: "12px", boxShadow: "0 6px 24px rgba(0,0,0,0.18)", marginTop: "4px", overflow: "hidden", maxHeight: "300px", overflowY: "auto" }}>
@@ -2583,10 +2809,14 @@ function AddCatForm({
                         <button key={i} type="button" onClick={() => { handleCatLocationSelect(result); setCatLocationResults([]); }}
                           style={{ display: "block", width: "100%", padding: "14px 16px", background: "white", border: "none", borderBottom: i < catLocationResults.length - 1 ? "1px solid #f3f4f6" : "none", textAlign: "left", cursor: "pointer" }}>
                           <div style={{ fontSize: "15px", fontWeight: "500", color: "#111827", marginBottom: "2px" }}>
-                            {result.display_name.split(",")[0]}
+                            {makeApproximateLocationLabel(
+                              getAreaNameFromNominatimResult(result),
+                              getCityNameFromNominatimResult(result),
+                              getCountryNameFromNominatimResult(result)
+                            )}
                           </div>
                           <div style={{ fontSize: "12px", color: "#9ca3af" }}>
-                            {result.display_name.split(",").slice(1, 5).join(",").trim()}
+                            Fuzzy location only, street details hidden
                           </div>
                         </button>
                       ))
@@ -2616,28 +2846,28 @@ function AddCatForm({
 
             {/* Manual address fallback */}
             <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: "16px" }}>
-              <p style={{ fontSize: "14px", fontWeight: "600", color: "#111827", marginBottom: "6px" }}>Or type the full address directly:</p>
-              <p style={{ fontSize: "13px", color: "#6b7280", marginBottom: "10px" }}>If search isn't working, type the address here and tap the button to save it.</p>
+              <p style={{ fontSize: "14px", fontWeight: "600", color: "#111827", marginBottom: "6px" }}>Or type the address directly:</p>
+              <p style={{ fontSize: "13px", color: "#6b7280", marginBottom: "10px" }}>If search isn't working, type the address here so the app can find the approximate area. The street address won't be shown on the cat profile.</p>
               <textarea
                 value={approximateAddress}
                 onChange={(e) => setApproximateAddress(e.target.value)}
                 rows={2}
-                placeholder="e.g. 32 Brownlow Road, Haggerston, London, E8"
+                placeholder="e.g. Bicton, WA, Australia"
                 style={{ width: "100%", padding: "12px 14px", border: "2px solid #d1d5db", borderRadius: "12px", fontSize: "15px", resize: "none" }}
               />
               {approximateAddress.trim().length > 5 && !location && (
                 <button
                   type="button"
-                  onClick={() => {
-                    // Use map centre as the pin, but store the typed address
-                    const centre = pickerMapInstanceRef.current?.getCenter?.();
-                    if (centre) {
-                      placeCatLocationMarker(centre.lat, centre.lng, approximateAddress.trim());
-                    } else if (manualLocation) {
-                      placeCatLocationMarker(manualLocation[0], manualLocation[1], approximateAddress.trim());
-                    } else if (userLocation) {
-                      placeCatLocationMarker(userLocation[0], userLocation[1], approximateAddress.trim());
+                  onClick={async () => {
+                    const typedAddress = approximateAddress.trim();
+                    const result = await geocodeAddress(typedAddress);
+
+                    if (result) {
+                      handleCatLocationSelect(result);
+                      return;
                     }
+
+                    alert("I couldn't find that address. Try adding the suburb/town and country, or tap the map to choose the approximate spot.");
                   }}
                   style={{ marginTop: "8px", width: "100%", padding: "12px", background: "#1a0dab", color: "white", border: "none", borderRadius: "12px", cursor: "pointer", fontSize: "14px", fontWeight: "600" }}
                 >
@@ -3025,15 +3255,34 @@ function CatProfile({
   const [pendingPhotoPreview, setPendingPhotoPreview] = useState<string | null>(null);
   const [pendingPhotoObjectPosition, setPendingPhotoObjectPosition] = useState(DEFAULT_CAT_PHOTO_POSITION);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [storageOnlyPhotos, setStorageOnlyPhotos] = useState<CatPhoto[]>([]);
+
+  const firestorePhotos = cat.photos || [];
+  const profilePhotos = [...firestorePhotos, ...storageOnlyPhotos];
+  const profilePhotoUrlsKey = firestorePhotos.map((photo) => photo.url).join("|");
+  const locationHasConflict = hasLocationCountryConflict(cat.location);
+
+  useEffect(() => {
+    let cancelled = false;
+    setStorageOnlyPhotos([]);
+
+    getStorageOnlyCatPhotos(cat.id, firestorePhotos).then((photos) => {
+      if (!cancelled) setStorageOnlyPhotos(photos);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [cat.id, profilePhotoUrlsKey]);
 
   const userVisitCount =
     currentUser && cat.userVisits ? cat.userVisits[currentUser.uid] || 0 : 0;
 
   const canEditPhotoPosition = (photo: CatPhoto) =>
-    Boolean(currentUser && (photo.contributorId === currentUser.uid || cat.creatorId === currentUser.uid));
+    Boolean(!isStorageOnlyPhoto(photo) && currentUser && (photo.contributorId === currentUser.uid || cat.creatorId === currentUser.uid));
 
   const canDeletePhoto = (photo: CatPhoto) =>
-    Boolean(currentUser && photo.contributorId === currentUser.uid);
+    Boolean(!isStorageOnlyPhoto(photo) && currentUser && photo.contributorId === currentUser.uid);
 
   const visitorSummaries = Object.values(
     (cat.visits || []).reduce<Record<string, { userId: string; userName: string; count: number; latestDate: string }>>((acc, visit) => {
@@ -3307,7 +3556,7 @@ function CatProfile({
             padding: "20px",
           }}
         >
-          {cat.photos.map((photo, index) => (
+          {profilePhotos.map((photo, index) => (
             <div key={photo.id || index} style={{ position: "relative" }}>
               <div
                 style={{
@@ -3403,7 +3652,7 @@ function CatProfile({
                   marginTop: "8px",
                 }}
               >
-                Photo {index + 1} of {cat.photos.length}
+                Photo {index + 1} of {profilePhotos.length}
               </div>
             </div>
           ))}
@@ -3657,7 +3906,7 @@ function CatProfile({
 
         </div>
 
-        {cat.photos.length > 0 && (
+        {profilePhotos.length > 0 && (
           <div style={{ marginBottom: "32px" }}>
             <h3
               style={{
@@ -3666,7 +3915,7 @@ function CatProfile({
                 marginBottom: "16px",
               }}
             >
-              Photos ({cat.photos.length})
+              Photos ({profilePhotos.length})
             </h3>
             <div
               style={{
@@ -3676,7 +3925,7 @@ function CatProfile({
                 marginBottom: "16px",
               }}
             >
-              {cat.photos.slice(0, 2).map((photo, index) => (
+              {profilePhotos.slice(0, 2).map((photo, index) => (
                 <div
                   key={photo.id || index}
                   style={{
@@ -3699,7 +3948,7 @@ function CatProfile({
                 </div>
               ))}
             </div>
-            {(cat.photos.length > 2 || cat.photos.some(canEditPhotoPosition)) && (
+            {(profilePhotos.length > 2 || profilePhotos.some(canEditPhotoPosition)) && (
               <button
                 style={{
                   background: "none",
@@ -3712,7 +3961,7 @@ function CatProfile({
                 }}
                 onClick={() => setShowAllPhotos(true)}
               >
-                {cat.photos.length > 2 ? `View all ${cat.photos.length} photos` : "Edit photo"}
+                {profilePhotos.length > 2 ? `View all ${profilePhotos.length} photos` : "Edit photo"}
               </button>
             )}
           </div>
@@ -3748,30 +3997,18 @@ function CatProfile({
               <span style={{ fontSize: "20px" }}>📍</span>
               <div>
                 <div>
-                  <DisplayArea location={cat.location} />, {cat.location.city}
+                  {getSafeLocationLabel(cat.location)}
                 </div>
-                {(() => {
-                  const joinDate = userProfile?.joinDate ? toDate(userProfile.joinDate) : null;
-                  const accountAgeDays = joinDate ? (Date.now() - joinDate.getTime()) / (1000 * 60 * 60 * 24) : 0;
-                  const isTrusted = accountAgeDays >= 30 || (userProfile?.totalContributions || 0) >= 3;
-                  if (!isTrusted) return (
-                    <div style={{ color: "#9ca3af", fontSize: "13px", fontStyle: "italic" }}>
-                      Street detail visible after 30 days or 3 contributions
-                    </div>
-                  );
-                  return cat.location.approximateAddress ? (
-                    <div style={{ color: "#6b7280", fontSize: "14px" }}>
-                      {cat.location.approximateAddress}
-                    </div>
-                  ) : null;
-                })()}
+                <div style={{ color: "#9ca3af", fontSize: "13px", fontStyle: "italic" }}>
+                  Fuzzy location only, street-level details hidden for privacy
+                </div>
               </div>
             </div>
             <div
               style={{ display: "flex", alignItems: "flex-start", gap: "12px" }}
             >
               <span style={{ fontSize: "20px" }}>🌍</span>
-              <div>{cat.location.country}</div>
+              <div>{getSafeCountryLabel(cat.location)}</div>
             </div>
             <div
               style={{ display: "flex", alignItems: "flex-start", gap: "12px" }}
@@ -3855,9 +4092,15 @@ function CatProfile({
               border: "1px solid #e5e7eb",
             }}
           >
-            <div style={{ height: "200px", marginBottom: "12px" }}>
-              <MapSnapshot lat={cat.location.lat} lng={cat.location.lng} blur={true} />
-            </div>
+            {locationHasConflict ? (
+              <div style={{ height: "200px", marginBottom: "12px", borderRadius: "12px", background: "#f3f4f6", display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center", color: "#6b7280", padding: "16px" }}>
+                Map hidden until this saved location is corrected
+              </div>
+            ) : (
+              <div style={{ height: "200px", marginBottom: "12px" }}>
+                <MapSnapshot lat={cat.location.lat} lng={cat.location.lng} blur={true} />
+              </div>
+            )}
             <div
               style={{
                 textAlign: "center",
@@ -3866,10 +4109,7 @@ function CatProfile({
               }}
             >
               <div style={{ fontWeight: "500", marginBottom: "4px" }}>
-                {cat.location.approximateAddress}
-              </div>
-              <div>
-                <DisplayArea location={cat.location} />, {cat.location.city}
+                {getSafeLocationLabel(cat.location)}
               </div>
               <div style={{ fontSize: "12px", marginTop: "8px" }}>
                 📍 Fuzzed location for privacy
@@ -4087,7 +4327,7 @@ function ContributeForm({
           <div>
             <h3 style={{ margin: 0, fontSize: "20px" }}>{cat.name}</h3>
             <p style={{ margin: 0, color: "#6b7280", fontSize: "14px" }}>
-              <DisplayArea location={cat.location} />, {cat.location.city}
+              {getSafeLocationLabel(cat.location)}
             </p>
           </div>
         </div>
@@ -4377,10 +4617,10 @@ function CatspottingScreen({
         location: {
           lat: extractedLocation[0],
           lng: extractedLocation[1],
-          area: "Local Area",
-          city: "London",
-          country: "United Kingdom",
-          continent: "Europe",
+          area: "Nearby area",
+          city: "",
+          country: "",
+          continent: "",
           approximateAddress: fuzzyLocation(
             extractedLocation[0],
             extractedLocation[1]
@@ -4631,7 +4871,7 @@ function CatspottingScreen({
                               {cat.name}
                             </p>
                             <p style={{ fontSize: "14px", color: "#6b7280" }}>
-                              {cat.location.approximateAddress}
+                              {getSafeLocationLabel(cat.location)}
                             </p>
                           </div>
                           {cat.photos[0] && (
@@ -5246,7 +5486,7 @@ function DuplicateModal({
               <div>
                 <p style={{ fontWeight: "600", margin: 0 }}>{cat.name}</p>
                 <p style={{ fontSize: "14px", color: "#6b7280", margin: 0 }}>
-                  {cat.location.approximateAddress}
+                  {getSafeLocationLabel(cat.location)}
                 </p>
               </div>
             </button>
@@ -7124,7 +7364,7 @@ export default function CatwalkApp() {
               },
               {
                 q: "Why is the map location blurred on cat profiles?",
-                a: "Cat profile maps show an approximate location, not an exact one, to protect the cat's safety. The pin is slightly randomised and the zoom is pulled back. The neighbourhood and street name are shown in text, but the precise coordinates are never displayed."
+                a: "Cat profile maps show an approximate location, not an exact one, to protect the cat's safety. The pin is slightly randomised and the zoom is pulled back. The neighbourhood or wider area is shown in text, but street-level details are hidden."
               },
               {
                 q: "Do I need an account to use Catwalk?",
