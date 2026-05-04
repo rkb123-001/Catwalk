@@ -3227,6 +3227,7 @@ function CatProfile({
   onAddPhoto,
   onUpdatePhotoPosition,
   onDeletePhoto,
+  onSetMainPhoto,
   onDeleteVisit,
   onContribute,
   onAuthRequired,
@@ -3241,6 +3242,7 @@ function CatProfile({
   onAddPhoto: (file: File, objectPosition?: string) => void | Promise<void>;
   onUpdatePhotoPosition: (photoId: string, objectPosition: string) => void | Promise<void>;
   onDeletePhoto: (photoId: string) => void | Promise<void>;
+  onSetMainPhoto: (photoId: string) => void | Promise<void>;
   onDeleteVisit: (visitDate: string) => void | Promise<void>;
   onContribute: () => void;
   onAuthRequired: () => void;
@@ -3588,6 +3590,54 @@ function CatProfile({
                       gap: "8px",
                     }}
                   >
+                    {currentUser?.uid === cat.creatorId && cat.photos[0]?.id !== photo.id && (
+                      <button
+                        type="button"
+                        aria-label="Set as main photo"
+                        title="Set as main photo"
+                        onClick={() => {
+                          if (window.confirm("Set this as the main profile photo for this cat?")) {
+                            onSetMainPhoto(photo.id);
+                          }
+                        }}
+                        style={{
+                          width: "36px",
+                          height: "36px",
+                          borderRadius: "999px",
+                          border: "none",
+                          background: "rgba(255,255,255,0.92)",
+                          color: "#f59e0b",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          cursor: "pointer",
+                          boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+                          fontSize: "18px",
+                        }}
+                      >
+                        ★
+                      </button>
+                    )}
+                    {currentUser?.uid === cat.creatorId && cat.photos[0]?.id === photo.id && (
+                      <div
+                        title="Main photo"
+                        aria-label="Main photo"
+                        style={{
+                          width: "36px",
+                          height: "36px",
+                          borderRadius: "999px",
+                          background: "#f59e0b",
+                          color: "white",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+                          fontSize: "18px",
+                        }}
+                      >
+                        ★
+                      </div>
+                    )}
                     <button
                       type="button"
                       aria-label="Edit photo"
@@ -6468,6 +6518,26 @@ export default function CatwalkApp() {
     }
   };
 
+  const handleSetMainPhoto = async (photoId: string) => {
+    if (!selectedCat || !currentUser) return;
+    if (selectedCat.creatorId !== currentUser.uid) {
+      alert("Only the person who added this cat can change the main photo.");
+      return;
+    }
+    const target = selectedCat.photos.find((item) => item.id === photoId);
+    if (!target) return;
+    // Move target to index 0; preserve existing order of the rest
+    const reordered = [target, ...selectedCat.photos.filter((item) => item.id !== photoId)];
+    try {
+      const catDoc = doc(db, "cats", selectedCat.id);
+      await updateDoc(catDoc, { photos: reordered });
+      // onSnapshot updates UI
+    } catch (error) {
+      console.error("Error setting main photo:", error);
+      alert("Could not update the main photo. Please try again.");
+    }
+  };
+
   const handleDeleteVisit = async (visitDate: string) => {
     if (!selectedCat || !currentUser) return;
 
@@ -7896,6 +7966,7 @@ Tap the map to place a custom map pin. To create a cat, use the blue + Add cat b
           onAddPhoto={handleAddPhoto}
           onUpdatePhotoPosition={handleUpdatePhotoPosition}
           onDeletePhoto={handleDeletePhoto}
+          onSetMainPhoto={handleSetMainPhoto}
           onDeleteVisit={handleDeleteVisit}
           onContribute={() => setShowContributeForm(true)}
           onAuthRequired={() => setShowAuthRequired(true)}
