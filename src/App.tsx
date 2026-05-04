@@ -3254,6 +3254,7 @@ function CatProfile({
   const [selectedVisitorProfile, setSelectedVisitorProfile] = useState<UserProfile | null>(null);
   const [loadingVisitorProfileId, setLoadingVisitorProfileId] = useState<string | null>(null);
   const [editingPhotoId, setEditingPhotoId] = useState<string | null>(null);
+  const [editingPhotoDraftPosition, setEditingPhotoDraftPosition] = useState<string>(DEFAULT_CAT_PHOTO_POSITION);
   const [pendingPhotoFile, setPendingPhotoFile] = useState<File | null>(null);
   const [pendingPhotoPreview, setPendingPhotoPreview] = useState<string | null>(null);
   const [pendingPhotoObjectPosition, setPendingPhotoObjectPosition] = useState(DEFAULT_CAT_PHOTO_POSITION);
@@ -3557,6 +3558,7 @@ function CatProfile({
             gridTemplateColumns: "1fr 1fr",
             gap: "16px",
             padding: "20px",
+            alignItems: "start",
           }}
         >
           {profilePhotos.map((photo, index) => (
@@ -3590,7 +3592,7 @@ function CatProfile({
                       gap: "8px",
                     }}
                   >
-                    {currentUser?.uid === cat.creatorId && cat.photos[0]?.id !== photo.id && (
+                    {currentUser && cat.photos[0]?.id !== photo.id && (
                       <button
                         type="button"
                         aria-label="Set as main photo"
@@ -3618,7 +3620,7 @@ function CatProfile({
                         ★
                       </button>
                     )}
-                    {currentUser?.uid === cat.creatorId && cat.photos[0]?.id === photo.id && (
+                    {currentUser && cat.photos[0]?.id === photo.id && (
                       <div
                         title="Main photo"
                         aria-label="Main photo"
@@ -3642,7 +3644,10 @@ function CatProfile({
                       type="button"
                       aria-label="Edit photo"
                       title="Edit photo"
-                      onClick={() => setEditingPhotoId((prev) => prev === photo.id ? null : photo.id)}
+                      onClick={() => {
+                        setEditingPhotoDraftPosition(getCatPhotoPosition(photo));
+                        setEditingPhotoId(photo.id);
+                      }}
                       style={{
                         width: "36px",
                         height: "36px",
@@ -3685,16 +3690,6 @@ function CatProfile({
                   </div>
                 )}
               </div>
-              {canEditPhotoPosition(photo) && editingPhotoId === photo.id && (
-                <div style={{ marginTop: "8px" }}>
-                  <PhotoFocusPicker
-                    imageUrl={photo.url}
-                    objectPosition={getCatPhotoPosition(photo)}
-                    onChange={(position) => onUpdatePhotoPosition(photo.id, position)}
-                    height={180}
-                  />
-                </div>
-              )}
               <div
                 style={{
                   textAlign: "center",
@@ -3725,6 +3720,72 @@ function CatProfile({
         overflowY: "auto",
       }}
     >
+      {/* Edit photo focus modal */}
+      {editingPhotoId && (() => {
+        const editingPhoto = profilePhotos.find(p => p.id === editingPhotoId);
+        if (!editingPhoto) return null;
+        return (
+          <div
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(0,0,0,0.6)",
+              zIndex: 3000,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "16px",
+            }}
+          >
+            <div
+              style={{
+                background: "white",
+                borderRadius: "16px",
+                padding: "16px",
+                width: "100%",
+                maxWidth: "480px",
+                maxHeight: "calc(100vh - 32px)",
+                display: "flex",
+                flexDirection: "column",
+                gap: "12px",
+                boxShadow: "0 20px 50px rgba(0,0,0,0.3)",
+                overflowY: "auto",
+                boxSizing: "border-box",
+              }}
+            >
+              <h3 style={{ margin: 0, fontSize: "17px", fontWeight: 700, flexShrink: 0 }}>Adjust photo focus</h3>
+              <div style={{ flex: 1, minHeight: 0 }}>
+                <PhotoFocusPicker
+                  imageUrl={editingPhoto.url}
+                  objectPosition={editingPhotoDraftPosition}
+                  onChange={setEditingPhotoDraftPosition}
+                  height={260}
+                />
+              </div>
+              <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end", flexShrink: 0 }}>
+                <button
+                  type="button"
+                  onClick={() => setEditingPhotoId(null)}
+                  style={{ padding: "12px 18px", borderRadius: "999px", border: "1px solid #e5e7eb", background: "white", cursor: "pointer", fontSize: "15px" }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await onUpdatePhotoPosition(editingPhotoId, editingPhotoDraftPosition);
+                    setEditingPhotoId(null);
+                  }}
+                  style={{ padding: "12px 20px", borderRadius: "999px", border: "none", background: "#1a0dab", color: "white", cursor: "pointer", fontWeight: 600, fontSize: "15px" }}
+                >
+                  Save changes
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {pendingPhotoPreview && pendingPhotoFile && (
         <div
           style={{
@@ -6520,10 +6581,6 @@ export default function CatwalkApp() {
 
   const handleSetMainPhoto = async (photoId: string) => {
     if (!selectedCat || !currentUser) return;
-    if (selectedCat.creatorId !== currentUser.uid) {
-      alert("Only the person who added this cat can change the main photo.");
-      return;
-    }
     const target = selectedCat.photos.find((item) => item.id === photoId);
     if (!target) return;
     // Move target to index 0; preserve existing order of the rest
@@ -7327,6 +7384,7 @@ export default function CatwalkApp() {
               display: "grid",
               gridTemplateColumns: "1fr 1fr",
               gap: "16px",
+              alignItems: "start",
             }}
           >
             {filteredCats.map((cat) => {
