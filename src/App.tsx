@@ -1267,7 +1267,7 @@ function LoginScreen({
   onClose,
   embedded = false,
 }: {
-  onLogin: () => void;
+  onLogin: (justRegistered?: boolean) => void;
   onClose: () => void;
   embedded?: boolean;
 }) {
@@ -1308,7 +1308,7 @@ function LoginScreen({
       } else {
         await signInWithEmailAndPassword(auth, email, password);
       }
-      onLogin();
+      onLogin(isRegistering);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -1556,9 +1556,9 @@ function LoginScreen({
           <p style={{ fontSize: "13px", color: "#4b5563", margin: "0 0 12px", lineHeight: 1.6 }}>
             A community-built map of neighbourhood cats — somewhere between a field guide and a mutual appreciation society. Add the cats you meet, share photos, leave notes, return often.
           </p>
-          <h4 style={{ fontSize: "13px", fontWeight: "700", margin: "0 0 6px", color: "#111827" }}>Your cat's privacy is up to you</h4>
+          <h4 style={{ fontSize: "13px", fontWeight: "700", margin: "0 0 6px", color: "#111827" }}>You decide how visible each cat is</h4>
           <p style={{ fontSize: "13px", color: "#4b5563", margin: "0 0 8px", lineHeight: 1.6 }}>
-            When adding a cat, you can choose to <strong>hide the exact location</strong> — only the suburb or borough name will be shown, and the map pin sits in the middle of the area, not at the cat's home. Recommended if you're adding your own pet.
+            Every cat already has its location fuzzed by default — we never show a street address. For any cat you add, you can also choose to <strong>hide the exact area</strong> and only show the suburb name, with the map pin sitting in the middle of that area rather than near the cat.
           </p>
           <p style={{ fontSize: "12px", color: "#6b7280", margin: 0, fontStyle: "italic", lineHeight: 1.5 }}>
             Catwalk celebrates cats in your community — it is not a tool for harm. Locations are always shown approximately, never as exact addresses.
@@ -2819,36 +2819,43 @@ function AddCatForm({
         {/* ── STEP 1: LOCATION ── */}
         {step === "location" && (
           <>
-            <p style={{ fontSize: "15px", color: "#6b7280", margin: 0, lineHeight: 1.6 }}>
-              Show us roughly where you usually see this cat. You don't need to be exact — the app will only show a wider area, not a street address.
-            </p>
-
-            {/* Privacy toggle */}
+            {/* Privacy toggle — prominent at the top */}
             <div
               style={{
-                background: hidePreciseLocation ? "#f0f9ff" : "#f9fafb",
-                border: `2px solid ${hidePreciseLocation ? "#1a0dab" : "#e5e7eb"}`,
-                borderRadius: "14px",
-                padding: "14px 16px",
+                background: hidePreciseLocation ? "#eef2ff" : "#fffbeb",
+                border: `2px solid ${hidePreciseLocation ? "#1a0dab" : "#fbbf24"}`,
+                borderRadius: "16px",
+                padding: "16px",
               }}
             >
-              <label style={{ display: "flex", alignItems: "flex-start", gap: "12px", cursor: "pointer" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "10px" }}>
+                <span style={{ fontSize: "22px" }}>🔒</span>
+                <h3 style={{ margin: 0, fontSize: "16px", fontWeight: 700, color: "#111827" }}>How visible should this cat's location be?</h3>
+              </div>
+              <p style={{ margin: "0 0 14px", fontSize: "14px", color: "#4b5563", lineHeight: 1.55 }}>
+                By default, we already hide street-level details and only show an approximate area. You can choose to hide it further — only the suburb or borough name will be shown, with the pin sitting in the middle of that area rather than near the cat.
+              </p>
+              <label style={{ display: "flex", alignItems: "flex-start", gap: "12px", cursor: "pointer", padding: "12px 14px", background: "white", borderRadius: "12px", border: `1.5px solid ${hidePreciseLocation ? "#1a0dab" : "#e5e7eb"}` }}>
                 <input
                   type="checkbox"
                   checked={hidePreciseLocation}
                   onChange={(e) => setHidePreciseLocation(e.target.checked)}
-                  style={{ width: "20px", height: "20px", marginTop: "2px", accentColor: "#1a0dab", flexShrink: 0 }}
+                  style={{ width: "22px", height: "22px", marginTop: "1px", accentColor: "#1a0dab", flexShrink: 0 }}
                 />
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: "600", fontSize: "15px", color: "#111827", marginBottom: "2px" }}>
-                    Hide exact location
+                  <div style={{ fontWeight: "600", fontSize: "15px", color: hidePreciseLocation ? "#1a0dab" : "#111827" }}>
+                    {hidePreciseLocation ? "✓ Suburb only" : "Suburb only — hide exact area"}
                   </div>
-                  <div style={{ fontSize: "13px", color: "#6b7280", lineHeight: 1.5 }}>
-                    Only show the suburb or borough name (e.g. "Bicton" or "Haggerston"). The map pin will sit in the centre of the area, not at the cat's actual home. Recommended if you're adding your own pet.
+                  <div style={{ fontSize: "12px", color: "#6b7280", marginTop: "3px", lineHeight: 1.4 }}>
+                    Pin sits in the middle of the suburb. No street-level info shown to anyone. Useful for shy cats, nervous owners, or any cat whose exact area shouldn't be public.
                   </div>
                 </div>
               </label>
             </div>
+
+            <p style={{ fontSize: "15px", color: "#6b7280", margin: "8px 0 0", lineHeight: 1.6 }}>
+              Now show us where the cat is. {hidePreciseLocation ? "Anywhere in their suburb is fine — we'll snap it to the centre." : "You don't need to be exact — only the wider area is shown publicly, never a street address."}
+            </p>
 
             {/* Option A: Use my location */}
             <button
@@ -6145,6 +6152,7 @@ export default function CatwalkApp() {
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [showCatspotting, setShowCatspotting] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
+  const [showWelcomeNewUser, setShowWelcomeNewUser] = useState(false);
   const [showAuthRequired, setShowAuthRequired] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
   const [showLocationConsent, setShowLocationConsent] = useState(false);
@@ -7809,21 +7817,21 @@ export default function CatwalkApp() {
             style={{
               display: "flex",
               alignItems: "center",
-              gap: "6px",
-              padding: "10px 18px",
+              gap: "8px",
+              padding: "14px 22px",
               background: "#1a0dab",
               border: "none",
-              borderRadius: "24px",
+              borderRadius: "999px",
               color: "white",
-              fontSize: "15px",
-              fontWeight: "600",
+              fontSize: "17px",
+              fontWeight: "700",
               cursor: "pointer",
-              boxShadow: "0 2px 8px rgba(26,13,171,0.3)",
+              boxShadow: "0 4px 14px rgba(26,13,171,0.35)",
               whiteSpace: "nowrap",
             }}
             onClick={() => requireAuth(onAddCat)}
           >
-            <PlusIcon size={18} />{" "}
+            <PlusIcon size={22} />{" "}
             {currentUser ? "Add Cat" : "Sign in"}
           </button>
         </div>
@@ -8293,7 +8301,11 @@ export default function CatwalkApp() {
             </button>
           </div>
           <div style={{ background: "white", borderRadius: "16px", padding: "32px", boxShadow: "0 2px 8px rgba(0,0,0,0.08)" }}>
-            <LoginScreen onLogin={() => {}} onClose={() => {}} embedded />
+            <LoginScreen
+              onLogin={(justRegistered) => { if (justRegistered) setShowWelcomeNewUser(true); }}
+              onClose={() => {}}
+              embedded
+            />
           </div>
         </div>
         <GuideModal />
@@ -8509,8 +8521,8 @@ Tap the map to place a custom map pin. To create a cat, use the blue + Add cat b
               {/* Add Cat Button */}
               <button
                 style={{
-                  width: "64px",
-                  height: "64px",
+                  width: "78px",
+                  height: "78px",
                   background: "#1a0dab",
                   border: "none",
                   borderRadius: "50%",
@@ -8518,7 +8530,7 @@ Tap the map to place a custom map pin. To create a cat, use the blue + Add cat b
                   alignItems: "center",
                   justifyContent: "center",
                   color: "white",
-                  boxShadow: "0 4px 12px rgba(139, 92, 246, 0.4)",
+                  boxShadow: "0 6px 18px rgba(26,13,171,0.45)",
                   cursor: "pointer",
                 }}
                 onClick={() => requireAuth(() => setShowAddCat(true))}
@@ -8526,8 +8538,8 @@ Tap the map to place a custom map pin. To create a cat, use the blue + Add cat b
                 title="Add a new cat"
               >
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center", lineHeight: 1 }}>
-                  <PlusIcon />
-                  <span style={{ fontSize: "10px", fontWeight: 700, marginTop: "2px" }}>Add cat</span>
+                  <PlusIcon size={28} />
+                  <span style={{ fontSize: "11px", fontWeight: 700, marginTop: "3px" }}>Add cat</span>
                 </div>
               </button>
             </div>
@@ -8557,7 +8569,10 @@ Tap the map to place a custom map pin. To create a cat, use the blue + Add cat b
       {/* Login Modal */}
       {showLogin && (
         <LoginScreen
-          onLogin={() => setShowLogin(false)}
+          onLogin={(justRegistered) => {
+            setShowLogin(false);
+            if (justRegistered) setShowWelcomeNewUser(true);
+          }}
           onClose={() => setShowLogin(false)}
         />
       )}
@@ -8632,6 +8647,96 @@ Tap the map to place a custom map pin. To create a cat, use the blue + Add cat b
           onDeleteAccount={handleDeleteAccount}
           cats={cats}
         />
+      )}
+
+      {/* Welcome modal — appears after a new user signs up */}
+      {showWelcomeNewUser && currentUser && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.6)",
+            zIndex: 4500,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "16px",
+          }}
+        >
+          <div
+            style={{
+              background: "white",
+              borderRadius: "20px",
+              padding: "32px 24px",
+              maxWidth: "440px",
+              width: "100%",
+              boxShadow: "0 24px 64px rgba(0,0,0,0.4)",
+              boxSizing: "border-box",
+              textAlign: "center",
+            }}
+          >
+            <div style={{ fontSize: "56px", marginBottom: "12px" }}>🐱</div>
+            <h2 style={{ margin: "0 0 8px", fontSize: "22px", fontWeight: 700, color: "#111827" }}>Welcome to Catwalk!</h2>
+            <p style={{ margin: "0 0 20px", fontSize: "15px", color: "#4b5563", lineHeight: 1.55 }}>
+              Want to add your first cat? Whether it's your own pet or one you spotted in the neighbourhood, it only takes a minute.
+            </p>
+
+            <div
+              style={{
+                background: "#fffbeb",
+                border: "1.5px solid #fbbf24",
+                borderRadius: "12px",
+                padding: "12px 14px",
+                marginBottom: "20px",
+                textAlign: "left",
+                fontSize: "13px",
+                color: "#78350f",
+                lineHeight: 1.5,
+              }}
+            >
+              <strong>Privacy choice:</strong> for any cat you add, you can choose to hide the exact location and only show the suburb name. Always your call.
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowWelcomeNewUser(false);
+                  setShowAddCat(true);
+                }}
+                style={{
+                  padding: "16px",
+                  background: "#1a0dab",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "12px",
+                  cursor: "pointer",
+                  fontSize: "16px",
+                  fontWeight: 700,
+                  boxShadow: "0 4px 12px rgba(26,13,171,0.3)",
+                }}
+              >
+                + Add my first cat
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowWelcomeNewUser(false)}
+                style={{
+                  padding: "12px",
+                  background: "none",
+                  border: "none",
+                  color: "#6b7280",
+                  cursor: "pointer",
+                  fontSize: "14px",
+                  textDecoration: "underline",
+                  textUnderlineOffset: "2px",
+                }}
+              >
+                Maybe later — explore the map first
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Add Cat Form */}
