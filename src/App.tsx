@@ -1554,11 +1554,11 @@ function LoginScreen({
         >
           <h3 style={{ fontSize: "14px", fontWeight: "700", margin: "0 0 10px", color: "#111827", textTransform: "uppercase", letterSpacing: "0.06em" }}>About Catwalk</h3>
           <p style={{ fontSize: "13px", color: "#4b5563", margin: "0 0 12px", lineHeight: 1.6 }}>
-            A community-built map of neighbourhood cats — somewhere between a field guide and a mutual appreciation society. Add the cats you meet, share photos, leave notes, return often.
+            A community-built map of neighbourhood cats — somewhere between a field guide and a mutual appreciation society. Add the cats you meet, share photos, leave notes, return often. Indoor cats welcome too — privacy options keep them safe.
           </p>
           <h4 style={{ fontSize: "13px", fontWeight: "700", margin: "0 0 6px", color: "#111827" }}>You decide how visible each cat is</h4>
           <p style={{ fontSize: "13px", color: "#4b5563", margin: "0 0 8px", lineHeight: 1.6 }}>
-            Every cat already has its location fuzzed by default — we never show a street address. For any cat you add, you can also choose to <strong>hide the exact area</strong> and only show the suburb name, with the map pin sitting in the middle of that area rather than near the cat.
+            Every cat already has its location fuzzed by default — we never show a street address. For any cat you add, you can also choose to <strong>hide the exact area</strong> and only show the name of the wider neighbourhood, with the map pin sitting in the middle of that area rather than near the cat.
           </p>
           <p style={{ fontSize: "12px", color: "#6b7280", margin: 0, fontStyle: "italic", lineHeight: 1.5 }}>
             Catwalk celebrates cats in your community — it is not a tool for harm. Locations are always shown approximately, never as exact addresses.
@@ -2405,7 +2405,7 @@ function AddCatForm({
   const [allowsPetting, _setAllowsPetting] = useState<boolean | null>(null);
   const [acceptsTreats, _setAcceptsTreats] = useState<boolean | null>(null);
   const [favoriteTreats, _setFavoriteTreats] = useState("");
-  const [livingLocation, _setLivingLocation] = useState<
+  const [livingLocation, setLivingLocation] = useState<
     "indoor" | "outdoor" | "both" | null
   >(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -2833,7 +2833,7 @@ function AddCatForm({
                 <h3 style={{ margin: 0, fontSize: "16px", fontWeight: 700, color: "#111827" }}>How visible should this cat's location be?</h3>
               </div>
               <p style={{ margin: "0 0 14px", fontSize: "14px", color: "#4b5563", lineHeight: 1.55 }}>
-                By default, we already hide street-level details and only show an approximate area. You can choose to hide it further — only the suburb or borough name will be shown, with the pin sitting in the middle of that area rather than near the cat.
+                By default, we already hide street-level details and only show an approximate area. You can choose to hide it further — only the name of the wider neighbourhood will be shown, with the pin sitting in the middle of that area rather than near the cat. <strong>Recommended for indoor cats and any pet.</strong>
               </p>
               <label style={{ display: "flex", alignItems: "flex-start", gap: "12px", cursor: "pointer", padding: "12px 14px", background: "white", borderRadius: "12px", border: `1.5px solid ${hidePreciseLocation ? "#1a0dab" : "#e5e7eb"}` }}>
                 <input
@@ -2844,17 +2844,17 @@ function AddCatForm({
                 />
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: "600", fontSize: "15px", color: hidePreciseLocation ? "#1a0dab" : "#111827" }}>
-                    {hidePreciseLocation ? "✓ Suburb only" : "Suburb only — hide exact area"}
+                    {hidePreciseLocation ? "✓ General area only" : "General area only — hide exact spot"}
                   </div>
                   <div style={{ fontSize: "12px", color: "#6b7280", marginTop: "3px", lineHeight: 1.4 }}>
-                    Pin sits in the middle of the suburb. No street-level info shown to anyone. Useful for shy cats, nervous owners, or any cat whose exact area shouldn't be public.
+                    Pin sits in the middle of the wider area (suburb, borough, neighbourhood, district). No street-level info shown to anyone. Useful for shy cats, nervous owners, or any cat whose exact area shouldn't be public.
                   </div>
                 </div>
               </label>
             </div>
 
             <p style={{ fontSize: "15px", color: "#6b7280", margin: "8px 0 0", lineHeight: 1.6 }}>
-              Now show us where the cat is. {hidePreciseLocation ? "Anywhere in their suburb is fine — we'll snap it to the centre." : "You don't need to be exact — only the wider area is shown publicly, never a street address."}
+              Now show us where the cat is. {hidePreciseLocation ? "Anywhere in their general area is fine — we'll snap it to the centre." : "You don't need to be exact — only the wider area is shown publicly, never a street address."}
             </p>
 
             {/* Option A: Use my location */}
@@ -2889,7 +2889,7 @@ function AddCatForm({
                     type="text"
                     value={catLocationSearch}
                     onChange={(e) => handleCatLocationSearch(e.target.value)}
-                    placeholder="Type an address, suburb, or area name"
+                    placeholder="Type an address, area, or neighbourhood"
                     style={{ border: "none", outline: "none", width: "100%", fontSize: "16px", background: "transparent" }}
                   />
                   {searchingCatLocation && <span style={{ fontSize: "12px", color: "#9ca3af" }}>Searching...</span>}
@@ -2985,7 +2985,7 @@ function AddCatForm({
                       return;
                     }
 
-                    alert("I couldn't find that address. Try adding the suburb/town and country, or tap the map to choose the approximate spot.");
+                    alert("I couldn't find that address. Try adding the city/town and country, or tap the map to choose the approximate spot.");
                   }}
                   style={{ marginTop: "8px", width: "100%", padding: "12px", background: "#1a0dab", color: "white", border: "none", borderRadius: "12px", cursor: "pointer", fontSize: "14px", fontWeight: "600" }}
                 >
@@ -3073,6 +3073,46 @@ function AddCatForm({
                 placeholder="e.g. Usually found sleeping on the front step. Very friendly."
                 style={{ width: "100%", padding: "12px 14px", border: "2px solid #d1d5db", borderRadius: "12px", fontSize: "15px", resize: "vertical" }}
               />
+            </div>
+
+            {/* Indoor / Outdoor */}
+            <div>
+              <label style={{ display: "block", fontSize: "15px", fontWeight: "600", marginBottom: "10px", color: "#111827" }}>
+                Where does this cat live? <span style={{ fontWeight: 400, color: "#9ca3af" }}>(optional)</span>
+              </label>
+              <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                {([
+                  { value: "indoor" as const, label: "🏠 Indoor only" },
+                  { value: "outdoor" as const, label: "🌳 Outdoor / stray" },
+                  { value: "both" as const, label: "🚪 Both" },
+                ]).map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => {
+                      setLivingLocation(livingLocation === opt.value ? null : opt.value);
+                      // Auto-enable privacy for indoor-only cats — they're almost always someone's pet
+                      if (opt.value === "indoor" && livingLocation !== "indoor") {
+                        setHidePreciseLocation(true);
+                      }
+                    }}
+                    style={{
+                      padding: "10px 16px", borderRadius: "999px", border: "2px solid",
+                      borderColor: livingLocation === opt.value ? "#1a0dab" : "#e5e7eb",
+                      background: livingLocation === opt.value ? "#1a0dab" : "white",
+                      color: livingLocation === opt.value ? "white" : "#374151",
+                      cursor: "pointer", fontSize: "14px", fontWeight: "500",
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+              {livingLocation === "indoor" && (
+                <div style={{ marginTop: "10px", padding: "10px 12px", background: "#eef2ff", borderRadius: "10px", fontSize: "12px", color: "#1a0dab", lineHeight: 1.5 }}>
+                  ✓ Privacy auto-enabled. Indoor cats only show their general area, never the exact spot. You can change this back in step 1.
+                </div>
+              )}
             </div>
 
             {/* Personality */}
@@ -4538,7 +4578,7 @@ function CatProfile({
                 </div>
                 <div style={{ color: "#9ca3af", fontSize: "13px", fontStyle: "italic" }}>
                   {cat.locationPrecision === "suburb"
-                    ? "Suburb-only — exact location hidden by the contributor"
+                    ? "General area only — exact location hidden by the contributor"
                     : "Fuzzy location only, street-level details hidden for privacy"}
                 </div>
               </div>
@@ -8220,6 +8260,10 @@ export default function CatwalkApp() {
                 a: "You need to be signed in. Tap the blue + Add cat button, then choose the cat’s approximate location inside the Add Cat form by searching, tapping the small map, or using your current location. Fill in the name, colour, personality traits, and an optional photo, then tap Save cat."
               },
               {
+                q: "Can I add my own cat? What about indoor cats?",
+                a: "Yes — Catwalk is for any cat, indoor or outdoor, your own pet or one you've spotted in the neighbourhood. For privacy, the Add Cat wizard has a 'General area only' option that hides the exact spot and only shows the wider neighbourhood, with the map pin sitting in the middle of that area rather than near where the cat actually lives. When you tag a cat as 'Indoor only', this privacy option turns on automatically. You can change the setting at any time during the wizard."
+              },
+              {
                 q: "What is Catspotting?",
                 a: "Catspotting (the camera tab) lets you snap a photo of a cat you've just seen. It tries to detect nearby cats and lets you attach the photo to an existing profile, or create a new one. Useful when you're out and spot a cat quickly."
               },
@@ -8237,7 +8281,7 @@ export default function CatwalkApp() {
               },
               {
                 q: "Why is the map location blurred on cat profiles?",
-                a: "Cat profile maps show an approximate location, not an exact one, to protect the cat's safety. The pin is slightly randomised and the zoom is pulled back. The neighbourhood or wider area is shown in text, but street-level details are hidden."
+                a: "Cat profile maps show an approximate location, not an exact one, to protect the cat's safety. The pin is slightly randomised and the zoom is pulled back. The neighbourhood or wider area is shown in text, but street-level details are hidden. Contributors can also choose 'General area only' when adding a cat — this hides the exact spot entirely and places the pin in the middle of the wider area, useful for indoor cats and pets."
               },
               {
                 q: "Do I need an account to use Catwalk?",
@@ -8678,7 +8722,7 @@ Tap the map to place a custom map pin. To create a cat, use the blue + Add cat b
             <div style={{ fontSize: "56px", marginBottom: "12px" }}>🐱</div>
             <h2 style={{ margin: "0 0 8px", fontSize: "22px", fontWeight: 700, color: "#111827" }}>Welcome to Catwalk!</h2>
             <p style={{ margin: "0 0 20px", fontSize: "15px", color: "#4b5563", lineHeight: 1.55 }}>
-              Want to add your first cat? Whether it's your own pet or one you spotted in the neighbourhood, it only takes a minute.
+              Want to add your first cat? Whether it's your own indoor cat, a pet that wanders, or one you spotted in the neighbourhood, it only takes a minute.
             </p>
 
             <div
@@ -8694,7 +8738,7 @@ Tap the map to place a custom map pin. To create a cat, use the blue + Add cat b
                 lineHeight: 1.5,
               }}
             >
-              <strong>Privacy choice:</strong> for any cat you add, you can choose to hide the exact location and only show the suburb name. Always your call.
+              <strong>Privacy choice:</strong> for any cat you add, you can choose to hide the exact location and only show the general area. Always your call.
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
