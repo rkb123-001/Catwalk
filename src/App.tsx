@@ -118,6 +118,7 @@ interface Cat {
   acceptsTreats: boolean | null;
   favoriteTreats?: string[];
   livingLocation: "indoor" | "outdoor" | "both" | null;
+  locationPrecision?: "approximate" | "suburb";
   visits: Visit[];
   userVisits?: { [userId: string]: number };
   totalVisits: number;
@@ -960,6 +961,40 @@ async function getReverseGeocode(lat: number, lng: number): Promise<{ area: stri
   }
 }
 
+// Resolve a coordinate to the centre of its containing suburb/area for privacy.
+// Uses Nominatim's bounding box, which represents the geographic extent of the
+// suburb/neighbourhood. Returns the centre of that box plus the area name.
+async function getSuburbCentre(lat: number, lng: number): Promise<{ lat: number; lng: number; areaName: string }> {
+  try {
+    // zoom=14 returns suburb/borough-level results
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(String(lat))}&lon=${encodeURIComponent(String(lng))}&zoom=14&addressdetails=1`
+    );
+    if (!res.ok) return { lat, lng, areaName: "Nearby area" };
+    const data = await res.json();
+    const areaName = getAreaNameFromNominatimResult(data);
+    // Use the centre of the bounding box if present, otherwise the returned lat/lon
+    const bbox = data?.boundingbox;
+    if (Array.isArray(bbox) && bbox.length === 4) {
+      const south = parseFloat(bbox[0]);
+      const north = parseFloat(bbox[1]);
+      const west = parseFloat(bbox[2]);
+      const east = parseFloat(bbox[3]);
+      if (Number.isFinite(south) && Number.isFinite(north) && Number.isFinite(west) && Number.isFinite(east)) {
+        return { lat: (south + north) / 2, lng: (west + east) / 2, areaName };
+      }
+    }
+    const centreLat = parseFloat(data?.lat);
+    const centreLng = parseFloat(data?.lon);
+    if (Number.isFinite(centreLat) && Number.isFinite(centreLng)) {
+      return { lat: centreLat, lng: centreLng, areaName };
+    }
+    return { lat, lng, areaName };
+  } catch {
+    return { lat, lng, areaName: "Nearby area" };
+  }
+}
+
 async function geocodeAddress(queryText: string): Promise<any | null> {
   const cleanQuery = queryText.trim();
   if (!cleanQuery) return null;
@@ -1505,6 +1540,29 @@ function LoginScreen({
               ? "Create Account"
               : "Sign In"}
           </button>
+        </div>
+
+        {/* About Catwalk + privacy notes */}
+        <div
+          style={{
+            marginTop: "28px",
+            padding: "20px",
+            background: "#f9fafb",
+            borderRadius: "14px",
+            border: "1px solid #e5e7eb",
+          }}
+        >
+          <h3 style={{ fontSize: "14px", fontWeight: "700", margin: "0 0 10px", color: "#111827", textTransform: "uppercase", letterSpacing: "0.06em" }}>About Catwalk</h3>
+          <p style={{ fontSize: "13px", color: "#4b5563", margin: "0 0 12px", lineHeight: 1.6 }}>
+            A community-built map of neighbourhood cats — somewhere between a field guide and a mutual appreciation society. Add the cats you meet, share photos, leave notes, return often.
+          </p>
+          <h4 style={{ fontSize: "13px", fontWeight: "700", margin: "0 0 6px", color: "#111827" }}>Your cat's privacy is up to you</h4>
+          <p style={{ fontSize: "13px", color: "#4b5563", margin: "0 0 8px", lineHeight: 1.6 }}>
+            When adding a cat, you can choose to <strong>hide the exact location</strong> — only the suburb or borough name will be shown, and the map pin sits in the middle of the area, not at the cat's home. Recommended if you're adding your own pet.
+          </p>
+          <p style={{ fontSize: "12px", color: "#6b7280", margin: 0, fontStyle: "italic", lineHeight: 1.5 }}>
+            Catwalk celebrates cats in your community — it is not a tool for harm. Locations are always shown approximately, never as exact addresses.
+          </p>
         </div>
 
         <button
@@ -2361,6 +2419,7 @@ function AddCatForm({
   const [catLocationSearch, setCatLocationSearch] = useState("");
   const [catLocationResults, setCatLocationResults] = useState<any[]>([]);
   const [searchingCatLocation, setSearchingCatLocation] = useState(false);
+  const [hidePreciseLocation, setHidePreciseLocation] = useState(false);
   const searchDebounceRef = useRef<number | null>(null);
   const pickerMapRef = useRef<HTMLDivElement>(null);
   const pickerMapInstanceRef = useRef<any>(null);
@@ -2583,6 +2642,17 @@ function AddCatForm({
       const geo = await getReverseGeocode(location[0], location[1]);
       const resolvedAreaName = catAreaName || geo.area;
 
+      // If user opted to hide exact location, snap to the centre of the suburb.
+      let storedLat = location[0];
+      let storedLng = location[1];
+      let storedAreaName = resolvedAreaName;
+      if (hidePreciseLocation) {
+        const suburbCentre = await getSuburbCentre(location[0], location[1]);
+        storedLat = suburbCentre.lat;
+        storedLng = suburbCentre.lng;
+        if (suburbCentre.areaName) storedAreaName = suburbCentre.areaName;
+      }
+
       // Create the cat document first. Creating a cat also counts as the
       // creator's first visit, because they have physically spotted the cat.
       const catData = {
@@ -2596,18 +2666,21 @@ function AddCatForm({
           ? favoriteTreats.split(",").map((t) => t.trim())
           : [],
         livingLocation,
+        locationPrecision: hidePreciseLocation ? "suburb" : "approximate",
         location: {
-          lat: location[0],
-          lng: location[1],
-          area: resolvedAreaName || "Nearby area",
+          lat: storedLat,
+          lng: storedLng,
+          area: storedAreaName || "Nearby area",
           city: geo.city,
           country: geo.country,
           continent: geo.continent,
-          approximateAddress: makeApproximateLocationLabel(
-            resolvedAreaName,
-            geo.city,
-            geo.country
-          ),
+          approximateAddress: hidePreciseLocation
+            ? `Somewhere in ${storedAreaName || "this area"}`
+            : makeApproximateLocationLabel(
+                storedAreaName,
+                geo.city,
+                geo.country
+              ),
         },
         createdDate: serverTimestamp(),
         totalVisits: 1,
@@ -2749,6 +2822,33 @@ function AddCatForm({
             <p style={{ fontSize: "15px", color: "#6b7280", margin: 0, lineHeight: 1.6 }}>
               Show us roughly where you usually see this cat. You don't need to be exact — the app will only show a wider area, not a street address.
             </p>
+
+            {/* Privacy toggle */}
+            <div
+              style={{
+                background: hidePreciseLocation ? "#f0f9ff" : "#f9fafb",
+                border: `2px solid ${hidePreciseLocation ? "#1a0dab" : "#e5e7eb"}`,
+                borderRadius: "14px",
+                padding: "14px 16px",
+              }}
+            >
+              <label style={{ display: "flex", alignItems: "flex-start", gap: "12px", cursor: "pointer" }}>
+                <input
+                  type="checkbox"
+                  checked={hidePreciseLocation}
+                  onChange={(e) => setHidePreciseLocation(e.target.checked)}
+                  style={{ width: "20px", height: "20px", marginTop: "2px", accentColor: "#1a0dab", flexShrink: 0 }}
+                />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: "600", fontSize: "15px", color: "#111827", marginBottom: "2px" }}>
+                    Hide exact location
+                  </div>
+                  <div style={{ fontSize: "13px", color: "#6b7280", lineHeight: 1.5 }}>
+                    Only show the suburb or borough name (e.g. "Bicton" or "Haggerston"). The map pin will sit in the centre of the area, not at the cat's actual home. Recommended if you're adding your own pet.
+                  </div>
+                </div>
+              </label>
+            </div>
 
             {/* Option A: Use my location */}
             <button
@@ -4430,7 +4530,9 @@ function CatProfile({
                   {getSafeLocationLabel(cat.location)}
                 </div>
                 <div style={{ color: "#9ca3af", fontSize: "13px", fontStyle: "italic" }}>
-                  Fuzzy location only, street-level details hidden for privacy
+                  {cat.locationPrecision === "suburb"
+                    ? "Suburb-only — exact location hidden by the contributor"
+                    : "Fuzzy location only, street-level details hidden for privacy"}
                 </div>
               </div>
             </div>
@@ -6872,7 +6974,15 @@ export default function CatwalkApp() {
   };
 
   const handleAddPhoto = async (file: File, objectPosition = DEFAULT_CAT_PHOTO_POSITION) => {
-    if (!selectedCat || !currentUser || !userProfile) return;
+    if (!selectedCat) return;
+    if (!currentUser) {
+      alert("Please sign in to add a photo.");
+      return;
+    }
+    if (!userProfile) {
+      alert("Your profile is still loading. Please wait a moment and try again.");
+      return;
+    }
 
     try {
       const photoURL = await uploadPhotoToStorage(
