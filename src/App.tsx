@@ -95,6 +95,14 @@ interface Description {
   type: "description" | "anecdote" | "behavior";
 }
 
+interface CatRelation {
+  catId: string;
+  type: "sibling" | "parent" | "child" | "partner" | "friend" | "rival" | "neighbour";
+  addedBy: string;
+  addedById: string;
+  addedDate: string;
+}
+
 interface Cat {
   id: string;
   createdDate: string;
@@ -117,6 +125,7 @@ interface Cat {
   contributors: Contributor[];
   creator: string;
   creatorId: string;
+  relations?: CatRelation[];
 }
 
 interface Visit {
@@ -3232,6 +3241,9 @@ function CatProfile({
   onContribute,
   onAuthRequired,
   onSelectCatFromProfile,
+  allCats,
+  onAddRelation,
+  onRemoveRelation,
 }: {
   cat: Cat;
   onClose: () => void;
@@ -3247,6 +3259,9 @@ function CatProfile({
   onContribute: () => void;
   onAuthRequired: () => void;
   onSelectCatFromProfile?: (cat: Cat) => void;
+  allCats: Cat[];
+  onAddRelation: (linkedCatId: string, type: CatRelation["type"]) => void | Promise<void>;
+  onRemoveRelation: (linkedCatId: string) => void | Promise<void>;
 }) {
   const [showAllPhotos, setShowAllPhotos] = useState(false);
   const [showVisitList, setShowVisitList] = useState(false);
@@ -3255,6 +3270,11 @@ function CatProfile({
   const [loadingVisitorProfileId, setLoadingVisitorProfileId] = useState<string | null>(null);
   const [editingPhotoId, setEditingPhotoId] = useState<string | null>(null);
   const [editingPhotoDraftPosition, setEditingPhotoDraftPosition] = useState<string>(DEFAULT_CAT_PHOTO_POSITION);
+  const [showLinkCatModal, setShowLinkCatModal] = useState(false);
+  const [linkSearchQuery, setLinkSearchQuery] = useState("");
+  const [selectedLinkCatId, setSelectedLinkCatId] = useState<string | null>(null);
+  const [selectedLinkType, setSelectedLinkType] = useState<CatRelation["type"]>("sibling");
+  const [lightboxPhotoIndex, setLightboxPhotoIndex] = useState<number | null>(null);
   const [pendingPhotoFile, setPendingPhotoFile] = useState<File | null>(null);
   const [pendingPhotoPreview, setPendingPhotoPreview] = useState<string | null>(null);
   const [pendingPhotoObjectPosition, setPendingPhotoObjectPosition] = useState(DEFAULT_CAT_PHOTO_POSITION);
@@ -3575,11 +3595,13 @@ function CatProfile({
                 <img
                   src={photo.url}
                   alt={`${cat.name} photo ${index + 1}`}
+                  onClick={() => setLightboxPhotoIndex(index)}
                   style={{
                     width: "100%",
                     height: "100%",
                     objectFit: "cover",
                     objectPosition: getCatPhotoPosition(photo),
+                    cursor: "pointer",
                   }}
                 />
                 {canEditPhotoPosition(photo) && (
@@ -3720,6 +3742,296 @@ function CatProfile({
         overflowY: "auto",
       }}
     >
+      {/* Photo lightbox */}
+      {lightboxPhotoIndex !== null && profilePhotos[lightboxPhotoIndex] && (
+        <div
+          onClick={() => setLightboxPhotoIndex(null)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.92)",
+            zIndex: 4000,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "16px",
+            cursor: "zoom-out",
+          }}
+        >
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setLightboxPhotoIndex(null); }}
+            aria-label="Close"
+            style={{
+              position: "absolute",
+              top: "16px",
+              right: "16px",
+              width: "40px",
+              height: "40px",
+              borderRadius: "999px",
+              background: "rgba(255,255,255,0.18)",
+              color: "white",
+              border: "none",
+              cursor: "pointer",
+              fontSize: "22px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: 4002,
+            }}
+          >
+            ✕
+          </button>
+
+          {/* Previous */}
+          {lightboxPhotoIndex > 0 && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setLightboxPhotoIndex((i) => (i ?? 0) - 1); }}
+              aria-label="Previous photo"
+              style={{
+                position: "absolute",
+                left: "12px",
+                top: "50%",
+                transform: "translateY(-50%)",
+                width: "44px",
+                height: "44px",
+                borderRadius: "999px",
+                background: "rgba(255,255,255,0.18)",
+                color: "white",
+                border: "none",
+                cursor: "pointer",
+                fontSize: "22px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                zIndex: 4002,
+              }}
+            >
+              ‹
+            </button>
+          )}
+
+          {/* Next */}
+          {lightboxPhotoIndex < profilePhotos.length - 1 && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setLightboxPhotoIndex((i) => (i ?? 0) + 1); }}
+              aria-label="Next photo"
+              style={{
+                position: "absolute",
+                right: "12px",
+                top: "50%",
+                transform: "translateY(-50%)",
+                width: "44px",
+                height: "44px",
+                borderRadius: "999px",
+                background: "rgba(255,255,255,0.18)",
+                color: "white",
+                border: "none",
+                cursor: "pointer",
+                fontSize: "22px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                zIndex: 4002,
+              }}
+            >
+              ›
+            </button>
+          )}
+
+          <img
+            src={profilePhotos[lightboxPhotoIndex].url}
+            alt={`${cat.name} photo ${lightboxPhotoIndex + 1}`}
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              maxWidth: "100%",
+              maxHeight: "calc(100vh - 32px)",
+              objectFit: "contain",
+              borderRadius: "8px",
+              cursor: "default",
+            }}
+          />
+
+          {/* Counter and contributor */}
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: "absolute",
+              bottom: "20px",
+              left: "50%",
+              transform: "translateX(-50%)",
+              background: "rgba(0,0,0,0.6)",
+              color: "white",
+              padding: "8px 16px",
+              borderRadius: "999px",
+              fontSize: "13px",
+              backdropFilter: "blur(8px)",
+              display: "flex",
+              alignItems: "center",
+              gap: "10px",
+              maxWidth: "calc(100vw - 32px)",
+            }}
+          >
+            <span style={{ fontWeight: 600 }}>{lightboxPhotoIndex + 1} / {profilePhotos.length}</span>
+            {profilePhotos[lightboxPhotoIndex].contributor && (
+              <>
+                <span style={{ opacity: 0.5 }}>·</span>
+                <span style={{ opacity: 0.85 }}>by {profilePhotos[lightboxPhotoIndex].contributor}</span>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Link cat modal */}
+      {showLinkCatModal && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.6)",
+            zIndex: 3000,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "16px",
+          }}
+        >
+          <div
+            style={{
+              background: "white",
+              borderRadius: "16px",
+              padding: "20px",
+              width: "100%",
+              maxWidth: "480px",
+              maxHeight: "calc(100vh - 32px)",
+              display: "flex",
+              flexDirection: "column",
+              gap: "16px",
+              boxShadow: "0 20px 50px rgba(0,0,0,0.3)",
+              boxSizing: "border-box",
+              overflow: "hidden",
+            }}
+          >
+            <div style={{ flexShrink: 0 }}>
+              <h3 style={{ margin: 0, fontSize: "18px", fontWeight: 700 }}>Link a cat to {cat.name}</h3>
+              <p style={{ margin: "6px 0 0", fontSize: "13px", color: "#6b7280" }}>Connect cats that are family, neighbours, or friends. The link shows on both profiles.</p>
+            </div>
+
+            {/* Step 1: relation type */}
+            <div style={{ flexShrink: 0 }}>
+              <div style={{ fontSize: "13px", fontWeight: 600, color: "#374151", marginBottom: "8px" }}>1. How are they related?</div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                {(["sibling", "parent", "child", "partner", "friend", "neighbour", "rival"] as const).map(type => (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => setSelectedLinkType(type)}
+                    style={{
+                      padding: "7px 12px",
+                      borderRadius: "999px",
+                      border: "1.5px solid",
+                      borderColor: selectedLinkType === type ? "#1a0dab" : "#e5e7eb",
+                      background: selectedLinkType === type ? "#1a0dab" : "white",
+                      color: selectedLinkType === type ? "white" : "#374151",
+                      cursor: "pointer",
+                      fontSize: "13px",
+                      fontWeight: 500,
+                      textTransform: "capitalize",
+                    }}
+                  >
+                    {type}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Step 2: search and pick a cat */}
+            <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", gap: "8px" }}>
+              <div style={{ fontSize: "13px", fontWeight: 600, color: "#374151" }}>2. Pick a cat:</div>
+              <input
+                type="text"
+                placeholder="Search by name or area..."
+                value={linkSearchQuery}
+                onChange={(e) => setLinkSearchQuery(e.target.value)}
+                style={{ padding: "10px 14px", border: "1.5px solid #d1d5db", borderRadius: "10px", fontSize: "15px", flexShrink: 0, boxSizing: "border-box", width: "100%" }}
+              />
+              <div style={{ flex: 1, minHeight: 0, overflowY: "auto", border: "1px solid #e5e7eb", borderRadius: "10px" }}>
+                {(() => {
+                  const term = linkSearchQuery.toLowerCase().trim();
+                  const candidates = allCats.filter(c => {
+                    if (c.id === cat.id) return false; // can't link to self
+                    if ((cat.relations || []).some(r => r.catId === c.id)) return false; // already linked
+                    if (!term) return true;
+                    return (c.name || "").toLowerCase().includes(term) ||
+                      (c.location?.area || "").toLowerCase().includes(term) ||
+                      (c.location?.city || "").toLowerCase().includes(term);
+                  });
+                  if (candidates.length === 0) {
+                    return <div style={{ padding: "20px", textAlign: "center", color: "#9ca3af", fontSize: "13px" }}>{term ? "No cats match." : "No cats available to link."}</div>;
+                  }
+                  return candidates.map(c => {
+                    const photo = (c.photos || [])[0];
+                    return (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => setSelectedLinkCatId(c.id)}
+                        style={{
+                          display: "flex", alignItems: "center", gap: "12px",
+                          width: "100%", padding: "10px 12px",
+                          background: selectedLinkCatId === c.id ? "rgba(26,13,171,0.06)" : "white",
+                          border: "none",
+                          borderBottom: "1px solid #f3f4f6",
+                          cursor: "pointer", textAlign: "left",
+                        }}
+                      >
+                        {photo ? (
+                          <img src={photo.url} alt={c.name} style={{ width: "40px", height: "40px", borderRadius: "8px", objectFit: "cover", objectPosition: getCatPhotoPosition(photo), flexShrink: 0 }} />
+                        ) : (
+                          <div style={{ width: "40px", height: "40px", borderRadius: "8px", background: "#f3f4f6", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "20px", flexShrink: 0 }}>{c.emoji}</div>
+                        )}
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <div style={{ fontWeight: 600, fontSize: "14px", color: "#111827" }}>{c.name}</div>
+                          <div style={{ fontSize: "12px", color: "#9ca3af" }}>{c.location?.area || c.location?.city || "Unknown location"}</div>
+                        </div>
+                        {selectedLinkCatId === c.id && <span style={{ color: "#1a0dab", fontWeight: 700 }}>✓</span>}
+                      </button>
+                    );
+                  });
+                })()}
+              </div>
+            </div>
+
+            <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end", flexShrink: 0 }}>
+              <button
+                type="button"
+                onClick={() => { setShowLinkCatModal(false); setSelectedLinkCatId(null); setLinkSearchQuery(""); }}
+                style={{ padding: "12px 18px", borderRadius: "999px", border: "1px solid #e5e7eb", background: "white", cursor: "pointer", fontSize: "15px" }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={!selectedLinkCatId}
+                onClick={async () => {
+                  if (!selectedLinkCatId) return;
+                  await onAddRelation(selectedLinkCatId, selectedLinkType);
+                  setShowLinkCatModal(false);
+                  setSelectedLinkCatId(null);
+                  setLinkSearchQuery("");
+                }}
+                style={{ padding: "12px 20px", borderRadius: "999px", border: "none", background: selectedLinkCatId ? "#1a0dab" : "#e5e7eb", color: selectedLinkCatId ? "white" : "#9ca3af", cursor: selectedLinkCatId ? "pointer" : "not-allowed", fontWeight: 600, fontSize: "15px" }}
+              >
+                Link cats
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Edit photo focus modal */}
       {editingPhotoId && (() => {
         const editingPhoto = profilePhotos.find(p => p.id === editingPhotoId);
@@ -4038,13 +4350,19 @@ function CatProfile({
               }}
             >
               {profilePhotos.slice(0, 2).map((photo, index) => (
-                <div
+                <button
                   key={photo.id || index}
+                  type="button"
+                  onClick={() => setLightboxPhotoIndex(index)}
                   style={{
                     position: "relative",
                     aspectRatio: "1",
                     borderRadius: "12px",
                     overflow: "hidden",
+                    border: "none",
+                    padding: 0,
+                    cursor: "pointer",
+                    background: "#f3f4f6",
                   }}
                 >
                   <img
@@ -4057,7 +4375,7 @@ function CatProfile({
                       objectPosition: getCatPhotoPosition(photo),
                     }}
                   />
-                </div>
+                </button>
               ))}
             </div>
             {(profilePhotos.length > 2 || profilePhotos.some(canEditPhotoPosition)) && (
@@ -4230,7 +4548,78 @@ function CatProfile({
           </div>
         </div>
 
-        {/* Community Descriptions */}
+        {/* Linked Cats */}
+        <div style={{ marginBottom: "32px" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
+            <h3 style={{ fontSize: "18px", fontWeight: "600", margin: 0 }}>
+              Linked cats {(cat.relations || []).length > 0 && <span style={{ color: "#9ca3af", fontWeight: 400 }}>({cat.relations!.length})</span>}
+            </h3>
+            {currentUser && (
+              <button
+                type="button"
+                onClick={() => setShowLinkCatModal(true)}
+                style={{ padding: "8px 14px", borderRadius: "999px", border: "1px solid #1a0dab", background: "white", color: "#1a0dab", cursor: "pointer", fontSize: "13px", fontWeight: 600 }}
+              >
+                + Link a cat
+              </button>
+            )}
+          </div>
+          {(cat.relations || []).length === 0 ? (
+            <div style={{ background: "#f9fafb", borderRadius: "12px", padding: "16px", border: "1px solid #e5e7eb", fontSize: "14px", color: "#6b7280" }}>
+              No linked cats yet. {currentUser ? "Tap \"+ Link a cat\" to mark a sibling, parent, partner, or neighbour." : "Sign in to link cats together."}
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+              {(cat.relations || []).map((rel) => {
+                const linkedCat = allCats.find(c => c.id === rel.catId);
+                if (!linkedCat) {
+                  return (
+                    <div key={rel.catId} style={{ background: "#f9fafb", borderRadius: "12px", padding: "12px 14px", border: "1px solid #e5e7eb", fontSize: "13px", color: "#9ca3af", fontStyle: "italic" }}>
+                      A {rel.type} cat (no longer on Catwalk)
+                    </div>
+                  );
+                }
+                const linkedPhoto = (linkedCat.photos || [])[0];
+                return (
+                  <div key={rel.catId} style={{ display: "flex", alignItems: "center", gap: "12px", background: "white", borderRadius: "12px", padding: "10px 12px", border: "1px solid #e5e7eb" }}>
+                    <button
+                      type="button"
+                      onClick={() => onSelectCatFromProfile?.(linkedCat)}
+                      style={{ display: "flex", alignItems: "center", gap: "12px", background: "none", border: "none", padding: 0, cursor: "pointer", flex: 1, textAlign: "left" }}
+                    >
+                      {linkedPhoto ? (
+                        <img
+                          src={linkedPhoto.url}
+                          alt={linkedCat.name}
+                          style={{ width: "44px", height: "44px", borderRadius: "10px", objectFit: "cover", objectPosition: getCatPhotoPosition(linkedPhoto), flexShrink: 0 }}
+                        />
+                      ) : (
+                        <div style={{ width: "44px", height: "44px", borderRadius: "10px", background: "#f3f4f6", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "22px", flexShrink: 0 }}>{linkedCat.emoji}</div>
+                      )}
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div style={{ fontWeight: 600, fontSize: "15px", color: "#111827" }}>{linkedCat.name}</div>
+                        <div style={{ fontSize: "12px", color: "#6b7280", textTransform: "capitalize" }}>{rel.type} · added by {rel.addedBy}</div>
+                      </div>
+                    </button>
+                    {currentUser?.uid === rel.addedById && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (window.confirm(`Remove this ${rel.type} link?`)) {
+                            onRemoveRelation(rel.catId);
+                          }
+                        }}
+                        style={{ padding: "6px 10px", borderRadius: "999px", border: "1px solid #fecaca", background: "white", color: "#991b1b", cursor: "pointer", fontSize: "12px" }}
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
         {cat.descriptions && cat.descriptions.length > 0 && (
           <div style={{ marginBottom: "32px" }}>
             <h3 style={{ fontSize: "18px", fontWeight: "600", marginBottom: "16px" }}>
@@ -5842,8 +6231,12 @@ export default function CatwalkApp() {
   }, []);
 
   // Load cats from Firebase
+  // Re-subscribes whenever auth state changes — Firestore rules require
+  // request.auth != null, so on first install we may need to wait for the
+  // user to be authenticated before the listener succeeds. Re-running the
+  // effect when currentUser changes ensures we re-subscribe after login.
   useEffect(() => {
-    console.log("[Catwalk] Subscribing to cats collection.");
+    console.log("[Catwalk] Subscribing to cats collection. user:", currentUser?.uid || "(none)");
     const unsubscribe = onSnapshot(
       query(collection(db, "cats"), orderBy("createdDate", "desc")),
       (snapshot: any) => {
@@ -5851,7 +6244,7 @@ export default function CatwalkApp() {
           id: doc.id,
           ...doc.data(),
         })) as Cat[];
-        console.log(`[Catwalk] Loaded ${catsData.length} cats`, catsData);
+        console.log(`[Catwalk] Loaded ${catsData.length} cats`);
         setCats(catsData);
       },
       (error: any) => {
@@ -5860,7 +6253,7 @@ export default function CatwalkApp() {
     );
 
     return () => unsubscribe();
-  }, []);
+  }, [currentUser?.uid]);
 
   const catsPhotoStorageSignature = cats
     .map((cat) => `${cat.id}:${(cat.photos || []).map((photo) => photo.url || photo.id).join(",")}`)
@@ -6592,6 +6985,78 @@ export default function CatwalkApp() {
     } catch (error) {
       console.error("Error setting main photo:", error);
       alert("Could not update the main photo. Please try again.");
+    }
+  };
+
+  // Bidirectional relation map - what shows on the OTHER cat's profile
+  const reciprocalRelation = (type: CatRelation["type"]): CatRelation["type"] => {
+    if (type === "parent") return "child";
+    if (type === "child") return "parent";
+    return type; // sibling, partner, friend, rival, neighbour all symmetric
+  };
+
+  const handleAddRelation = async (linkedCatId: string, type: CatRelation["type"]) => {
+    if (!selectedCat || !currentUser || !userProfile) return;
+    const linkedCat = cats.find(c => c.id === linkedCatId);
+    if (!linkedCat) {
+      alert("Couldn't find that cat. Please try again.");
+      return;
+    }
+    const now = new Date().toISOString();
+    const addedBy = firstName(userProfile.displayName);
+    const addedById = currentUser.uid;
+
+    // Forward link on this cat
+    const forwardRelation: CatRelation = {
+      catId: linkedCatId,
+      type,
+      addedBy,
+      addedById,
+      addedDate: now,
+    };
+    // Reverse link on the other cat
+    const reverseRelation: CatRelation = {
+      catId: selectedCat.id,
+      type: reciprocalRelation(type),
+      addedBy,
+      addedById,
+      addedDate: now,
+    };
+
+    try {
+      // Update both cats. Filter out any existing entry pointing to the same id
+      // (so we don't end up with duplicate links if a relation is changed).
+      const thisCatRelations = (selectedCat.relations || []).filter(r => r.catId !== linkedCatId);
+      const otherCatRelations = (linkedCat.relations || []).filter(r => r.catId !== selectedCat.id);
+
+      await updateDoc(doc(db, "cats", selectedCat.id), {
+        relations: [...thisCatRelations, forwardRelation],
+      });
+      await updateDoc(doc(db, "cats", linkedCatId), {
+        relations: [...otherCatRelations, reverseRelation],
+      });
+    } catch (error) {
+      console.error("Error linking cats:", error);
+      alert("Could not link the cats. Please try again.");
+    }
+  };
+
+  const handleRemoveRelation = async (linkedCatId: string) => {
+    if (!selectedCat || !currentUser) return;
+    const linkedCat = cats.find(c => c.id === linkedCatId);
+
+    try {
+      const thisCatRelations = (selectedCat.relations || []).filter(r => r.catId !== linkedCatId);
+      await updateDoc(doc(db, "cats", selectedCat.id), { relations: thisCatRelations });
+
+      // Also remove the reverse link if the other cat exists
+      if (linkedCat) {
+        const otherCatRelations = (linkedCat.relations || []).filter(r => r.catId !== selectedCat.id);
+        await updateDoc(doc(db, "cats", linkedCatId), { relations: otherCatRelations });
+      }
+    } catch (error) {
+      console.error("Error removing relation:", error);
+      alert("Could not remove the link. Please try again.");
     }
   };
 
@@ -8025,6 +8490,9 @@ Tap the map to place a custom map pin. To create a cat, use the blue + Add cat b
           onUpdatePhotoPosition={handleUpdatePhotoPosition}
           onDeletePhoto={handleDeletePhoto}
           onSetMainPhoto={handleSetMainPhoto}
+          allCats={cats}
+          onAddRelation={handleAddRelation}
+          onRemoveRelation={handleRemoveRelation}
           onDeleteVisit={handleDeleteVisit}
           onContribute={() => setShowContributeForm(true)}
           onAuthRequired={() => setShowAuthRequired(true)}
