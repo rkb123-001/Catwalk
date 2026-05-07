@@ -6921,7 +6921,7 @@ export default function CatwalkApp() {
   }, [leafletMap, cats, userLocation]);
 
   const handleAddCat = async (_newCatData: Partial<Cat>) => {
-    if (!currentUser || !userProfile) return;
+    if (!currentUser) return;
 
     try {
       setShowAddCat(false);
@@ -7584,6 +7584,7 @@ export default function CatwalkApp() {
       showUserCats ||
       showUserPhotos ||
       showUserVisits ||
+      showWelcomeNewUser ||
       showAddCat ||
       showContributeForm ||
       showDuplicateModal ||
@@ -7596,6 +7597,35 @@ export default function CatwalkApp() {
   );
 
   const showMapChrome = currentView === "catmap" && !screenOverlayOpen;
+
+  const openAddCatForm = useCallback(() => {
+    if (!currentUser) {
+      setShowWelcomeNewUser(false);
+      setShowAuthRequired(true);
+      return;
+    }
+
+    // Make sure the Add Cat wizard is not hidden behind any other full-screen sheet.
+    setCurrentView("catmap");
+    setSelectedCat(null);
+    setShowProfile(false);
+    setShowUserCats(false);
+    setShowUserPhotos(false);
+    setShowUserVisits(false);
+    setShowContributeForm(false);
+    setShowDuplicateModal(false);
+    setShowFilterModal(false);
+    setShowCatspotting(false);
+    setShowLogin(false);
+    setShowAuthRequired(false);
+    setShowGuide(false);
+    setShowLocationConsent(false);
+    setShowWelcomeNewUser(false);
+
+    // Let the welcome modal unmount before mounting the map-heavy Add Cat wizard.
+    setShowAddCat(false);
+    window.setTimeout(() => setShowAddCat(true), 0);
+  }, [currentUser]);
 
   // Header Component - Updated with guest mode support
   function HeaderBar({
@@ -8577,7 +8607,7 @@ Tap the map to place a custom map pin. To create a cat, use the blue + Add cat b
                   boxShadow: "0 6px 18px rgba(26,13,171,0.45)",
                   cursor: "pointer",
                 }}
-                onClick={() => requireAuth(() => setShowAddCat(true))}
+                onClick={() => requireAuth(openAddCatForm)}
                 aria-label="Add a new cat"
                 title="Add a new cat"
               >
@@ -8595,7 +8625,7 @@ Tap the map to place a custom map pin. To create a cat, use the blue + Add cat b
         <CatList
           cats={cats}
           onSelectCat={setSelectedCat}
-          onAddCat={() => requireAuth(() => setShowAddCat(true))}
+          onAddCat={() => requireAuth(openAddCatForm)}
         />
       )}
 
@@ -8744,10 +8774,7 @@ Tap the map to place a custom map pin. To create a cat, use the blue + Add cat b
             <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
               <button
                 type="button"
-                onClick={() => {
-                  setShowWelcomeNewUser(false);
-                  setShowAddCat(true);
-                }}
+                onClick={openAddCatForm}
                 style={{
                   padding: "16px",
                   background: "#1a0dab",
