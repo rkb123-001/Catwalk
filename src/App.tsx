@@ -2505,8 +2505,24 @@ function AddCatForm({
       });
 
       pickerMapInstanceRef.current = map;
+      // Multiple invalidate calls to handle the case where the container
+      // didn't have dimensions yet at init time, or where layout shifts later.
       window.setTimeout(() => map.invalidateSize(), 80);
       window.setTimeout(() => map.invalidateSize(), 250);
+      window.setTimeout(() => map.invalidateSize(), 600);
+      window.setTimeout(() => map.invalidateSize(), 1200);
+
+      // Also use a ResizeObserver if available to catch any later layout changes
+      if (typeof ResizeObserver !== "undefined" && pickerMapRef.current) {
+        const observer = new ResizeObserver(() => {
+          if (pickerMapInstanceRef.current) {
+            pickerMapInstanceRef.current.invalidateSize();
+          }
+        });
+        observer.observe(pickerMapRef.current);
+        // Store the observer for cleanup
+        (pickerMapInstanceRef.current as any)._resizeObserver = observer;
+      }
     };
 
     initialisePickerMap();
@@ -2515,6 +2531,11 @@ function AddCatForm({
       cancelled = true;
       if (timer !== undefined) window.clearTimeout(timer);
       if (pickerMapInstanceRef.current) {
+        // Disconnect the resize observer if present
+        const observer = (pickerMapInstanceRef.current as any)._resizeObserver;
+        if (observer) {
+          try { observer.disconnect(); } catch {}
+        }
         pickerMapInstanceRef.current.remove();
         pickerMapInstanceRef.current = null;
         pickerMarkerRef.current = null;
@@ -2964,16 +2985,16 @@ function AddCatForm({
 
             {/* Manual address fallback */}
             <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: "16px" }}>
-              <p style={{ fontSize: "14px", fontWeight: "600", color: "#111827", marginBottom: "6px" }}>Or type the address directly:</p>
-              <p style={{ fontSize: "13px", color: "#6b7280", marginBottom: "10px" }}>If search isn't working, type the address here so the app can find the approximate area. The street address won't be shown on the cat profile.</p>
+              <p style={{ fontSize: "14px", fontWeight: "600", color: "#111827", marginBottom: "6px" }}>Or type the address or area directly:</p>
+              <p style={{ fontSize: "13px", color: "#6b7280", marginBottom: "10px" }}>If search isn't working, or if you want to override the area name, type it here. The street address is never shown on the cat profile — only the wider area.</p>
               <textarea
                 value={approximateAddress}
                 onChange={(e) => setApproximateAddress(e.target.value)}
                 rows={2}
-                placeholder="e.g. Bicton, WA, Australia"
+                placeholder='e.g. "London Fields, London", "Bicton, WA, Australia"'
                 style={{ width: "100%", padding: "12px 14px", border: "2px solid #d1d5db", borderRadius: "12px", fontSize: "15px", resize: "none" }}
               />
-              {approximateAddress.trim().length > 5 && !location && (
+              {approximateAddress.trim().length >= 2 && (
                 <button
                   type="button"
                   onClick={async () => {
@@ -2989,7 +3010,7 @@ function AddCatForm({
                   }}
                   style={{ marginTop: "8px", width: "100%", padding: "12px", background: "#1a0dab", color: "white", border: "none", borderRadius: "12px", cursor: "pointer", fontSize: "14px", fontWeight: "600" }}
                 >
-                  Use this address as the location
+                  {location ? "Use this address instead" : "Use this address as the location"}
                 </button>
               )}
             </div>
@@ -3195,7 +3216,7 @@ function AddCatForm({
             <div style={{ background: "#f9fafb", borderRadius: "14px", padding: "16px 18px", border: "1px solid #e5e7eb" }}>
               <div style={{ fontSize: "13px", fontWeight: "600", color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "10px" }}>Ready to save</div>
               <div style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "14px", color: "#374151" }}>
-                <div>🐱 <strong>{name}</strong> {selectedEmoji}</div>
+                <div>{selectedEmoji} <strong>{name}</strong></div>
                 {catAreaName && <div>📍 {catAreaName}</div>}
                 {photoFile && <div>📷 Photo added</div>}
                 {selectedTraits.length > 0 && <div>✨ {selectedTraits.slice(0, 3).join(", ")}{selectedTraits.length > 3 ? "..." : ""}</div>}
@@ -6921,7 +6942,7 @@ export default function CatwalkApp() {
   }, [leafletMap, cats, userLocation]);
 
   const handleAddCat = async (_newCatData: Partial<Cat>) => {
-    if (!currentUser) return;
+    if (!currentUser || !userProfile) return;
 
     try {
       setShowAddCat(false);
@@ -7584,7 +7605,6 @@ export default function CatwalkApp() {
       showUserCats ||
       showUserPhotos ||
       showUserVisits ||
-      showWelcomeNewUser ||
       showAddCat ||
       showContributeForm ||
       showDuplicateModal ||
@@ -7597,35 +7617,6 @@ export default function CatwalkApp() {
   );
 
   const showMapChrome = currentView === "catmap" && !screenOverlayOpen;
-
-  const openAddCatForm = useCallback(() => {
-    if (!currentUser) {
-      setShowWelcomeNewUser(false);
-      setShowAuthRequired(true);
-      return;
-    }
-
-    // Make sure the Add Cat wizard is not hidden behind any other full-screen sheet.
-    setCurrentView("catmap");
-    setSelectedCat(null);
-    setShowProfile(false);
-    setShowUserCats(false);
-    setShowUserPhotos(false);
-    setShowUserVisits(false);
-    setShowContributeForm(false);
-    setShowDuplicateModal(false);
-    setShowFilterModal(false);
-    setShowCatspotting(false);
-    setShowLogin(false);
-    setShowAuthRequired(false);
-    setShowGuide(false);
-    setShowLocationConsent(false);
-    setShowWelcomeNewUser(false);
-
-    // Let the welcome modal unmount before mounting the map-heavy Add Cat wizard.
-    setShowAddCat(false);
-    window.setTimeout(() => setShowAddCat(true), 0);
-  }, [currentUser]);
 
   // Header Component - Updated with guest mode support
   function HeaderBar({
@@ -8607,7 +8598,7 @@ Tap the map to place a custom map pin. To create a cat, use the blue + Add cat b
                   boxShadow: "0 6px 18px rgba(26,13,171,0.45)",
                   cursor: "pointer",
                 }}
-                onClick={() => requireAuth(openAddCatForm)}
+                onClick={() => requireAuth(() => setShowAddCat(true))}
                 aria-label="Add a new cat"
                 title="Add a new cat"
               >
@@ -8625,7 +8616,7 @@ Tap the map to place a custom map pin. To create a cat, use the blue + Add cat b
         <CatList
           cats={cats}
           onSelectCat={setSelectedCat}
-          onAddCat={() => requireAuth(openAddCatForm)}
+          onAddCat={() => requireAuth(() => setShowAddCat(true))}
         />
       )}
 
@@ -8774,7 +8765,10 @@ Tap the map to place a custom map pin. To create a cat, use the blue + Add cat b
             <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
               <button
                 type="button"
-                onClick={openAddCatForm}
+                onClick={() => {
+                  setShowWelcomeNewUser(false);
+                  setShowAddCat(true);
+                }}
                 style={{
                   padding: "16px",
                   background: "#1a0dab",
